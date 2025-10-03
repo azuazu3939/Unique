@@ -8,6 +8,11 @@ load: STARTUP
 authors: [ MCLove32 ]
 website: https://github.com/azuazu3939
 
+dependencies:
+  server:
+    packetevents:
+      load: BEFORE
+
 permissions:
   unique.use:
     description: Allows use of unique commands
