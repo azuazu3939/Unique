@@ -1,15 +1,14 @@
 package com.github.azuazu3939.unique.mob.condition
 
+import com.github.azuazu3939.unique.entity.IEntity
 import com.github.azuazu3939.unique.mob.data.Condition
 import com.github.azuazu3939.unique.mob.data.ConditionTarget
 import com.github.azuazu3939.unique.mob.data.TargetCondition
-import com.github.azuazu3939.unique.mob.toHealth
 import io.papermc.paper.registry.RegistryAccess
 import io.papermc.paper.registry.RegistryKey
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
-import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import kotlin.math.acos
 
@@ -24,8 +23,8 @@ class ConditionEvaluator {
     fun evaluate(
         condition: Condition,
         mobLocation: Location,
-        mobEntity: LivingEntity?,
-        triggerEntity: LivingEntity?
+        mobEntity: IEntity?,
+        triggerEntity: IEntity?
     ): Boolean {
         val targetEntity = when (condition.target) {
             ConditionTarget.SELF -> mobEntity
@@ -112,15 +111,11 @@ class ConditionEvaluator {
      */
     fun evaluateTargetCondition(
         condition: TargetCondition,
-        entity: LivingEntity?
+        entity: IEntity?
     ): Boolean {
         if (entity == null) return false
 
         val result = when (condition.type.lowercase()) {
-            "hasaura" -> {
-                // TODO: Implement aura system
-                false
-            }
             "haspotioneffect", "haspotion" -> {
                 val type = condition.options["type"] ?: return false
                 val effectType = try {
@@ -129,7 +124,7 @@ class ConditionEvaluator {
                     null
                 } ?: return false
 
-                return effectType.all {
+                effectType.all {
                     val effect = entity.getPotionEffect(it.type) ?: return false
 
                     // Check duration range
@@ -141,11 +136,11 @@ class ConditionEvaluator {
 
                     // Check level range
                     val levelRange = condition.options["l"]
-                    return if (levelRange != null) {
+                    if (levelRange != null) {
                         val (minLvl, maxLvl) = parseRange(levelRange)
                         effect.amplifier in minLvl..maxLvl
                     } else {
-                        false
+                        true
                     }
                 }
             }
@@ -168,10 +163,10 @@ class ConditionEvaluator {
             "health" -> {
                 val range = condition.options["range"] ?: condition.options["r"] ?: return false
                 val (min, max) = parseDoubleRange(range)
-                entity.health in min..max
+                entity.getHealth() in min..max
             }
             "healthpercent" -> {
-                val percent = (entity.health / entity.toHealth()) * 100
+                val percent = (entity.getHealth() / entity.getMaxHealth()) * 100
                 val range = condition.options["range"] ?: condition.options["r"] ?: return false
                 val (min, max) = parseDoubleRange(range)
                 percent in min..max
@@ -185,10 +180,10 @@ class ConditionEvaluator {
             "inwater" -> evaluateInWater(entity)
             "inlava" -> evaluateInLava(entity)
             "onground" -> evaluateOnGround(entity)
-            "altitude", "height", "y" -> evaluateAltitude(entity, entity.location, condition.options)
-            "biome" -> evaluateBiome(entity.location, condition.options)
+            "altitude", "height", "y" -> evaluateAltitude(entity, entity.getLoc(), condition.options)
+            "biome" -> evaluateBiome(entity.getLoc(), condition.options)
             "inblock" -> evaluateInBlock(entity, condition.options)
-            "outside" -> evaluateOutside(entity.location)
+            "outside" -> evaluateOutside(entity.getLoc())
 
             // Player-specific
             "gamemode" -> evaluateGameMode(entity, condition.options)
@@ -228,8 +223,8 @@ class ConditionEvaluator {
     }
 
     // Entity condition evaluators
-    private fun evaluateHolding(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
+    private fun evaluateHolding(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
 
         val material = options["m"] ?: options["material"] ?: return false
         val mat = try {
@@ -238,12 +233,12 @@ class ConditionEvaluator {
             return false
         }
 
-        return entity.inventory.itemInMainHand.type == mat ||
-                entity.inventory.itemInOffHand.type == mat
+        return player.inventory.itemInMainHand.type == mat ||
+                player.inventory.itemInOffHand.type == mat
     }
 
-    private fun evaluateWearing(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
+    private fun evaluateWearing(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
 
         val material = options["m"] ?: options["material"] ?: return false
         val mat = try {
@@ -252,61 +247,80 @@ class ConditionEvaluator {
             return false
         }
 
-        val armor = entity.inventory.armorContents
+        val armor = player.inventory.armorContents
         return armor.any { it?.type == mat }
     }
 
-    private fun evaluateSneaking(entity: LivingEntity?): Boolean {
-        if (entity !is Player) return false
-        return entity.isSneaking
+    private fun evaluateSneaking(entity: IEntity?): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        return player.isSneaking
     }
 
-    private fun evaluateSprinting(entity: LivingEntity?): Boolean {
-        if (entity !is Player) return false
-        return entity.isSprinting
+    private fun evaluateSprinting(entity: IEntity?): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        return player.isSprinting
     }
 
-    private fun evaluateBlocking(entity: LivingEntity?): Boolean {
-        if (entity !is Player) return false
-        return entity.isBlocking
+    private fun evaluateBlocking(entity: IEntity?): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        return player.isBlocking
     }
 
-    private fun evaluateGliding(entity: LivingEntity?): Boolean {
-        return entity?.isGliding ?: false
+    private fun evaluateGliding(entity: IEntity?): Boolean {
+        return entity?.isGliding() ?: false
     }
 
-    private fun evaluateSwimming(entity: LivingEntity?): Boolean {
-        return entity?.isSwimming ?: false
+    private fun evaluateSwimming(entity: IEntity?): Boolean {
+        return entity?.isSwimming() ?: false
     }
 
-    private fun evaluateOnFire(entity: LivingEntity?): Boolean {
-        return entity?.fireTicks?.let { it > 0 } ?: false
+    private fun evaluateOnFire(entity: IEntity?): Boolean {
+        return entity?.getFireTicks()?.let { it > 0 } ?: false
     }
 
-    private fun evaluateHasPotionEffect(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateHasPotionEffect(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
 
         val type = options["type"] ?: options["t"] ?: return false
         val effectType = try {
             RegistryAccess.registryAccess().getRegistry(RegistryKey.POTION).getOrThrow(NamespacedKey.minecraft(type.lowercase())).potionEffects
         } catch (e: Exception) {
-            return false
+            null
+        } ?: return false
+
+        effectType.all {
+            // Check if entity has the effect
+            val effect = entity.getPotionEffect(it.type) ?: return false
+
+            // Check duration range if specified
+            val durationRange = options["d"]
+            if (durationRange != null) {
+                val (minDur, maxDur) = parseRange(durationRange)
+                if (effect.duration !in minDur..maxDur) return false
+            }
+
+            // Check level range if specified
+            val levelRange = options["l"]
+            if (levelRange != null) {
+                val (minLvl, maxLvl) = parseRange(levelRange)
+                if (effect.amplifier !in minLvl..maxLvl) return false
+            }
+            return true
         }
-
-        return effectType.all { entity.hasPotionEffect(it.type) }
+        return true
     }
 
-    private fun evaluateInWater(entity: LivingEntity?): Boolean {
-        return entity?.isInWater ?: false
+    private fun evaluateInWater(entity: IEntity?): Boolean {
+        return entity?.isInWater() ?: false
     }
 
-    private fun evaluateInLava(entity: LivingEntity?): Boolean {
-        val location = entity?.location ?: return false
+    private fun evaluateInLava(entity: IEntity?): Boolean {
+        val location = entity?.getLoc() ?: return false
         return location.block.type == Material.LAVA
     }
 
-    private fun evaluateOnGround(entity: LivingEntity?): Boolean {
-        return entity?.isOnGround ?: false
+    private fun evaluateOnGround(entity: IEntity?): Boolean {
+        return entity?.isOnGround() ?: false
     }
 
     /**
@@ -351,44 +365,44 @@ class ConditionEvaluator {
     }
 
     // Entity state conditions
-    private fun evaluateStance(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateStance(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
         val stance = options["stance"] ?: options["s"] ?: return false
-        return entity.pose.name.equals(stance, ignoreCase = true)
+        return entity.getPose().name.equals(stance, ignoreCase = true)
     }
 
-    private fun evaluateHasAI(entity: LivingEntity?): Boolean {
+    private fun evaluateHasAI(entity: IEntity?): Boolean {
         return entity?.hasAI() ?: false
     }
 
-    private fun evaluateHasGravity(entity: LivingEntity?): Boolean {
+    private fun evaluateHasGravity(entity: IEntity?): Boolean {
         return entity?.hasGravity() ?: false
     }
 
-    private fun evaluateHasInventory(entity: LivingEntity?): Boolean {
+    private fun evaluateHasInventory(entity: IEntity?): Boolean {
         return entity is Player
     }
 
-    private fun evaluateMounted(entity: LivingEntity?): Boolean {
-        return entity?.isInsideVehicle ?: false
+    private fun evaluateMounted(entity: IEntity?): Boolean {
+        return entity?.isInsideVehicle() ?: false
     }
 
-    private fun evaluateInCombat(entity: LivingEntity?): Boolean {
+    private fun evaluateInCombat(entity: IEntity?): Boolean {
         if (entity == null) return false
         // Consider in combat if recently damaged (within last 5 seconds)
-        return entity.noDamageTicks > 0 || (System.currentTimeMillis() - entity.lastDamage) < 5000
+        return entity.getNoDamageTicks() > 0 || (System.currentTimeMillis() - entity.getLastDamageTime()) < 5000
     }
 
-    private fun evaluateLastDamageCause(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateLastDamageCause(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
         val cause = options["cause"] ?: options["c"] ?: return false
-        val lastCause = entity.lastDamageCause?.cause?.name ?: return false
+        val lastCause = entity.getLastDamageCause() ?: return false
         return lastCause.equals(cause, ignoreCase = true)
     }
 
     // Location conditions
-    private fun evaluateAltitude(entity: LivingEntity?, location: Location, options: Map<String, String>): Boolean {
-        val y = entity?.location?.y ?: location.y
+    private fun evaluateAltitude(entity: IEntity?, location: Location, options: Map<String, String>): Boolean {
+        val y = entity?.getLoc()?.y ?: location.y
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return y in min..max
@@ -406,10 +420,10 @@ class ConditionEvaluator {
         return actualType.equals(blockType, ignoreCase = true)
     }
 
-    private fun evaluateInBlock(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateInBlock(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
         val blockType = options["type"] ?: options["t"] ?: return false
-        val actualType = entity.location.block.type.name
+        val actualType = entity.getLoc().block.type.name
         return actualType.equals(blockType, ignoreCase = true)
     }
 
@@ -418,27 +432,27 @@ class ConditionEvaluator {
     }
 
     // Distance and position conditions
-    private fun evaluateDistance(mob: LivingEntity?, target: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateDistance(mob: IEntity?, target: IEntity?, options: Map<String, String>): Boolean {
         if (mob == null || target == null) return false
-        val distance = mob.location.distance(target.location)
+        val distance = mob.getLoc().distance(target.getLoc())
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return distance in min..max
     }
 
-    private fun evaluateLineOfSight(mob: LivingEntity?, target: LivingEntity?): Boolean {
+    private fun evaluateLineOfSight(mob: IEntity?, target: IEntity?): Boolean {
         if (mob == null || target == null) return false
         return mob.hasLineOfSight(target)
     }
 
-    private fun evaluateFieldOfView(mob: LivingEntity?, target: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateFieldOfView(mob: IEntity?, target: IEntity?, options: Map<String, String>): Boolean {
         if (mob == null || target == null) return false
 
         val angle = options["angle"] ?: options["a"] ?: "90"
         val maxAngle = angle.toDoubleOrNull() ?: 90.0
 
-        val mobLoc = mob.location
-        val targetLoc = target.location
+        val mobLoc = mob.getLoc()
+        val targetLoc = target.getLoc()
 
         // Calculate direction vector from mob to target
         val toTarget = targetLoc.toVector().subtract(mobLoc.toVector()).normalize()
@@ -454,27 +468,27 @@ class ConditionEvaluator {
         return angleDeg <= maxAngle
     }
 
-    private fun evaluateYaw(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateYaw(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
-        val yaw = entity.location.yaw.toDouble()
+        val yaw = entity.getLoc().yaw.toDouble()
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return yaw in min..max
     }
 
-    private fun evaluatePitch(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluatePitch(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
-        val pitch = entity.location.pitch.toDouble()
+        val pitch = entity.getLoc().pitch.toDouble()
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return pitch in min..max
     }
 
     // Entity type conditions
-    private fun evaluateEntityType(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateEntityType(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
         val type = options["type"] ?: options["t"] ?: return false
-        return entity.type.name.equals(type, ignoreCase = true)
+        return entity.getEntityType().name.equals(type, ignoreCase = true)
     }
 
     private fun evaluateMobsInRadius(location: Location, options: Map<String, String>): Boolean {
@@ -486,77 +500,77 @@ class ConditionEvaluator {
     }
 
     // Health conditions
-    private fun evaluateHealth(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateHealth(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
-        val health = entity.health
+        val health = entity.getHealth()
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return health in min..max
     }
 
-    private fun evaluateHealthPercent(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateHealthPercent(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
-        val percent = (entity.health / entity.toHealth()) * 100
+        val percent = (entity.getHealth() / entity.getMaxHealth()) * 100
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return percent in min..max
     }
 
-    private fun evaluateMaxHealth(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateMaxHealth(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
-        val maxHealth = entity.toHealth()
+        val maxHealth = entity.getMaxHealth()
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return maxHealth in min..max
     }
 
-    private fun evaluateFallSpeed(entity: LivingEntity?, options: Map<String, String>): Boolean {
+    private fun evaluateFallSpeed(entity: IEntity?, options: Map<String, String>): Boolean {
         if (entity == null) return false
-        val fallSpeed = -entity.velocity.y // Negative Y velocity when falling
+        val fallSpeed = -entity.getVelocity().y // Negative Y velocity when falling
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseDoubleRange(range)
         return fallSpeed in min..max
     }
 
     // Player-specific conditions
-    private fun evaluateGameMode(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
+    private fun evaluateGameMode(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
         val mode = options["mode"] ?: options["m"] ?: return false
-        return entity.gameMode.name.equals(mode, ignoreCase = true)
+        return player.gameMode.name.equals(mode, ignoreCase = true)
     }
 
-    private fun evaluateLevel(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
-        val level = entity.level
+    private fun evaluateLevel(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        val level = player.level
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseRange(range)
         return level in min..max
     }
 
-    private fun evaluatePermission(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
+    private fun evaluatePermission(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
         val permission = options["permission"] ?: options["p"] ?: return false
-        return entity.hasPermission(permission)
+        return player.hasPermission(permission)
     }
 
-    private fun evaluateHunger(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
-        val hunger = entity.foodLevel
+    private fun evaluateHunger(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        val hunger = player.foodLevel
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseRange(range)
         return hunger in min..max
     }
 
-    private fun evaluateOxygen(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
-        val oxygen = entity.remainingAir
+    private fun evaluateOxygen(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        val oxygen = player.remainingAir
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseRange(range)
         return oxygen in min..max
     }
 
-    private fun evaluateHasItem(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
+    private fun evaluateHasItem(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
         val material = options["item"] ?: options["i"] ?: return false
         val mat = try {
             Material.valueOf(material.uppercase())
@@ -566,20 +580,20 @@ class ConditionEvaluator {
 
         val amount = options["amount"]?.toIntOrNull() ?: options["a"]?.toIntOrNull() ?: 1
 
-        return entity.inventory.all(mat).values.sumOf { it?.amount ?: 0 } >= amount
+        return player.inventory.all(mat).values.sumOf { it?.amount ?: 0 } >= amount
     }
 
-    private fun evaluatePlayerTime(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
-        val time = entity.playerTime
+    private fun evaluatePlayerTime(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        val time = player.playerTime
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseRange(range)
         return time.toInt() in min..max
     }
 
-    private fun evaluatePlayerKills(entity: LivingEntity?, options: Map<String, String>): Boolean {
-        if (entity !is Player) return false
-        val kills = entity.getStatistic(org.bukkit.Statistic.PLAYER_KILLS)
+    private fun evaluatePlayerKills(entity: IEntity?, options: Map<String, String>): Boolean {
+        val player = entity?.asPlayer() ?: return false
+        val kills = player.getStatistic(org.bukkit.Statistic.PLAYER_KILLS)
         val range = options["range"] ?: options["r"] ?: return false
         val (min, max) = parseRange(range)
         return kills in min..max

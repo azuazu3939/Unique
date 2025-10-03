@@ -3,6 +3,8 @@ package com.github.azuazu3939.unique.mob
 import com.destroystokyo.paper.ParticleBuilder
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.cel.CelEvaluator
+import com.github.azuazu3939.unique.entity.BukkitEntityWrapper
+import com.github.azuazu3939.unique.entity.IEntity
 import com.github.azuazu3939.unique.event.SkillTrigger
 import com.github.azuazu3939.unique.event.TriggerEvent
 import com.github.azuazu3939.unique.event.TriggerParser
@@ -24,6 +26,9 @@ import org.bukkit.Location
 import org.bukkit.Particle
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
+import org.bukkit.entity.Pose
+import org.bukkit.potion.PotionEffect
+import org.bukkit.potion.PotionEffectType
 import org.bukkit.util.Vector
 import java.util.*
 import java.util.UUID.randomUUID
@@ -271,6 +276,7 @@ class MobManager(private val plugin: Unique) {
 
 /**
  * Represents a single custom mob instance
+ * Implements IEntity to provide a unified interface for both packet and Bukkit entities
  */
 class UniqueMob(
     private val plugin: Unique,
@@ -278,7 +284,7 @@ class UniqueMob(
     val definition: MobDefinition,
     private var location: Location,
     private val celEvaluator: CelEvaluator
-) {
+) : IEntity {
     val uuid: UUID = randomUUID()
     private var entity: WrapperEntity? = null
     private var health: Double = definition.health
@@ -287,6 +293,10 @@ class UniqueMob(
     private val targetResolver = TargetResolver(conditionEvaluator)
     private val skillExecutor = SkillExecutor(plugin, celEvaluator, conditionEvaluator, targetResolver, cooldownManager)
     private val id: Int = Random(uuid.leastSignificantBits).nextInt()
+
+    // Potion effects management for packet entities
+    // Map: PotionEffectType -> (PotionEffect, expirationTime in millis)
+    private val activePotionEffects = ConcurrentHashMap<PotionEffectType, Pair<PotionEffect, Long>>()
 
     // Origin tracking for skills
     // Origin represents the location/entity where a skill was executed from
@@ -1005,14 +1015,15 @@ class UniqueMob(
         if (alwaysSkills.isEmpty()) return
 
         // Launch coroutine to execute skills sequentially using SkillExecutor
+        val iPlayer = BukkitEntityWrapper(target)
         plugin.launch {
             skillExecutor.executeSkillChain(
                 skills = alwaysSkills,
                 mobLocation = location,
                 mobHealth = health,
                 mobMaxHealth = definition.health,
-                target = target,
-                trigger = target,
+                target = iPlayer,
+                trigger = iPlayer,
                 originLocation = skillOriginLocation,
                 skillMetadata = skillMetadata
             )
@@ -1049,14 +1060,16 @@ class UniqueMob(
         if (triggerSkills.isEmpty()) return
 
         // Launch coroutine to execute triggered skills
+        val iTarget = if (event.target == null) null else BukkitEntityWrapper(event.target)
+        val iTrigger = if (event.triggerEntity == null) null else BukkitEntityWrapper(event.triggerEntity)
         plugin.launch {
             skillExecutor.executeSkillChain(
                 skills = triggerSkills,
                 mobLocation = location,
                 mobHealth = health,
                 mobMaxHealth = definition.health,
-                target = event.target,
-                trigger = event.triggerEntity,
+                target = iTarget,
+                trigger = iTrigger,
                 originLocation = skillOriginLocation,
                 skillMetadata = skillMetadata
             )
@@ -1080,14 +1093,16 @@ class UniqueMob(
         val instance = skillMetadata[skillId]
 
         // Launch coroutine to execute the skill
+        val iTarget = if (event.target == null) currentTarget?.let { BukkitEntityWrapper(it) } else BukkitEntityWrapper(event.target)
+        val iTrigger = if (event.triggerEntity == null) null else BukkitEntityWrapper(event.triggerEntity)
         plugin.launch {
             skillExecutor.executeSkillChain(
                 skills = listOf(skill to instance),
                 mobLocation = location,
                 mobHealth = health,
                 mobMaxHealth = definition.health,
-                target = event.target ?: currentTarget, // Use current AI target if no specific target
-                trigger = event.triggerEntity,
+                target = iTarget, // Use current AI target if no specific target
+                trigger = iTrigger,
                 originLocation = skillOriginLocation,
                 skillMetadata = skillMetadata
             )
@@ -1261,5 +1276,171 @@ class UniqueMob(
 
         // Remove from manager
         manager.activeMobs.remove(uuid)
+    }
+
+    // ============= IEntity Implementation =============
+
+    override fun getUniqueId(): UUID = uuid
+
+    override fun getLoc(): Location = location
+
+    override fun getEntityType(): EntityType = definition.entityType
+
+    override fun getHealth(): Double = health
+
+    override fun getMaxHealth(): Double = definition.health
+
+    override fun getVelocity(): Vector = Vector(0, 0, 0) // Packet entities don't have velocity
+
+    override fun getPose(): Pose = Pose.STANDING // Default pose for packet entities
+
+    override fun hasAI(): Boolean = resolvedAI != null
+
+    override fun hasGravity(): Boolean = false // Packet entities don't have gravity
+
+    override fun isOnGround(): Boolean = true // Assume on ground for packet entities
+
+    override fun isInWater(): Boolean {
+        val block = location.block
+        return block.isLiquid
+    }
+
+    override fun isGliding(): Boolean = false // Packet entities don't glide
+
+    override fun isSwimming(): Boolean = false // Packet entities don't swim
+
+    override fun isInsideVehicle(): Boolean = false // Packet entities not in vehicles
+
+    override fun getFireTicks(): Int = 0 // Packet entities don't have fire ticks
+
+    override fun getLastDamageCause(): String? = lastDamageType
+
+    override fun getLastDamageTime(): Long = lastSkillExecutionTime
+
+    override fun getNoDamageTicks(): Int = 0 // Packet entities don't have invulnerability
+
+    override fun hasLineOfSight(other: IEntity): Boolean {
+        // Simple line of sight check
+        val otherLoc = other.getLoc()
+        val distance = location.distance(otherLoc)
+        if (distance > 100) return false // Too far
+
+        // Check if there are blocks in between
+        val direction = otherLoc.toVector().subtract(location.toVector()).normalize()
+        var checkLoc = location.clone()
+        val step = 0.5
+
+        for (i in 0 until (distance / step).toInt()) {
+            checkLoc = checkLoc.add(direction.clone().multiply(step))
+            if (checkLoc.block.type.isSolid) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    override fun getBukkitEntity(): org.bukkit.entity.LivingEntity? = null // Packet entities have no Bukkit entity
+
+    override fun isPlayer(): Boolean = false // UniqueMobs are not players
+
+    override fun asPlayer(): Player? = null // UniqueMobs cannot be players
+
+    override fun getPotionEffect(effect: PotionEffectType): PotionEffect? {
+        // Clean up expired effects first
+        cleanupExpiredEffects()
+
+        // Return active effect
+        return activePotionEffects[effect]?.first
+    }
+
+    /**
+     * Add a potion effect to this packet entity
+     */
+    override fun addPotionEffect(effect: PotionEffect) {
+        val duration = effect.duration
+        val expirationTime = if (duration == Int.MAX_VALUE || duration < 0) {
+            Long.MAX_VALUE // Infinite duration
+        } else {
+            System.currentTimeMillis() + (duration * 50L) // Convert ticks to milliseconds
+        }
+
+        activePotionEffects[effect.type] = Pair(effect, expirationTime)
+        plugin.debugLogger.debug("Added potion effect ${effect.type.key} to mob ${definition.id} (duration: $duration ticks)")
+    }
+
+    override fun damage(damage: Double, attacker: IEntity?) {
+        val bukkitAttacker = attacker?.getBukkitEntity()
+
+        if (bukkitAttacker != null) {
+            // 攻撃者がBukkitEntityの場合、onDamagedを呼ぶ（スキルトリガー付き）
+            onDamaged(bukkitAttacker, damage)
+        } else {
+            // 攻撃者がPacketEntityまたはnullの場合、直接ダメージを適用
+            health = (health - damage).coerceAtLeast(0.0)
+            if (attacker != null) {
+                lastDamageType = "ENTITY_ATTACK"
+            }
+            if (health <= 0) {
+                onDeath()
+            }
+        }
+    }
+
+    /**
+     * Remove a potion effect from this packet entity
+     */
+    fun removePotionEffect(effectType: PotionEffectType) {
+        activePotionEffects.remove(effectType)
+        plugin.debugLogger.debug("Removed potion effect ${effectType.key} from mob ${definition.id}")
+    }
+
+    /**
+     * Check if this entity has a specific potion effect
+     */
+    fun hasPotionEffect(effectType: PotionEffectType): Boolean {
+        cleanupExpiredEffects()
+        return activePotionEffects.containsKey(effectType)
+    }
+
+    /**
+     * Get all active potion effects
+     */
+    fun getActivePotionEffects(): Collection<PotionEffect> {
+        cleanupExpiredEffects()
+        return activePotionEffects.values.map { it.first }
+    }
+
+    /**
+     * Clear all potion effects
+     */
+    fun clearPotionEffects() {
+        activePotionEffects.clear()
+        plugin.debugLogger.debug("Cleared all potion effects from mob ${definition.id}")
+    }
+
+    /**
+     * Clean up expired potion effects
+     */
+    private fun cleanupExpiredEffects() {
+        val currentTime = System.currentTimeMillis()
+        val expiredEffects = activePotionEffects.entries
+            .filter { (_, pair) -> pair.second < currentTime }
+            .map { it.key }
+
+        expiredEffects.forEach { effectType ->
+            activePotionEffects.remove(effectType)
+            plugin.debugLogger.debug("Potion effect ${effectType.key} expired on mob ${definition.id}")
+        }
+    }
+
+    // Track last damage type for conditions
+    private var lastDamageType: String? = null
+
+    /**
+     * Set last damage type (for condition evaluation)
+     */
+    fun setLastDamageType(damageType: String?) {
+        this.lastDamageType = damageType
     }
 }

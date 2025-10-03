@@ -91,6 +91,76 @@ class ConfigLoader(private val plugin: Unique) {
     }
 
     /**
+     * Copy default files from JAR resources to data folder
+     */
+    private fun copyDefaultFiles(folderName: String) {
+        val resourceFiles = when (folderName) {
+            "AIs" -> listOf(
+                "aggressive_pursuit.yml",
+                "charge_dasher.yml",
+                "ranged_kiter.yml",
+                "territorial_guardian.yml"
+            )
+            "Skills" -> listOf(
+                "common_melee.yml",
+                "fire_breath.yml",
+                "ground_slam.yml",
+                "message.yml",
+                "meteor_strike.yml",
+                "poison_strike.yml",
+                "tail_swipe.yml",
+                "test_case_skill.yml"
+            )
+            "Mobs" -> listOf(
+                "condition_example_advanced.yml",
+                "condition_example_basic.yml",
+                "condition_example_complex.yml",
+                "condition_example_target.yml",
+                "targeter_example_aoe.yml",
+                "targeter_example_mixed.yml",
+                "targeter_example_origin.yml",
+                "trigger_example_combat.yml",
+                "trigger_example_mixed.yml",
+                "trigger_example_timer.yml"
+            )
+            else -> emptyList()
+        }
+
+        var copiedCount = 0
+        for (fileName in resourceFiles) {
+            try {
+                val resourcePath = "$folderName/$fileName"
+                val inputStream = plugin.getResource(resourcePath)
+
+                if (inputStream != null) {
+                    val outputFile = File(plugin.dataFolder, resourcePath)
+                    outputFile.parentFile.mkdirs()
+
+                    inputStream.use { input ->
+                        outputFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    copiedCount++
+                    plugin.debugLogger.debug("Copied default file: $resourcePath")
+                } else {
+                    plugin.debugLogger.warning("Default file not found in JAR: $resourcePath")
+                }
+            } catch (e: Exception) {
+                plugin.debugLogger.error("Failed to copy default file $fileName: ${e.message}")
+                if (plugin.debugLogger.getDebugLevel() >= 3) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        if (copiedCount > 0) {
+            plugin.debugLogger.detailed("Copied $copiedCount default file(s) to $folderName folder")
+        }
+    }
+
+    /**
      * Generic YAML loader for skills and mobs
      */
     private fun <T> loadYamlFiles(
@@ -103,10 +173,19 @@ class ConfigLoader(private val plugin: Unique) {
         getIdAction: (T) -> String,
         itemTypeName: String
     ) {
+        // Create folder if it doesn't exist
         if (!folder.exists()) {
             folder.mkdirs()
             plugin.debugLogger.detailed("Created $folderName folder")
-            return
+        }
+
+        // Copy default files from resources if folder is empty
+        val existingFiles = folder.listFiles { file ->
+            file.extension == "yml" || file.extension == "yaml"
+        } ?: emptyArray()
+
+        if (existingFiles.isEmpty()) {
+            copyDefaultFiles(folderName)
         }
 
         // Clear existing items before reload
