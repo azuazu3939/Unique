@@ -1,0 +1,23 @@
+name: unique
+version: @version@
+main: com.github.azuazu3939.unique.Unique
+bootstrapper: com.github.azuazu3939.unique.Bootstrap
+api-version: '1.21'
+load: STARTUP
+authors: [ MCLove32 ]
+website: https://github.com/azuazu3939
+
+commands:
+  unique:
+    description: Unique plugin commands
+    usage: /unique <reload>
+    aliases: [uni]
+    permission: unique.use
+
+permissions:
+  unique.use:
+    description: Allows use of unique commands
+    default: true
+  unique.reload:
+    description: Allows reloading the plugin configuration
+    default: op
