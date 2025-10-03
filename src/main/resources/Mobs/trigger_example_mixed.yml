@@ -1,0 +1,36 @@
+# Trigger Example - Mixed Triggers
+# Demonstrates combination of different trigger types
+
+Mob:
+  Id: trigger_mixed_boss
+  DisplayName: §6§lTrigger Master
+  Type: WITHER_SKELETON
+  Health: 3000.0
+
+  AI: {t: AGGRESSIVE, ms: 0.5, fr: 40}
+
+  Skills:
+    # Timer-based buffs
+    - strength_buff @self ~onTimer:100 1.0
+    - speed_buff @self ~onTimer:120 1.0
+
+    # Attack triggers
+    - heavy_strike{damage=100} @target ~onAttack 1.0
+    - knockback @target ~onAttack 0.6
+
+    # Damaged triggers
+    - reflect_damage{damage=50} @trigger ~onDamaged 0.7
+    - heal{amount=30} @self ~onDamaged <50% 0.4
+
+    # Periodic AoE (every 60 ticks = 3 seconds)
+    - fire_nova{damage=40} @PIR{r=10} ~onTimer:60 0.8
+
+    # Counter-attack with conditions
+    - ice_prison @trigger ~onDamaged ?~sprinting 0.5
+
+    # Emergency skill at low health
+    - desperate_strike{damage=200} @target ~onAttack <20% 1.0
+
+  drops:
+    - {item: DIAMOND_BLOCK, amount: 1, chance: 1.0}
+    - {item: NETHERITE_INGOT, amount: 1, chance: 0.5}

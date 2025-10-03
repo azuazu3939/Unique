@@ -1,0 +1,26 @@
+# Trigger Example - Timer-based Skills
+# Demonstrates ~onTimer:ticks notation
+
+Mob:
+  Id: trigger_timer_boss
+  DisplayName: §b§lTimer Boss
+  Type: ZOMBIE
+  Health: 1500.0
+
+  AI: {t: AGGRESSIVE, ms: 0.4, fr: 32}
+
+  Skills:
+    # Execute every 20 ticks (1 second)
+    - fire_aoe{damage=20} @PIR{r=8} ~onTimer:20 1.0
+
+    # Execute every 100 ticks (5 seconds)
+    - heal{amount=50} @self ~onTimer:100 1.0
+
+    # Execute every 200 ticks (10 seconds)
+    - lightning_strike @PIR{r=15} ~onTimer:200 0.8
+
+    # Execute every 60 ticks (3 seconds)
+    - poison_cloud @EIR{r=10} ~onTimer:60 0.6
+
+  drops:
+    - {item: DIAMOND, amount: 3, chance: 1.0}

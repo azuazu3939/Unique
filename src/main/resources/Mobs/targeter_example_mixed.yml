@@ -1,0 +1,33 @@
+# Targeter Example - Mixed Targeters
+# Demonstrates different targeter types in one mob
+
+Mob:
+  Id: targeter_mixed_boss
+  DisplayName: §6§lTargeter Master
+  Type: RAVAGER
+  Health: 3000.0
+
+  AI: {t: CHARGE, ms: 0.5, fr: 40, chargeDuration: 2, dashSpeed: 3, dashDistance: 20}
+
+  Skills:
+    # Single target - damage current target
+    - heavy_strike{damage=100} @target ~onAttack 1.0
+
+    # Self buff - applies to the mob itself
+    - rage_buff @self ~onAttack <50% 0.3
+
+    # Trigger damage - damages whoever triggered the skill
+    - counter_strike{damage=50} @trigger ~onDamaged 0.4
+
+    # Area damage around origin
+    - shockwave @PNO{r=8} ~onAttack 0.6
+
+    # Multi-target with conditions - only hits players with specific effects
+    - purge @PIR{r=15;conditions=[- haspotioneffect{type=wither} true]} ~onTimer:60 1.0
+
+    # Chain between nearby entities
+    - chain_lightning @EIR{r=20} ~onAttack 0.5
+
+  drops:
+    - {item: DIAMOND_BLOCK, amount: 2, chance: 1.0}
+    - {item: NETHERITE_INGOT, amount: 1, chance: 0.4}
