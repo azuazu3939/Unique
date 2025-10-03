@@ -1,0 +1,26 @@
+# Fire Breath Skill
+# A powerful fire-based attack with burning effect
+
+skill:
+  id: "fire_breath"
+  trigger: "target.distance < 15 && cooldown_ready"
+  damage: "50 * (1 + missing_health_percent * 0.8)"
+  cooldown: 8.0
+
+  effects:
+    - type: "FIRE"
+      duration: 100
+      amplifier: 1
+
+  particle:
+    type: "FLAME"
+    count: 50
+    offsetX: 1.0
+    offsetY: 1.0
+    offsetZ: 1.0
+    speed: 0.1
+
+  sound:
+    sound: "entity_ender_dragon_growl"
+    volume: 2.0
+    pitch: 0.8

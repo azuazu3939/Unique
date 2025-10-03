@@ -1,0 +1,55 @@
+# Advanced Condition Example
+# Demonstrates all available condition types
+
+Mob:
+  Id: condition_test_advanced
+  DisplayName: §6§lCondition Test - Advanced
+  Type: ZOMBIE
+  Health: 1500.0
+
+  AI: {t: AGGRESSIVE, ms: 0.5, fr: 40, ar: 35}
+
+  # Comprehensive condition examples
+  Skills:
+    # World conditions
+    - message{m="It's raining!"} @trigger ~onDamaged ?raining
+    - message{m="There's a storm!"} @trigger ~onDamaged ?storming
+    - message{m="It's night time!"} @trigger ~onDamaged ?night
+    - message{m="It's daytime!"} @trigger ~onDamaged ?day
+    - message{m="What a sunny day!"} @trigger ~onDamaged ?sunny
+
+    # Entity state conditions (checking trigger)
+    - message{m="You're sneaking!"} @trigger ~onDamaged ?~sneaking
+    - message{m="You're sprinting!"} @trigger ~onDamaged ?~sprinting
+    - message{m="You're blocking!"} @trigger ~onDamaged ?~blocking
+    - message{m="You're gliding!"} @trigger ~onDamaged ?~gliding
+    - message{m="You're swimming!"} @trigger ~onDamaged ?~swimming
+    - message{m="You're on fire!"} @trigger ~onDamaged ?~onfire
+
+    # Item conditions
+    - message{m="Diamond sword? Impressive!"} @trigger ~onDamaged ?~holding{m=DIAMOND_SWORD}
+    - message{m="Iron armor detected!"} @trigger ~onDamaged ?~wearing{m=IRON_CHESTPLATE}
+
+    # Location conditions
+    - message{m="You're in water!"} @trigger ~onDamaged ?~inwater
+    - message{m="You're on the ground!"} @trigger ~onDamaged ?~onground
+
+    # Negation examples
+    - message{m="Not raining, good!"} @trigger ~onDamaged ?!raining
+    - message{m="You're NOT sneaking!"} @trigger ~onDamaged ?~!sneaking
+    - message{m="You're NOT holding anything good!"} @trigger ~onDamaged ?~!holding{m=DIAMOND_SWORD}
+
+    # Multiple conditions (ALL must be true)
+    - message{m="Perfect storm conditions!"} @trigger ~onDamaged ?night ?raining ?~swimming
+
+    # Combat skills with conditions
+    - fire_breath{damage=75} @target ~onAttack ?raining ?night 0.8
+    - poison_strike @target ~onAttack ?~sneaking 1.0
+    - meteor_strike{castTime=3} @target ~onAttack ?storming <30% 0.5
+
+  drops:
+    - {item: DIAMOND, amount: 10, chance: 1.0}
+    - {item: NETHER_STAR, amount: 1, chance: 0.3}
+
+  attributes:
+    testType: "condition_showcase"

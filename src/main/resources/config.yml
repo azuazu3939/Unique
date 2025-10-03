@@ -1,2 +1,36 @@
 # Unique Plugin Configuration
-# This file will be automatically created and loaded on server startup
+# https://github.com/azuazu3939/unique
+
+# Configuration version - DO NOT EDIT manually
+# This is used to automatically update the config when new versions are released
+config-version: 1
+
+# Debug level - Controls verbosity of logging
+# 0 = Critical only (errors, plugin lifecycle)
+# 1 = Important (mob spawn/death, commands)
+# 2 = Detailed (skills, AI, targeting)
+# 3 = Debug (CEL evaluation, exact coordinates, all operations)
+debug-level: 1
+
+# Mob system settings
+mobs:
+  # Tick rate for mob AI updates (in ticks, 20 ticks = 1 second)
+  # Lower values = more responsive AI but higher CPU usage
+  tick-rate: 1
+
+  # Maximum distance to check for players (in blocks)
+  # This affects performance - lower is better for performance
+  max-detection-range: 64.0
+
+  # Enable/disable mob AI
+  enable-ai: true
+
+  # Enable/disable mob drops
+  enable-drops: true
+
+# Performance settings
+performance:
+  # Maximum number of active mobs per world
+  # Set to -1 for unlimited
+  # Note: CEL expression caching is always enabled for optimal performance
+  max-mobs-per-world: 500

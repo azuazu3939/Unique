@@ -1,0 +1,11 @@
+# Message Skill
+# Sends a message to the trigger entity
+
+skill:
+  id: "message"
+  trigger: "cooldown_ready"
+  damage: "0"
+  cooldown: 0.0
+
+  # Message will be set via options in compact notation
+  # Example: message{m="You hit me!"} @trigger ~onDamaged

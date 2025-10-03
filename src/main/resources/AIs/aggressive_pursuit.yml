@@ -1,0 +1,19 @@
+# Aggressive Pursuit AI - Persistent hunter that never gives up
+# Can be reused across multiple mobs
+# Uses camelCase field names
+
+AI:
+  id: "aggressive_pursuit"
+  type: "AGGRESSIVE"
+
+  # Target condition
+  targetCondition: "player.distance < 50"
+
+  # Movement
+  moveSpeed: 0.6
+  followRange: 60.0
+
+  # Aggressive AI settings
+  pursuitTime: 60.0      # Chase for 60 seconds
+  memoryDuration: 20.0   # Remember target for 20 seconds after losing sight
+  aggroRange: 45.0       # Initial detection range

@@ -1,0 +1,17 @@
+# Territorial Guardian AI - Protects a specific area
+# Returns to spawn point if it strays too far
+
+AI:
+  id: "territorial_guardian"
+  type: "TERRITORIAL"
+
+  # Target players who enter territory
+  targetCondition: "player.distance < territory_radius"
+
+  # Movement
+  moveSpeed: 0.4
+  followRange: 35.0
+
+  # Territorial settings
+  territoryRadius: 30.0   # Stay within 30 blocks of spawn
+  returnSpeed: 0.6        # Return faster when out of territory

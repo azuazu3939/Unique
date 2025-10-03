@@ -1,0 +1,25 @@
+# Meteor Strike Skill
+# Ultimate ability activated at low health
+
+skill:
+  id: "meteor_strike"
+  trigger: "target.distance < 30 && cooldown_ready && mob.health < mob.max_health * 0.3"
+  damage: "100 * (1 + (1 - mob.health / mob.max_health))"
+  cooldown: 20.0
+
+  effects:
+    - type: "SLOWNESS"
+      duration: 60
+      amplifier: 2
+      condition: "player.health < 10"
+
+  particle:
+    type: "EXPLOSION_LARGE"
+    count: 10
+    offsetY: 2.0
+    speed: 0.0
+
+  sound:
+    sound: "entity_generic_explode"
+    volume: 3.0
+    pitch: 0.5

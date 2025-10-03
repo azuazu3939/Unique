@@ -1,0 +1,18 @@
+# Ranged Kiter AI - Maintains distance from target
+# Perfect for archer or mage type mobs
+
+AI:
+  id: "ranged_kiter"
+  type: "RANGED"
+
+  # Target condition
+  targetCondition: "player.distance < 30"
+
+  # Movement
+  moveSpeed: 0.4
+  followRange: 30.0
+
+  # Ranged AI settings
+  preferredDistance: 12.0  # Ideal distance from target
+  minDistance: 8.0         # Too close, move away
+  maxDistance: 20.0        # Too far, move closer
