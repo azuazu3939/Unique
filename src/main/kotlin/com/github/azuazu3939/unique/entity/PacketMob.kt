@@ -7,6 +7,7 @@ import com.github.azuazu3939.unique.event.PacketMobAttackEvent
 import com.github.azuazu3939.unique.event.PacketMobSkillEvent
 import com.github.azuazu3939.unique.event.PacketMobTargetEvent
 import com.github.azuazu3939.unique.util.DebugLogger
+import com.github.azuazu3939.unique.util.EventUtil
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Entity
@@ -327,25 +328,17 @@ class PacketMob(
             .filter { !it.isDead && it.gameMode != org.bukkit.GameMode.SPECTATOR && it.gameMode != org.bukkit.GameMode.CREATIVE }
 
         if (nearbyPlayers.isNotEmpty()) {
-            // 最も近いプレイヤーをターゲット
             val newTarget = nearbyPlayers.minByOrNull { it.location.distance(location) }
 
-            // ターゲット変更イベント発火
-            val targetEvent = PacketMobTargetEvent(
-                this,
-                currentTarget,
-                newTarget,
-                PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER
-            )
-            Bukkit.getPluginManager().callEvent(targetEvent)
+            // ターゲット変更イベント発火＆キャンセルチェック
+            val targetEvent = EventUtil.callEventOrNull(
+                PacketMobTargetEvent(this, currentTarget, newTarget, PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER)
+            ) ?: return
 
-            // イベントがキャンセルされた場合はターゲット変更しない
-            if (!targetEvent.isCancelled) {
-                currentTarget = targetEvent.newTarget
-                if (currentTarget != null) {
-                    aiState = AIState.TARGET
-                    DebugLogger.verbose("$mobName found target: ${(currentTarget as? Player)?.name}")
-                }
+            currentTarget = targetEvent.newTarget
+            if (currentTarget != null) {
+                aiState = AIState.TARGET
+                DebugLogger.verbose("$mobName found target: ${(currentTarget as? Player)?.name}")
             }
         }
     }
@@ -455,22 +448,15 @@ class PacketMob(
         val instance = com.github.azuazu3939.unique.Unique.instance.mobManager.getMobInstance(this)
         val damage = instance?.definition?.getDamage() ?: 5.0
 
-        // 攻撃イベント発火
-        val attackEvent = PacketMobAttackEvent(this, target, damage)
-        Bukkit.getPluginManager().callEvent(attackEvent)
-
-        // イベントがキャンセルされた場合は攻撃しない
-        if (attackEvent.isCancelled) {
+        // 攻撃イベント発火＆キャンセルチェック
+        val attackEvent = EventUtil.callEventOrNull(PacketMobAttackEvent(this, target, damage)) ?: run {
             DebugLogger.verbose("$mobName attack cancelled by event")
             return
         }
 
-        // イベントで変更されたダメージ値を使用
-        val finalDamage = attackEvent.damage
-
         // ダメージを与える
         if (target is LivingEntity) {
-            target.damage(finalDamage)
+            target.damage(attackEvent.damage)
         }
 
         // 攻撃アニメーション再生

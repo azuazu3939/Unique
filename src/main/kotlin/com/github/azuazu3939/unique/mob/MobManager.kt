@@ -9,10 +9,10 @@ import com.github.azuazu3939.unique.skill.BasicSkill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.*
 import com.github.azuazu3939.unique.util.DebugLogger
+import com.github.azuazu3939.unique.util.EventUtil
 import com.github.azuazu3939.unique.util.TimeParser
 import com.github.azuazu3939.unique.util.getSound
 import com.github.shynixn.mccoroutine.folia.launch
-import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
 import org.bukkit.Particle
@@ -386,12 +386,8 @@ class MobManager(private val plugin: Unique) {
             .knockbackResistance(definition.ai.knockbackResistance)
             .build()
 
-        // スポーンイベント発火
-        val spawnEvent = PacketMobSpawnEvent(mob, location, mobName)
-        Bukkit.getPluginManager().callEvent(spawnEvent)
-
-        // イベントがキャンセルされた場合はスポーン中止
-        if (spawnEvent.isCancelled) {
+        // スポーンイベント発火（キャンセルされた場合はnullを返す）
+        if (EventUtil.callEvent(PacketMobSpawnEvent(mob, location, mobName))) {
             DebugLogger.debug("Mob spawn cancelled by event: $mobName")
             return null
         }
@@ -422,54 +418,52 @@ class MobManager(private val plugin: Unique) {
         if (triggers.isEmpty()) return
 
         plugin.launch {
-            for (trigger in triggers) {
+            triggers.forEach { trigger ->
                 try {
-                    // スキルイベント発火
-                    val skillEvent = PacketMobSkillEvent(mob, trigger.name, triggerType)
-                    Bukkit.getPluginManager().callEvent(skillEvent)
-
-                    // イベントがキャンセルされた場合はスキップ
-                    if (skillEvent.isCancelled) {
+                    // スキルイベント発火＆キャンセルチェック
+                    if (EventUtil.callEvent(PacketMobSkillEvent(mob, trigger.name, triggerType))) {
                         DebugLogger.verbose("Skill ${trigger.name} cancelled by event")
-                        continue
+                        return@forEach
                     }
 
                     // 条件チェック
-                    val conditionMet = if (trigger.condition == "true") {
-                        true
-                    } else {
-                        plugin.celEvaluator.evaluatePacketEntityCondition (trigger.condition, mob)
-                    }
-
-                    if (!conditionMet) {
+                    if (!evaluateCondition(trigger.condition, mob)) {
                         DebugLogger.verbose("Skill trigger ${trigger.name} condition not met")
-                        continue
+                        return@forEach
                     }
 
-                    // ターゲッター構築
-                    val targeter = buildTargeter(trigger.targeter)
-
-                    // 各スキルを実行
-                    for (skillRef in trigger.skills) {
-                        val effects = buildEffects(skillRef.effects)
-                        val skillMeta = buildSkillMeta(skillRef.meta)
-
-                        val skill = BasicSkill(
-                            id = skillRef.skill,
-                            meta = skillMeta,
-                            condition = null,
-                            effects = effects
-                        )
-
-                        plugin.skillExecutor.executeSkill(skill, mob, targeter)
-                    }
-
+                    // スキル実行
+                    executeSkillsForTrigger(mob, trigger)
                     DebugLogger.verbose("Executed skill trigger: ${trigger.name}")
 
                 } catch (e: Exception) {
                     DebugLogger.error("Failed to execute skill trigger: ${trigger.name}", e)
                 }
             }
+        }
+    }
+
+    /**
+     * 条件を評価
+     */
+    private fun evaluateCondition(condition: String, mob: PacketMob): Boolean {
+        return condition == "true" || plugin.celEvaluator.evaluatePacketEntityCondition(condition, mob)
+    }
+
+    /**
+     * トリガーに対してスキルを実行
+     */
+    private fun executeSkillsForTrigger(mob: PacketMob, trigger: SkillTrigger) {
+        val targeter = buildTargeter(trigger.targeter)
+
+        trigger.skills.forEach { skillRef ->
+            val skill = BasicSkill(
+                id = skillRef.skill,
+                meta = buildSkillMeta(skillRef.meta),
+                condition = null,
+                effects = buildEffects(skillRef.effects)
+            )
+            plugin.skillExecutor.executeSkill(skill, mob, targeter)
         }
     }
 
@@ -631,12 +625,9 @@ class MobManager(private val plugin: Unique) {
 
         DebugLogger.info("Handling death for mob: ${instance.definitionName}")
 
-        // ドロップリストを準備
-        val drops = mutableListOf<org.bukkit.inventory.ItemStack>()
-
         // 死亡イベント発火
-        val deathEvent = PacketMobDeathEvent(mob, killer, drops)
-        Bukkit.getPluginManager().callEvent(deathEvent)
+        val deathEvent = PacketMobDeathEvent(mob, killer, mutableListOf())
+        EventUtil.callEvent(deathEvent)
 
         // OnDeathスキルトリガー実行
         executeSkillTriggers(mob, definition.skills.onDeath, PacketMobSkillEvent.SkillTriggerType.ON_DEATH)
@@ -650,8 +641,7 @@ class MobManager(private val plugin: Unique) {
         activeMobs.remove(mob.uuid.toString())
 
         // 削除イベント発火
-        val removeEvent = PacketMobRemoveEvent(mob, PacketMobRemoveEvent.RemoveReason.DEATH)
-        Bukkit.getPluginManager().callEvent(removeEvent)
+        EventUtil.callEvent(PacketMobRemoveEvent(mob, PacketMobRemoveEvent.RemoveReason.DEATH))
 
         // PacketEntityをアンレジスター（一定時間後）
         kotlinx.coroutines.delay(5000)  // 5秒後にクリーンアップ
@@ -673,86 +663,85 @@ class MobManager(private val plugin: Unique) {
 
         val world = location.world ?: return
 
+        val context = buildDropContext(killer, location)
+
         // 定義からのドロップ処理
-        for (drop in definition.drops) {
+        definition.drops.forEach { drop ->
             try {
-                // 条件チェック
-                val context = buildDropContext(killer, location)
-                if (drop.condition != "true") {
-                    val conditionMet = plugin.celEngine.evaluateBoolean(drop.condition, context)
-                    if (!conditionMet) {
-                        DebugLogger.verbose("Drop condition not met: ${drop.item}")
-                        continue
-                    }
-                }
+                // 条件＆確率チェック
+                if (!shouldDrop(drop, context)) return@forEach
 
-                // 確率チェック
-                if (Math.random() > drop.chance) {
-                    DebugLogger.verbose("Drop chance failed: ${drop.item} (${drop.chance})")
-                    continue
-                }
-
-                // ドロップ個数を決定
-                val amount = drop.getAmount()
-
-                // アイテムをドロップ
-                val material = org.bukkit.Material.getMaterial(drop.item.uppercase())
-                if (material == null) {
-                    DebugLogger.error("Invalid drop material: ${drop.item}")
-                    continue
-                }
-
-                val itemStack = org.bukkit.inventory.ItemStack(material, amount)
-                eventDrops.add(itemStack)
-
-                DebugLogger.debug("Added drop: ${amount}x ${drop.item}")
+                // アイテムスタック作成＆追加
+                createDropItem(drop)?.let { eventDrops.add(it) }
 
             } catch (e: Exception) {
                 DebugLogger.error("Failed to process drop: ${drop.item}", e)
             }
         }
 
-        // イベントで追加されたドロップも含めて全てドロップ
-        for (itemStack in eventDrops) {
+        // 全てドロップ
+        eventDrops.forEach { itemStack ->
             world.dropItemNaturally(location, itemStack)
             DebugLogger.debug("Dropped ${itemStack.amount}x ${itemStack.type} at $location")
         }
     }
 
     /**
-     * ドロップコンテキストを構築
+     * ドロップするかどうかを判定
      */
-    private fun buildDropContext(
-        killer: org.bukkit.entity.Player,
-        location: Location
-    ): Map<String, Any> {
-        val context = mutableMapOf<String, Any>()
-
-        // Killer情報
-        context["killer"] = com.github.azuazu3939.unique.cel.CELVariableProvider.fromPlayer(killer)
-
-        // World情報
-        location.world?.let {
-            context["world"] = com.github.azuazu3939.unique.cel.CELVariableProvider.fromWorld(it)
+    private fun shouldDrop(drop: DropDefinition, context: Map<String, Any>): Boolean {
+        // 条件チェック
+        if (drop.condition != "true") {
+            val conditionMet = plugin.celEngine.evaluateBoolean(drop.condition, context)
+            if (!conditionMet) {
+                DebugLogger.verbose("Drop condition not met: ${drop.item}")
+                return false
+            }
         }
 
-        // 近くのプレイヤー情報
-        val nearbyPlayers = location.world?.getNearbyEntities(
-            location, 50.0, 50.0, 50.0
-        )?.filterIsInstance<org.bukkit.entity.Player>() ?: emptyList()
+        // 確率チェック
+        if (Math.random() > drop.chance) {
+            DebugLogger.verbose("Drop chance failed: ${drop.item} (${drop.chance})")
+            return false
+        }
 
-        context["nearbyPlayers"] = mapOf(
-            "count" to nearbyPlayers.size,
-            "maxLevel" to (nearbyPlayers.maxOfOrNull { it.level } ?: 0),
-            "minLevel" to (nearbyPlayers.minOfOrNull { it.level } ?: 0),
-            "avgLevel" to (nearbyPlayers.map { it.level }.average().takeIf { !it.isNaN() } ?: 0.0)
-        )
+        return true
+    }
 
-        // Math関数とString関数
-        context["math"] = com.github.azuazu3939.unique.cel.CELVariableProvider.getMathFunctions()
-        context["string"] = com.github.azuazu3939.unique.cel.CELVariableProvider.getStringFunctions()
+    /**
+     * ドロップアイテムを作成
+     */
+    private fun createDropItem(drop: DropDefinition): org.bukkit.inventory.ItemStack? {
+        val material = org.bukkit.Material.getMaterial(drop.item.uppercase())
+        if (material == null) {
+            DebugLogger.error("Invalid drop material: ${drop.item}")
+            return null
+        }
 
-        return context
+        val amount = drop.getAmount()
+        DebugLogger.debug("Added drop: ${amount}x ${drop.item}")
+        return org.bukkit.inventory.ItemStack(material, amount)
+    }
+
+    /**
+     * ドロップコンテキストを構築
+     */
+    private fun buildDropContext(killer: org.bukkit.entity.Player, location: Location): Map<String, Any> {
+        val nearbyPlayers = location.world?.getNearbyEntities(location, 50.0, 50.0, 50.0)
+            ?.filterIsInstance<org.bukkit.entity.Player>() ?: emptyList()
+
+        return buildMap {
+            put("killer", com.github.azuazu3939.unique.cel.CELVariableProvider.fromPlayer(killer))
+            location.world?.let { put("world", com.github.azuazu3939.unique.cel.CELVariableProvider.fromWorld(it)) }
+            put("nearbyPlayers", mapOf(
+                "count" to nearbyPlayers.size,
+                "maxLevel" to (nearbyPlayers.maxOfOrNull { it.level } ?: 0),
+                "minLevel" to (nearbyPlayers.minOfOrNull { it.level } ?: 0),
+                "avgLevel" to (nearbyPlayers.map { it.level }.average().takeIf { !it.isNaN() } ?: 0.0)
+            ))
+            put("math", com.github.azuazu3939.unique.cel.CELVariableProvider.getMathFunctions())
+            put("string", com.github.azuazu3939.unique.cel.CELVariableProvider.getStringFunctions())
+        }
     }
 
     /**
@@ -764,23 +753,18 @@ class MobManager(private val plugin: Unique) {
 
         DebugLogger.debug("Mob ${instance.definitionName} damaged by ${damager.type} ($damage damage)")
 
-        // ダメージイベント発火
+        // ダメージイベント発火＆キャンセルチェック
         val cause = if (damager is org.bukkit.entity.Player) {
             PacketMobDamageEvent.DamageCause.PLAYER_ATTACK
         } else {
             PacketMobDamageEvent.DamageCause.ENTITY_ATTACK
         }
 
-        val damageEvent = PacketMobDamageEvent(mob, damager, damage, cause)
-        Bukkit.getPluginManager().callEvent(damageEvent)
-
-        // イベントがキャンセルされた場合はダメージ無効
-        if (damageEvent.isCancelled) {
+        val damageEvent = EventUtil.callEventOrNull(PacketMobDamageEvent(mob, damager, damage, cause)) ?: run {
             DebugLogger.verbose("Damage to ${instance.definitionName} cancelled by event")
             return
         }
 
-        // イベントで変更されたダメージ値を使用
         val finalDamage = damageEvent.damage
 
         // ダメージを適用
