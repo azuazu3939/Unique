@@ -1,0 +1,291 @@
+# ============================================
+# サンプル: CEL条件式の使用例
+# ============================================
+# CELEngineManager.ktで使用可能な条件式のサンプル
+
+# エンティティの基本情報を使った条件
+EntityBasicConditions:
+  Type: ZOMBIE
+  Display: '&eエンティティ基本条件'
+
+  Skills:
+    OnTimer:
+      # HP条件
+      - name: LowHealthSkill
+        interval: 100
+        targeter:
+          type: Self
+        # HP50%以下で発動
+        condition: 'entity.health < entity.maxHealth * 0.5'
+        skills:
+          - skill: HealSkill
+
+      # 生存時間条件
+      - name: AgeBasedSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        # 5秒（100tick）以上生きている場合
+        condition: 'entity.age > 100'
+        skills:
+          - skill: PowerUpSkill
+
+---
+
+# プレイヤー条件
+PlayerConditions:
+  Type: ZOMBIE
+  Display: '&bプレイヤー条件'
+
+  Skills:
+    OnTimer:
+      - name: TargetPlayerSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+          range: 30
+          # プレイヤー固有の条件
+          condition: |
+            target.gameMode != "CREATIVE" &&
+            target.level >= 10 &&
+            target.health > 10
+        skills:
+          - skill: AttackSkill
+
+---
+
+# ワールド条件
+WorldConditions:
+  Type: ZOMBIE
+  Display: '&6ワールド条件'
+
+  Skills:
+    OnTimer:
+      # 夜間のみ発動
+      - name: NightSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'world.isNight == true'
+        skills:
+          - skill: NightPowerSkill
+
+      # 雷雨時のみ
+      - name: ThunderSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'world.isThundering == true'
+        skills:
+          - skill: LightningSkill
+
+      # 特定時間帯
+      - name: TimeBasedSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        # 18000-22000 tick（夜の特定時間帯）
+        condition: 'world.time >= 18000 && world.time <= 22000'
+        skills:
+          - skill: MidnightSkill
+
+---
+
+# 距離条件
+DistanceConditions:
+  Type: ZOMBIE
+  Display: '&c距離条件'
+
+  Skills:
+    OnTimer:
+      # 近距離攻撃
+      - name: MeleeAttack
+        interval: 40
+        targeter:
+          type: NearestPlayer
+        condition: 'target.distance < 3'
+        skills:
+          - skill: SlashSkill
+
+      # 遠距離攻撃
+      - name: RangedAttack
+        interval: 60
+        targeter:
+          type: NearestPlayer
+        # 5-20ブロック範囲
+        condition: 'target.distance >= 5 && target.distance <= 20'
+        skills:
+          - skill: ProjectileSkill
+
+      # 超遠距離（逃走）
+      - name: RetreatSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'target.distance > 30'
+        skills:
+          - skill: TeleportAwaySkill
+
+---
+
+# 複合条件（AND/OR）
+ComplexConditions:
+  Type: ZOMBIE
+  Display: '&d複合条件'
+
+  Skills:
+    OnTimer:
+      # AND条件（全て満たす必要がある）
+      - name: MultiConditionSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: |
+          entity.health < entity.maxHealth * 0.5 &&
+          target.distance < 10 &&
+          world.isNight == true &&
+          target.gameMode == "SURVIVAL"
+        skills:
+          - skill: DesperationSkill
+
+      # OR条件（いずれかを満たせばOK）
+      - name: AlternativeSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: |
+          world.isThundering == true ||
+          world.difficulty == "HARD" ||
+          target.health < 10
+        skills:
+          - skill: OpportunitySkill
+
+---
+
+# Math関数の使用
+MathConditions:
+  Type: ZOMBIE
+  Display: '&aMath関数'
+
+  Skills:
+    OnTimer:
+      # ランダム確率（30%）
+      - name: RandomSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'math.random() < 0.3'
+        skills:
+          - skill: LuckySkill
+
+      # 計算結果の条件
+      - name: CalculationSkill
+        interval: 100
+        targeter:
+          type: Self
+        # HP割合の計算
+        condition: 'math.floor(entity.health / entity.maxHealth * 100) <= 25'
+        skills:
+          - skill: EmergencySkill
+
+---
+
+# String関数の使用
+StringConditions:
+  Type: ZOMBIE
+  Display: '&9String関数'
+
+  Skills:
+    OnTimer:
+      # プレイヤー名条件
+      - name: NameBasedSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'string.startsWith(target.name, "Admin")'
+        skills:
+          - skill: SpecialSkill
+
+      # ワールド名条件
+      - name: WorldNameSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'string.contains(world.name, "pvp")'
+        skills:
+          - skill: PvPSkill
+
+---
+
+# 相対位置条件
+RelativePositionConditions:
+  Type: ZOMBIE
+  Display: '&5相対位置条件'
+
+  Skills:
+    OnTimer:
+      # ターゲットが上にいる場合
+      - name: AboveTargetSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'dy > 5'  # Y軸の差分が5以上
+        skills:
+          - skill: JumpAttackSkill
+
+      # ターゲットが横にいる場合
+      - name: SideAttackSkill
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: 'math.abs(dy) < 2 && target.distance < 10'
+        skills:
+          - skill: HorizontalSlashSkill
+
+---
+
+# 条件式のベストプラクティス
+BestPractices:
+  Type: ZOMBIE
+  Display: '&fベストプラクティス'
+
+  Skills:
+    OnTimer:
+      # ✅ 良い例: 明確で読みやすい条件
+      - name: GoodCondition
+        interval: 100
+        targeter:
+          type: NearestPlayer
+        condition: |
+          entity.health < entity.maxHealth * 0.3 &&
+          target.distance < 15 &&
+          world.isNight == true
+        skills:
+          - skill: NightHealSkill
+
+      # ❌ 避けるべき: 複雑すぎる条件（分割推奨）
+      # condition: |
+      #   (entity.health < 20 && target.distance < 10 && world.time > 13000) ||
+      #   (entity.health < 50 && target.level > 20 && world.difficulty == "HARD") ||
+      #   (math.random() < 0.1 && target.gameMode == "SURVIVAL")
+      #
+      # 代わりに複数のスキルに分割する
+
+---
+
+# パフォーマンスのヒント
+PerformanceTips:
+# 1. 頻繁に評価される条件は簡潔に
+#    ✅ condition: 'target.distance < 10'
+#    ❌ condition: 'math.sqrt((target.x - entity.x)^2 + ...) < 10'
+
+# 2. 条件の順序を最適化（早期リターン）
+#    ✅ condition: 'target.distance < 10 && entity.health < 20'
+#    ❌ condition: 'entity.health < 20 && target.distance < 10'
+#    （距離チェックの方が軽量なので先に評価）
+
+# 3. キャッシュを活用（同じ式は自動的にキャッシュされる）
+#    CELEngineManagerが自動的に最適化
+
+# 4. math.random()の多用を避ける
+#    ランダム性が必要な場合は適切な間隔で

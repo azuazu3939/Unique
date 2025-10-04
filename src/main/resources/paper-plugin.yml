@@ -1,7 +1,6 @@
 name: unique
 version: @version@
 main: com.github.azuazu3939.unique.Unique
-bootstrapper: com.github.azuazu3939.unique.Bootstrap
 api-version: '1.21'
 folia-supported: true
 load: STARTUP
@@ -13,13 +12,24 @@ dependencies:
     packetevents:
       load: BEFORE
 
+commands:
+  unique:
+    description: Main command for Unique plugin
+    aliases: [uq, uni]
+    usage: /unique <reload|list|spawn|debug>
+    permission: unique.command
+
+# Permissions
 permissions:
-  unique.use:
-    description: Allows use of unique commands
-    default: true
-  unique.spawn:
-    description: Allows spawning custom mobs
+  unique.command:
+    description: Access to Unique commands
     default: op
   unique.reload:
-    description: Allows reloading the plugin configuration
+    description: Reload plugin configuration
+    default: op
+  unique.spawn:
+    description: Spawn custom mobs
+    default: op
+  unique.debug:
+    description: Access debug commands
     default: op

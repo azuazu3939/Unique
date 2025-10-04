@@ -1,0 +1,125 @@
+# ============================================
+# サンプル: CELテスト例
+# ============================================
+# /unique debug cel コマンドでテスト可能な式の例
+
+# 基本的な数値計算
+BasicMath:
+  expressions:
+    - '1 + 1'                    # 期待値: 2
+    - '10 * 5'                   # 期待値: 50
+    - 'math.max(10, 20)'         # 期待値: 20
+    - 'math.min(5, 3)'           # 期待値: 3
+    - 'math.floor(3.7)'          # 期待値: 3
+    - 'math.ceil(3.2)'           # 期待値: 4
+    - 'math.round(3.5)'          # 期待値: 4
+    - 'math.sqrt(16)'            # 期待値: 4.0
+    - 'math.pow(2, 8)'           # 期待値: 256.0
+
+# 文字列操作
+StringOperations:
+  expressions:
+    - 'string.contains("Hello World", "World")'     # 期待値: true
+    - 'string.startsWith("Minecraft", "Mine")'      # 期待値: true
+    - 'string.endsWith("Server", "ver")'            # 期待値: true
+    - 'string.toLowerCase("HELLO")'                 # 期待値: "hello"
+    - 'string.toUpperCase("world")'                 # 期待値: "WORLD"
+    - 'string.length("Test")'                       # 期待値: 4
+
+# Boolean条件
+BooleanConditions:
+  expressions:
+    - 'true && true'             # 期待値: true
+    - 'true || false'            # 期待値: true
+    - '!false'                   # 期待値: true
+    - '10 > 5'                   # 期待値: true
+    - '3 < 2'                    # 期待値: false
+    - '5 >= 5'                   # 期待値: true
+    - '10 == 10'                 # 期待値: true
+    - '5 != 3'                   # 期待値: true
+
+# 複合条件
+ComplexConditions:
+  expressions:
+    - '(10 > 5) && (3 < 5)'                        # 期待値: true
+    - '(5 > 10) || (3 < 5)'                        # 期待値: true
+    - '!(5 > 10) && (3 < 5)'                       # 期待値: true
+    - 'math.max(10, 20) > 15'                      # 期待値: true
+    - 'string.contains("test", "es") && 5 > 3'     # 期待値: true
+
+# ランダム性テスト
+RandomTests:
+  expressions:
+    - 'math.random()'                              # 期待値: 0.0-1.0のランダム値
+    - 'math.random() >= 0 && math.random() <= 1'   # 期待値: true
+    - 'math.floor(math.random() * 100)'            # 期待値: 0-99のランダム整数
+
+# エンティティ変数テスト（実際のエンティティが必要）
+EntityVariableTests:
+  # 注意: これらはエンティティコンテキストが必要
+  expressions_with_entity:
+    - 'entity.type == "ZOMBIE"'
+    - 'entity.health > 0'
+    - 'entity.maxHealth >= entity.health'
+    - 'entity.location.y > 60'
+    - 'entity.location.world == "world"'
+
+# プレイヤー変数テスト（実際のプレイヤーが必要）
+PlayerVariableTests:
+  expressions_with_player:
+    - 'player.gameMode == "SURVIVAL"'
+    - 'player.level >= 0'
+    - 'player.foodLevel <= 20'
+    - 'player.isSneaking == false'
+    - 'string.length(player.name) > 0'
+
+# ワールド変数テスト
+WorldVariableTests:
+  expressions_with_world:
+    - 'world.time >= 0 && world.time < 24000'
+    - 'world.isDay == !world.isNight'
+    - 'world.difficulty != ""'
+    - 'world.playerCount >= 0'
+
+# 距離計算テスト（ターゲットが必要）
+DistanceTests:
+  expressions_with_target:
+    - 'target.distance >= 0'
+    - 'target.distanceSquared >= 0'
+    - 'target.distance == math.sqrt(target.distanceSquared)'
+    - 'dx * dx + dy * dy + dz * dz == target.distanceSquared'
+
+# エラーが発生する式（テスト用）
+ErrorCases:
+  invalid_expressions:
+    - '1 /'                      # 構文エラー
+    - 'unknown_variable'         # 未定義変数
+    - 'math.undefined(5)'        # 未定義関数
+    - '1 + "text"'              # 型エラー
+
+# パフォーマンステスト
+PerformanceTests:
+  # 簡単な式（キャッシュ効果をテスト）
+  simple:
+    - '1 + 1'
+    - '5 > 3'
+    - 'true && true'
+
+  # 中程度の式
+  medium:
+    - 'math.max(10, 20) + math.min(5, 3)'
+    - 'string.contains("test", "es") && math.random() < 0.5'
+
+  # 複雑な式
+  complex:
+    - '(math.sqrt(16) + math.pow(2, 3)) * (math.max(10, 20) - math.min(5, 3))'
+    - 'string.startsWith("Hello", "He") && string.endsWith("World", "ld") && math.random() > 0.3'
+
+---
+
+# デバッグコマンド使用例:
+# /unique debug cel test "1 + 1"
+# /unique debug cel test "entity.health > 20" @s
+# /unique debug cel cache
+# /unique debug cel stats
+# /unique debug cel validate mobs/custom_zombie.yml

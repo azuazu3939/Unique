@@ -1,0 +1,59 @@
+# ============================================
+# Unique Plugin Configuration
+# ============================================
+# このファイルはHopliteで読み込まれます
+# 省略された項目はデフォルト値が使用されます
+
+# デバッグ設定
+debug:
+  # デバッグモード（詳細ログ出力）
+  enabled: true
+
+  # 詳細モード（さらに詳しいログ）
+  verbose: false
+
+  # スキル実行ログ
+  log_skill_execution: true
+
+  # CEL評価ログ
+  log_cel_evaluation: false
+
+  # タイミングログ
+  log_timings: false
+
+# パフォーマンス設定
+performance:
+  # 非同期処理のデフォルト設定
+  async_by_default: true
+
+  # パケットエンティティの更新間隔（tick）
+  packet_entity_update_interval: 1
+
+  # スキル実行の最大同時実行数
+  max_concurrent_skills: 100
+
+# スポーン設定
+spawn:
+  # スポーンシステムの有効化
+  enabled: true
+
+  # スポーンチェック間隔（tick）
+  check_interval: 20
+
+  # 最大スポーン数（サーバー全体）
+  max_total_spawns: 200
+
+# CEL設定
+cel:
+  # CEL式のキャッシュサイズ
+  # 大きいほどパフォーマンスが向上しますが、メモリを消費します
+  cache_size: 1000
+
+  # CEL評価のタイムアウト（ミリ秒）
+  # この時間を超えると警告が表示されます
+  evaluation_timeout: 100
+
+# 実験的機能
+experimental:
+  # 新機能のテスト用フラグ
+  enable_new_features: false

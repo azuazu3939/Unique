@@ -1,0 +1,83 @@
+# ============================================
+# 設定テスト用サンプル
+# ============================================
+# ConfigManagerのテストに使用
+
+# テストケース1: 正常な設定
+normal_config:
+  debug:
+    enabled: true
+    verbose: false
+    log_skill_execution: true
+    log_cel_evaluation: false
+    log_timings: false
+
+  performance:
+    async_by_default: true
+    packet_entity_update_interval: 1
+    max_concurrent_skills: 100
+
+  spawn:
+    enabled: true
+    check_interval: 20
+    max_total_spawns: 200
+
+  cel:
+    cache_size: 1000
+    evaluation_timeout: 100
+
+  experimental:
+    enable_new_features: false
+
+---
+
+# テストケース2: 無効な設定（検証エラー）
+invalid_config:
+  cel:
+    cache_size: -1  # ❌ 負の値は不正
+    evaluation_timeout: -100  # ❌ 負の値は不正
+
+  performance:
+    max_concurrent_skills: 0  # ❌ 0以下は不正
+
+  spawn:
+    check_interval: 0  # ❌ 0以下は不正
+    max_total_spawns: -1  # ❌ 負の値は不正
+
+---
+
+# テストケース3: 境界値
+boundary_values:
+  cel:
+    cache_size: 0  # ✓ 最小値
+    evaluation_timeout: 0  # ✓ 最小値
+
+  performance:
+    max_concurrent_skills: 1  # ✓ 最小値
+
+  spawn:
+    check_interval: 1  # ✓ 最小値
+    max_total_spawns: 0  # ✓ 最小値
+
+---
+
+# テストケース4: 極端な値
+extreme_values:
+  cel:
+    cache_size: 10000  # 大きな値
+    evaluation_timeout: 10000  # 長いタイムアウト
+
+  performance:
+    max_concurrent_skills: 1000  # 大量の同時実行
+
+  spawn:
+    check_interval: 1  # 高頻度チェック
+    max_total_spawns: 10000  # 大量スポーン
+
+---
+
+# デバッグコマンド使用例:
+# /unique config reload
+# /unique config validate
+# /unique config debug
+# /unique config test boundary_values

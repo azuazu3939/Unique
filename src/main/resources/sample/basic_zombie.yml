@@ -1,0 +1,200 @@
+# ============================================
+# サンプル: 基本的なカスタムゾンビ
+# ============================================
+# このファイルは src/main/resources/sample/ に配置されます
+# 実際の使用時は plugins/Unique/mobs/ にコピーしてください
+
+# 最小構成のゾンビ（ほぼデフォルト値）
+SimpleZombie:
+  Type: ZOMBIE
+  # Display省略 = "ZOMBIE"
+  # Health省略 = 20（バニラの値）
+  # AI省略 = バニラの値
+  # Skills省略 = スキルなし
+
+---
+
+# 基本的なカスタムゾンビ（一部カスタマイズ）
+BasicCustomZombie:
+  Type: ZOMBIE
+  Display: '&cカスタムゾンビ'
+  Health: 40
+  Damage: 8
+
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 24
+
+---
+
+# スキル付きゾンビ（タイマースキル）
+SkillZombie:
+  Type: ZOMBIE
+  Display: '&6スキル使いゾンビ'
+  Health: 60
+  Damage: 10
+
+  # タイマースキルの例
+  Skills:
+    OnTimer:
+      # 5秒ごとにファイアボール発射
+      - name: FireballAttack
+        interval: 100  # 100tick = 5秒
+
+        # ターゲッター指定（Mob側で指定）
+        targeter:
+          type: NearestPlayer
+          range: 20
+          condition: 'target.gameMode != "CREATIVE"'
+
+        # 条件: 距離が5-30ブロック
+        condition: 'target.distance > 5 && target.distance < 30'
+
+        # スキル実行（meta省略 = デフォルト値）
+        skills:
+          - skill: FireballSkill
+            # meta省略 = 非同期、遅延なし、死亡時キャンセル
+
+---
+
+# HP管理付きゾンビ（ダメージ時スキル）
+DefensiveZombie:
+  Type: ZOMBIE
+  Display: '&b防御型ゾンビ'
+  Health: 100
+  Damage: 5
+
+  AI:
+    MovementSpeed: 0.2
+    KnockbackResistance: 0.5
+
+  Skills:
+    # HP50%以下で緊急回復
+    OnDamaged:
+      - name: EmergencyHeal
+        condition: 'entity.health < entity.maxHealth * 0.5'
+
+        # 自分自身をターゲット
+        targeter:
+          type: Self
+
+        # 回復は同期処理が必要
+        meta:
+          sync: true
+
+        skills:
+          - skill: ParticleEffect
+            # パーティクルは非同期OK
+            meta:
+              sync: false
+
+          - skill: HealSkill
+            # HP操作は同期必須
+            meta:
+              sync: true
+              executeDelay: 100ms
+
+          - skill: BuffSkill
+            meta:
+              sync: true
+              executeDelay: 200ms
+
+---
+
+# 複雑なスキルチェーン
+AdvancedZombie:
+  Type: ZOMBIE
+  Display: '&5上級ゾンビ'
+  Health: 150
+  Damage: 15
+
+  AI:
+    MovementSpeed: 0.35
+    FollowRange: 32
+
+  Skills:
+    # タイマースキル: 複数の攻撃を順次実行
+    OnTimer:
+      - name: ComboAttack
+        interval: 200  # 10秒ごと
+
+        targeter:
+          type: NearestPlayer
+          range: 25
+
+        condition: 'target.distance < 20'
+
+        # メタスキル設定
+        meta:
+          executeDelay: 0ms
+          effectDelay: 0ms
+          cancelOnDeath: true
+          sync: false
+
+        skills:
+          # Phase 1: チャージエフェクト
+          - skill: ChargeEffect
+            meta:
+              sync: false
+              executeDelay: 0ms
+
+          # Phase 2: ファイアボール（1秒後）
+          - skill: FireballSkill
+            meta:
+              sync: true
+              executeDelay: 1s
+              effectDelay: 500ms
+
+          # Phase 3: 爆発音（2秒後）
+          - skill: ExplosionSound
+            meta:
+              sync: false
+              executeDelay: 2s
+
+    # ダメージ時: 反撃
+    OnDamaged:
+      - name: CounterAttack
+        condition: 'damage.amount > 5'
+
+        targeter:
+          type: Attacker
+
+        meta:
+          sync: true
+
+        skills:
+          - skill: KnockbackSkill
+            meta:
+              sync: true
+
+          - skill: DamageSkill
+            meta:
+              sync: true
+              executeDelay: 100ms
+
+---
+
+# ドロップ設定例
+TreasureZombie:
+  Type: ZOMBIE
+  Display: '&e宝物ゾンビ'
+  Health: 80
+
+  # ドロップ設定
+  Drops:
+    # 必ずドロップ
+    - item: ROTTEN_FLESH
+      amount: 2-5
+      chance: 1.0
+
+    # 10%の確率でダイヤ
+    - item: DIAMOND
+      amount: 1-3
+      chance: 0.1
+      condition: 'attacker.type == "PLAYER"'
+
+    # 5%の確率でレアアイテム
+    - item: NETHER_STAR
+      amount: 1
+      chance: 0.05
+      condition: 'attacker.type == "PLAYER" && world.difficulty == "HARD"'

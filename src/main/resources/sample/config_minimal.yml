@@ -1,0 +1,45 @@
+# ============================================
+# 最小構成の設定例
+# ============================================
+# Hopliteのデフォルト値機能により、
+# 必要な項目のみを記述できます
+
+# 例1: デバッグモードだけ変更
+debug:
+  enabled: false
+  # 他の項目は省略 = デフォルト値が使用される
+
+---
+
+# 例2: CEL設定だけカスタマイズ
+cel:
+  cache_size: 2000
+  evaluation_timeout: 200
+  # 他のセクションは省略 = すべてデフォルト値
+
+---
+
+# 例3: 完全にデフォルト値を使用
+# 空のconfig.ymlでもOK（すべてデフォルト値）
+{}
+
+---
+
+# 例4: 実践的な設定例
+debug:
+  enabled: true
+  verbose: false
+  log_skill_execution: true
+
+cel:
+  cache_size: 1500
+  evaluation_timeout: 150
+
+performance:
+  max_concurrent_skills: 150
+
+spawn:
+  enabled: true
+  max_total_spawns: 300
+
+# experimental は省略 = デフォルト値

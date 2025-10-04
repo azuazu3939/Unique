@@ -1,0 +1,319 @@
+# ============================================
+# サンプル: スポーン定義
+# ============================================
+# SpawnManagerで動作するスポーン設定
+
+# 基本的なスポーン設定
+ForestZombieSpawn:
+  # スポーン対象Mob
+  Mob: FireZombie
+
+  # スポーン条件（CEL式）
+  Conditions:
+    - 'world.name == "world"'
+    - 'world.isNight == true'
+
+  # スポーン設定
+  SpawnRate: 100  # 100tick（5秒）ごとにチェック
+  MaxNearby: 5    # 周囲に5体まで
+  ChunkRadius: 3  # チャンク半径3の範囲
+
+  # スポーン範囲（円形）
+  Region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 100  # 半径100ブロック
+
+---
+
+# 矩形範囲でのスポーン
+CaveSkeletonSpawn:
+  Mob: IceSkeleton
+
+  Conditions:
+    - 'world.name == "world"'
+    - 'world.time >= 0 && world.time <= 24000'  # 常に
+
+  SpawnRate: 150
+  MaxNearby: 3
+
+  # スポーン範囲（矩形）
+  Region:
+    type: box
+    min:
+      x: -100
+      y: 10
+      z: -100
+    max:
+      x: 100
+      y: 50
+      z: 100
+
+---
+
+# 固定位置スポーン（ボス）
+DragonBossSpawn:
+  Mob: DragonBoss
+
+  Conditions:
+    - 'world.time == 18000'  # 夜になった瞬間
+    - 'world.playerCount > 0'
+
+  SpawnRate: 600  # 30秒ごとにチェック
+  MaxNearby: 1    # 1体のみ
+
+  # 固定スポーン位置
+  Location:
+    world: world
+    x: 0
+    y: 100
+    z: 0
+    yaw: 0
+    pitch: 0
+
+---
+
+# 高度な条件付きスポーン
+FullMoonSpawn:
+  Mob: FireZombie
+
+  Conditions:
+    - 'world.isNight == true'
+    - 'world.playerCount > 0'
+
+  SpawnRate: 100
+  MaxNearby: 10
+  ChunkRadius: 5
+
+  Region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 200
+
+  # 高度な条件
+  AdvancedConditions:
+    # 満月時のみ
+    moonPhase: FULL_MOON
+
+    # 晴天時のみ
+    weatherRequired: CLEAR
+
+    # プレイヤーレベル10以上
+    playerLevelMin: 10
+
+---
+
+# 雨天時スポーン
+RainyDaySpawn:
+  Mob: IceSkeleton
+
+  Conditions:
+    - 'world.hasStorm == true'
+
+  SpawnRate: 80
+  MaxNearby: 8
+
+  Region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 150
+
+  AdvancedConditions:
+    weatherRequired: RAIN
+
+---
+
+# 雷雨時スポーン
+ThunderStormSpawn:
+  Mob: DragonBoss
+
+  Conditions:
+    - 'world.isThundering == true'
+    - 'math.random() < 0.3'  # 30%の確率
+
+  SpawnRate: 200
+  MaxNearby: 2
+
+  Region:
+    type: box
+    min:
+      x: -200
+      y: 50
+      z: -200
+    max:
+      x: 200
+      y: 120
+      z: 200
+
+  AdvancedConditions:
+    weatherRequired: THUNDER
+
+---
+
+# 昼間スポーン
+DaytimeSpawn:
+  Mob: FireZombie
+
+  Conditions:
+    - 'world.isDay == true'
+    - 'world.time >= 6000 && world.time <= 12000'  # 正午前後
+
+  SpawnRate: 200
+  MaxNearby: 3
+
+  Region:
+    type: circle
+    center:
+      x: 100
+      z: 100
+    radius: 50
+
+---
+
+# 複数条件の組み合わせ
+ComplexSpawn:
+  Mob: DragonBoss
+
+  # CEL条件
+  Conditions:
+    - 'world.isNight == true'
+    - 'world.time >= 18000 && world.time <= 22000'  # 夜の特定時間帯
+    - 'world.playerCount >= 2'  # 2人以上のプレイヤー
+    - 'world.difficulty == "HARD"'  # ハードモード
+
+  SpawnRate: 1200  # 60秒ごと
+  MaxNearby: 1
+
+  Location:
+    world: world
+    x: 0
+    y: 150
+    z: 0
+
+  AdvancedConditions:
+    moonPhase: FULL_MOON
+    weatherRequired: CLEAR
+    playerLevelMin: 20
+
+---
+
+# ランダム位置スポーン
+RandomSpawn:
+  Mob: FireZombie
+
+  Conditions:
+    - 'world.isNight == true'
+    - 'math.random() < 0.5'  # 50%の確率
+
+  SpawnRate: 100
+  MaxNearby: 15
+  ChunkRadius: 8
+
+  Region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 500  # 広範囲
+
+---
+
+# 地下スポーン
+UndergroundSpawn:
+  Mob: IceSkeleton
+
+  Conditions:
+    - 'world.name == "world"'
+
+  SpawnRate: 120
+  MaxNearby: 6
+
+  # 地下専用（Y座標制限）
+  Region:
+    type: box
+    min:
+      x: -150
+      y: 5
+      z: -150
+    max:
+      x: 150
+      y: 40
+      z: 150
+
+---
+
+# 特定バイオームスポーン（CEL式で）
+BiomeSpecificSpawn:
+  Mob: FireZombie
+
+  Conditions:
+    - 'world.isNight == true'
+    # 注意: バイオーム判定はCEL変数に追加が必要
+    # - 'biome.type == "DESERT" || biome.type == "BADLANDS"'
+
+  SpawnRate: 100
+  MaxNearby: 5
+
+  Region:
+    type: circle
+    center:
+      x: 500
+      z: 500
+    radius: 200
+
+---
+
+# イベントスポーン
+EventSpawn:
+  Mob: DragonBoss
+
+  # 特定の条件でのみスポーン
+  Conditions:
+    - 'world.time == 0'  # 夜明け
+    - 'world.playerCount >= 3'
+    - 'math.random() < 0.1'  # 10%の確率
+
+  SpawnRate: 6000  # 5分ごとにチェック
+  MaxNearby: 1
+
+  Location:
+    world: world
+    x: 0
+    y: 200
+    z: 0
+
+---
+
+# スポーンシステムのポイント:
+#
+# 1. Conditions: CEL式で柔軟な条件設定
+#    - world情報を活用
+#    - math.random()で確率制御
+#    - 複数条件のAND結合
+#
+# 2. SpawnRate: チェック間隔（tick単位）
+#    - 低い値 = 高頻度チェック（負荷増）
+#    - 高い値 = 低頻度チェック（負荷減）
+#
+# 3. MaxNearby: 同時存在数の制限
+#    - スポーン過多を防ぐ
+#    - パフォーマンス制御
+#
+# 4. Region: スポーン範囲の制御
+#    - circle: 円形範囲（簡単）
+#    - box: 矩形範囲（細かい制御）
+#
+# 5. Location: 固定位置スポーン
+#    - ボス戦など特定位置で使用
+#    - Regionより優先される
+#
+# 6. AdvancedConditions: 追加の条件
+#    - moonPhase: 月の満ち欠け
+#    - weatherRequired: 天候条件
+#    - playerLevelMin/Max: レベル制限
