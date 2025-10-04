@@ -10,13 +10,13 @@ import org.bukkit.entity.Player
 import java.util.*
 
 /**
- * Handles EntityLib packet-based events for fake entities
- * Since EntityLib entities are client-side only (packets), they don't trigger normal Bukkit events
+ * Handles packet-based events for virtual entities
+ * Since virtual entities are client-side only (packets), they don't trigger normal Bukkit events
  */
 class EntityLibEventHandler(private val plugin: Unique) : PacketListener {
 
     /**
-     * Track damage dealt to EntityLib entities
+     * Track damage dealt to virtual entities
      * Maps entity ID -> (last damager UUID, damage amount, timestamp)
      */
     private val damageTracking = mutableMapOf<Int, DamageInfo>()
@@ -39,7 +39,7 @@ class EntityLibEventHandler(private val plugin: Unique) : PacketListener {
 
     /**
      * Handle entity interaction packets
-     * This includes attacks and right-clicks on EntityLib fake entities
+     * This includes attacks and right-clicks on virtual entities
      */
     private fun handleInteract(event: PacketReceiveEvent) {
         val packet = WrapperPlayClientInteractEntity(event)
@@ -51,13 +51,13 @@ class EntityLibEventHandler(private val plugin: Unique) : PacketListener {
 
         when (packet.action) {
             WrapperPlayClientInteractEntity.InteractAction.ATTACK -> {
-                // Player attacked the EntityLib fake entity
+                // Player attacked the virtual entity
                 handleAttack(mob, player)
             }
 
             WrapperPlayClientInteractEntity.InteractAction.INTERACT,
             WrapperPlayClientInteractEntity.InteractAction.INTERACT_AT -> {
-                // Player right-clicked the EntityLib fake entity
+                // Player right-clicked the virtual entity
                 handleRightClick(mob, player)
             }
 
@@ -66,14 +66,14 @@ class EntityLibEventHandler(private val plugin: Unique) : PacketListener {
     }
 
     /**
-     * Handle player attacking EntityLib entity
+     * Handle player attacking virtual entity
      */
     private fun handleAttack(mob: UniqueMob, player: Player) {
         // Calculate damage (basic implementation - can be enhanced)
         val damage = calculatePlayerDamage(player)
 
         // Track damage for this entity
-        damageTracking[mob.getEntityId()] = DamageInfo(
+        damageTracking[mob.entityId] = DamageInfo(
             damagerUuid = player.uniqueId,
             damage = damage,
             timestamp = System.currentTimeMillis()
@@ -86,7 +86,7 @@ class EntityLibEventHandler(private val plugin: Unique) : PacketListener {
     }
 
     /**
-     * Handle player right-clicking EntityLib entity
+     * Handle player right-clicking virtual entity
      */
     private fun handleRightClick(mob: UniqueMob, player: Player) {
         // Trigger ON_INTERACT event
@@ -128,11 +128,11 @@ class EntityLibEventHandler(private val plugin: Unique) : PacketListener {
     }
 
     /**
-     * Find a UniqueMob by EntityLib entity ID
+     * Find a UniqueMob by virtual entity ID
      */
     private fun findMobByEntityId(entityId: Int): UniqueMob? {
         return plugin.mobManager.getActiveMobs().firstOrNull { mob ->
-            mob.getEntityId() == entityId
+            mob.entityId == entityId
         }
     }
 

@@ -1,7 +1,7 @@
 package com.github.azuazu3939.unique.mob.targeting
 
-import com.github.azuazu3939.unique.entity.BukkitEntityWrapper
-import com.github.azuazu3939.unique.entity.IEntity
+import com.github.azuazu3939.unique.entity.BukkitEntityAdapter
+import com.github.azuazu3939.unique.entity.AbstractEntity
 import com.github.azuazu3939.unique.mob.condition.ConditionEvaluator
 import com.github.azuazu3939.unique.mob.data.TargetSelector
 import org.bukkit.Location
@@ -34,10 +34,10 @@ class TargetResolver(private val conditionEvaluator: ConditionEvaluator) {
     fun resolve(
         selector: TargetSelector?,
         origin: Location,
-        self: IEntity?,
-        target: IEntity?,
-        trigger: IEntity?
-    ): List<IEntity> {
+        self: AbstractEntity?,
+        target: AbstractEntity?,
+        trigger: AbstractEntity?
+    ): List<AbstractEntity> {
         if (selector == null) {
             // Default: target current target
             return target?.let { listOf(it) } ?: emptyList()
@@ -60,37 +60,37 @@ class TargetResolver(private val conditionEvaluator: ConditionEvaluator) {
                 // Origin can be an entity or just a location
                 // For now, return entities at origin location
                 origin.world?.getNearbyLivingEntities(origin, 1.0)
-                    ?.map { BukkitEntityWrapper(it) }
+                    ?.map { BukkitEntityAdapter(it) }
                     ?: emptyList()
             }
 
             "PIR", "PLAYERSINRADIUS", "PLAYERSRADIUS" -> {
                 val range = selector.range ?: 10.0
                 origin.world?.getNearbyPlayers(origin, range)
-                    ?.map { BukkitEntityWrapper(it) } ?: emptyList()
+                    ?.map { BukkitEntityAdapter(it) } ?: emptyList()
             }
 
             "EIR", "ENTITIESINRADIUS", "ENTITIESRADIUS" -> {
                 val range = selector.range ?: 10.0
-                val selfUuid = self?.getUniqueId()
+                val selfUuid = self?.uuid
                 origin.world?.getNearbyLivingEntities(origin, range)
                     ?.filter { it.uniqueId != selfUuid } // Exclude self
-                    ?.map { BukkitEntityWrapper(it) }
+                    ?.map { BukkitEntityAdapter(it) }
                     ?: emptyList()
             }
 
             "PNO", "PLAYERSNEARORIGIN", "PLAYERSORIGIN" -> {
                 val range = selector.range ?: 10.0
                 origin.world?.getNearbyPlayers(origin, range)
-                    ?.map { BukkitEntityWrapper(it) } ?: emptyList()
+                    ?.map { BukkitEntityAdapter(it) } ?: emptyList()
             }
 
             "ENO", "ENTITIESNEARORIGIN", "ENTITIESORIGIN" -> {
                 val range = selector.range ?: 10.0
-                val selfUuid = self?.getUniqueId()
+                val selfUuid = self?.uuid
                 origin.world?.getNearbyLivingEntities(origin, range)
                     ?.filter { it.uniqueId != selfUuid } // Exclude self
-                    ?.map { BukkitEntityWrapper(it) }
+                    ?.map { BukkitEntityAdapter(it) }
                     ?: emptyList()
             }
 
@@ -115,10 +115,10 @@ class TargetResolver(private val conditionEvaluator: ConditionEvaluator) {
     fun resolveSimple(
         targetString: String?,
         origin: Location,
-        self: IEntity?,
-        target: IEntity?,
-        trigger: IEntity?
-    ): List<IEntity> {
+        self: AbstractEntity?,
+        target: AbstractEntity?,
+        trigger: AbstractEntity?
+    ): List<AbstractEntity> {
         if (targetString == null) {
             return target?.let { listOf(it) } ?: emptyList()
         }

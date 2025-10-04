@@ -2,7 +2,7 @@ package com.github.azuazu3939.unique.skill
 
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.cel.CelEvaluator
-import com.github.azuazu3939.unique.entity.IEntity
+import com.github.azuazu3939.unique.entity.AbstractEntity
 import com.github.azuazu3939.unique.mob.condition.ConditionEvaluator
 import com.github.azuazu3939.unique.mob.data.SkillConfig
 import com.github.azuazu3939.unique.mob.data.SkillInstance
@@ -46,8 +46,8 @@ class SkillExecutor(
         mobLocation: Location,
         mobHealth: Double,
         mobMaxHealth: Double,
-        target: IEntity?,
-        trigger: IEntity?,
+        target: AbstractEntity??,
+        trigger: AbstractEntity??,
         originLocation: Location,
         skillMetadata: Map<String, SkillInstance>
     ) {
@@ -74,8 +74,8 @@ class SkillExecutor(
         mobLocation: Location,
         mobHealth: Double,
         mobMaxHealth: Double,
-        target: IEntity?,
-        trigger: IEntity?,
+        target: AbstractEntity??,
+        trigger: AbstractEntity??,
         originLocation: Location
     ) {
         // Resolve targets
@@ -173,7 +173,7 @@ class SkillExecutor(
      */
     private suspend fun executeSkillEffects(
         skill: SkillConfig,
-        targets: List<IEntity>,
+        targets: List<AbstractEntity?>,
         mobLocation: Location,
         mobHealth: Double,
         mobMaxHealth: Double,
@@ -184,7 +184,7 @@ class SkillExecutor(
                 player = targetEntity as? Player,
                 mobHealth = mobHealth,
                 mobMaxHealth = mobMaxHealth,
-                targetDistance = mobLocation.distance(targetEntity.getLoc()),
+                targetDistance = mobLocation.distance(targetEntity?.getLocation() ?: mobLocation),
                 cooldownReady = cooldownReady
             )
 
@@ -194,20 +194,20 @@ class SkillExecutor(
             }
 
             if (damage != null && damage > 0) {
-                targetEntity.damage(damage, null)
+                targetEntity?.damage(damage, null)
             }
 
             // Apply potion effects
             applyPotionEffects(skill, targetEntity, targetContext)
 
             // Spawn particles
-            spawnParticles(skill, targetEntity.getLoc())
+            spawnParticles(skill, targetEntity?.getLocation() ?: mobLocation)
 
             // Play sound
-            playSound(skill, targetEntity.getLoc())
+            playSound(skill, targetEntity?.getLocation() ?: mobLocation)
 
             // Log execution
-            val targetName = if (targetEntity is Player) targetEntity.name else targetEntity.getEntityType().name
+            val targetName = if (targetEntity is Player) targetEntity.name else targetEntity?.entityType?.name ?: "null"
             plugin.debugLogger.skillExecution(skill.id, skill.id, targetName, damage)
         }
     }
@@ -218,9 +218,9 @@ class SkillExecutor(
     private fun resolveTargets(
         instance: SkillInstance?,
         originLocation: Location,
-        target: IEntity?,
-        trigger: IEntity?
-    ): List<IEntity> {
+        target: AbstractEntity??,
+        trigger: AbstractEntity??
+    ): List<AbstractEntity?> {
         return if (instance?.targetSelector != null) {
             targetResolver.resolve(
                 selector = instance.targetSelector,
@@ -250,8 +250,8 @@ class SkillExecutor(
         mobLocation: Location,
         mobHealth: Double,
         mobMaxHealth: Double,
-        target: IEntity?,
-        trigger: IEntity?
+        target: AbstractEntity??,
+        trigger: AbstractEntity??
     ): Boolean {
         // Check chance
         if (instance?.chance != null && Random.nextDouble() > instance.chance) {
@@ -313,7 +313,7 @@ class SkillExecutor(
      */
     private fun evaluateTrigger(
         skill: SkillConfig,
-        target: IEntity?,
+        target: AbstractEntity??,
         mobHealth: Double,
         mobMaxHealth: Double,
         mobLocation: Location,
@@ -323,7 +323,7 @@ class SkillExecutor(
             player = target as? Player,
             mobHealth = mobHealth,
             mobMaxHealth = mobMaxHealth,
-            targetDistance = target?.getLoc()?.distance(mobLocation) ?: Double.MAX_VALUE,
+            targetDistance = target?.getLocation()?.distance(mobLocation) ?: Double.MAX_VALUE,
             cooldownReady = cooldownReady
         )
         return celEvaluator.evaluateBoolean(skill.trigger, context)
@@ -370,7 +370,7 @@ class SkillExecutor(
     /**
      * Apply potion effects to target
      */
-    private fun applyPotionEffects(skill: SkillConfig, target: IEntity, context: Map<String, Any>) {
+    private fun applyPotionEffects(skill: SkillConfig, target: AbstractEntity?, context: Map<String, Any>) {
         skill.effects.forEach { effectConfig ->
             try {
                 val shouldApply = effectConfig.condition?.let { condition ->
@@ -389,7 +389,7 @@ class SkillExecutor(
                             effectConfig.duration,
                             effectConfig.amplifier
                         )
-                        target.addPotionEffect(effect)
+                        target?.addPotionEffect(effect)
                     }
                 }
             } catch (e: Exception) {

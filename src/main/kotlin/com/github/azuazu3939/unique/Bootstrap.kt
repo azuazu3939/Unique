@@ -7,6 +7,8 @@ import io.papermc.paper.plugin.bootstrap.BootstrapContext
 import io.papermc.paper.plugin.bootstrap.PluginBootstrap
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents
+import org.bukkit.Bukkit
+import org.bukkit.plugin.java.JavaPlugin
 
 @Suppress("UnstableApiUsage")
 class Bootstrap : PluginBootstrap {
@@ -25,6 +27,20 @@ class Bootstrap : PluginBootstrap {
                             .requires { it.sender.hasPermission("unique.spawn") }
                             .then(
                                 Commands.argument("mobId", StringArgumentType.string())
+                                    .suggests { _, builder ->
+                                        // Get registered mob IDs dynamically
+                                        val pluginInstance = JavaPlugin.getPlugin(Unique::class.java)
+                                        if (pluginInstance.isEnabled) {
+                                            try {
+                                                pluginInstance.mobManager.getAllMobDefinitions()
+                                                    .map { it.id }
+                                                    .forEach { builder.suggest(it) }
+                                            } catch (e: Exception) {
+                                                // mobManager not initialized yet
+                                            }
+                                        }
+                                        builder.buildFuture()
+                                    }
                                     .executes { ctx ->
                                         val mobId = StringArgumentType.getString(ctx, "mobId")
                                         handleSpawn(ctx.source, mobId, 1, null)
@@ -40,6 +56,18 @@ class Bootstrap : PluginBootstrap {
                                             }
                                             .then(
                                                 Commands.argument("players", StringArgumentType.greedyString())
+                                                    .suggests { _, builder ->
+                                                        // Suggest @selectors
+                                                        builder.suggest("@a")  // All players
+                                                        builder.suggest("@s")  // Self
+                                                        builder.suggest("@p")  // Nearest player
+
+                                                        // Suggest online player names
+                                                        Bukkit.getOnlinePlayers().forEach { player ->
+                                                            builder.suggest(player.name)
+                                                        }
+                                                        builder.buildFuture()
+                                                    }
                                                     .executes { ctx ->
                                                         val mobId = StringArgumentType.getString(ctx, "mobId")
                                                         val amount = IntegerArgumentType.getInteger(ctx, "amount")
@@ -72,30 +100,30 @@ class Bootstrap : PluginBootstrap {
         amount: Int,
         playersArg: String?
     ) {
+        val plugin = Bukkit.getPluginManager().getPlugin("unique") as? Unique
+        if (plugin == null || !plugin.isEnabled) {
+            source.sender.sendMessage("§cPlugin not loaded or not enabled!")
+            return
+        }
+
         val executor = source.executor
         if (executor !is org.bukkit.entity.Player) {
             source.sender.sendMessage("§cThis command can only be used by players.")
             return
         }
 
-        val plugin = org.bukkit.Bukkit.getPluginManager().getPlugin("unique") as? Unique
-        if (plugin == null) {
-            source.sender.sendMessage("§cPlugin not found!")
-            return
-        }
-
         // Parse target players
         val viewers = if (playersArg.isNullOrBlank()) {
             // Default: all online players
-            org.bukkit.Bukkit.getOnlinePlayers().toList()
+            listOf(executor)
         } else {
             // Parse player names/selectors
             when (playersArg) {
-                "@a" -> org.bukkit.Bukkit.getOnlinePlayers().toList()
-                "@s" -> listOf(executor)
+                "@a" -> executor.world.players
+                "@s", "@p" -> listOf(executor)
                 else -> {
                     // Try to find player by name
-                    val player = org.bukkit.Bukkit.getPlayerExact(playersArg)
+                    val player = Bukkit.getPlayer(playersArg)
                     if (player != null) {
                         listOf(player)
                     } else {
@@ -136,12 +164,7 @@ class Bootstrap : PluginBootstrap {
     }
 
     private fun handleReload(source: io.papermc.paper.command.brigadier.CommandSourceStack) {
-        val plugin = org.bukkit.Bukkit.getPluginManager().getPlugin("unique") as? Unique
-        if (plugin == null) {
-            source.sender.sendMessage("§cPlugin not found!")
-            return
-        }
-
+        val plugin = JavaPlugin.getPlugin(Unique::class.java)
         try {
             plugin.reloadConfigs()
             source.sender.sendMessage("§aConfig and Mobs files reloaded successfully!")

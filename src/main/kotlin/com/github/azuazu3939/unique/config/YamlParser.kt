@@ -76,6 +76,35 @@ object YamlParser {
     }
 
     /**
+     * Get string ignoring case
+     * Supports: id/Id/ID, displayName/DisplayName, entityType/EntityType, etc.
+     */
+    fun getString(config: ConfigurationSection, key: String): String? {
+        // Try exact match first
+        config.getString(key)?.let { return it }
+
+        // Try case-insensitive match
+        val keys = config.getKeys(false)
+        val matchingKey = keys.firstOrNull { it.equals(key, ignoreCase = true) }
+        return matchingKey?.let { config.getString(it) }
+    }
+
+    /**
+     * Get double ignoring case
+     */
+    fun getDouble(config: ConfigurationSection, key: String, default: Double): Double {
+        // Try exact match first
+        if (config.contains(key)) {
+            return config.getDouble(key, default)
+        }
+
+        // Try case-insensitive match
+        val keys = config.getKeys(false)
+        val matchingKey = keys.firstOrNull { it.equals(key, ignoreCase = true) }
+        return matchingKey?.let { config.getDouble(it, default) } ?: default
+    }
+
+    /**
      * Parse effect configuration from map
      */
     fun parseEffect(map: Map<*, *>): EffectConfig? {

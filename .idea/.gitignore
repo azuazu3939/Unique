@@ -1,0 +1,20 @@
+# デフォルトの無視対象ファイル
+/shelf/
+/workspace.xml
+/vcs.xml
+/modules.xml
+/misc.xml
+/kotlinc.xml
+/jarRepositories.xml
+/gradle.xml
+/compiler.xml
+/.gitignore
+/.name
+/modules/
+/CLAUDE.md
+
+# エディターベースの HTTP クライアントリクエスト
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml

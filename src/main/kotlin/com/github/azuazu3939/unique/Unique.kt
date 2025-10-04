@@ -14,13 +14,8 @@ import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.event.PacketListenerPriority
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
-import me.tofaa.entitylib.APIConfig
-import me.tofaa.entitylib.EntityLib
-import me.tofaa.entitylib.spigot.SpigotEntityLibPlatform
 
 class Unique : SuspendingJavaPlugin() {
-
-    lateinit var plugin: Unique
 
     lateinit var debugLogger: DebugLogger
         private set
@@ -42,74 +37,68 @@ class Unique : SuspendingJavaPlugin() {
 
     private lateinit var configLoader: ConfigLoader
 
+    @Suppress("UnstableApiUsage")
     override fun onLoad() {
-        // Initialize debug logger early
         debugLogger = DebugLogger(logger, 1)
 
-        // Initialize platform scheduler
         platformScheduler = PlatformDetector.getScheduler()
         debugLogger.critical("Detected platform: ${PlatformDetector.getPlatformName()}")
 
         PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this))
+        PacketEvents.getAPI().settings.checkForUpdates(false)
         PacketEvents.getAPI().load()
 
-        debugLogger.critical("PacketEvents initialized")
+        debugLogger.critical("PacketEvents loaded in onLoad()")
     }
 
     override fun onEnable() {
-        plugin = this
+        saveDefaultConfig()
+
         PacketEvents.getAPI().init()
-        EntityLib.init(
-            SpigotEntityLibPlatform(this),
-            APIConfig(PacketEvents.getAPI()).tickTickables().usePlatformLogger())
+        debugLogger.critical("PacketEvents initialized in onEnable()")
 
-        debugLogger.critical("EntityLib initialized")
-
-        // Initialize AI manager
-        aiManager = AIManager()
-
-        // Initialize skill manager
-        skillManager = SkillManager(this)
-
-        // Initialize mob manager
-        mobManager = MobManager(this)
-
-        // Initialize timer manager
-        timerManager = TimerManager(this)
-        timerManager.start()
-        debugLogger.detailed("TimerManager initialized")
-
-        // Initialize config loader
         configLoader = ConfigLoader(this)
 
-        // Register event listeners
+        aiManager = AIManager()
+        skillManager = SkillManager(this)
+        mobManager = MobManager(this)
+        timerManager = TimerManager(this)
+        debugLogger.detailed("Managers initialized")
+
         server.pluginManager.registerEvents(MobEventListener(this), this)
         debugLogger.detailed("Bukkit event listeners registered")
 
-        // Register EntityLib packet listener for fake entity interactions
-        val entityLibHandler = EntityLibEventHandler(this)
-        PacketEvents.getAPI().eventManager.registerListener(entityLibHandler, PacketListenerPriority.HIGHEST)
-        debugLogger.detailed("EntityLib packet listener registered")
+        val entityEventHandler = EntityLibEventHandler(this)
+        PacketEvents.getAPI().eventManager.registerListener(
+            entityEventHandler,
+            PacketListenerPriority.HIGHEST
+        )
+        debugLogger.detailed("Virtual entity packet listener registered")
 
-        // Load config, skills, and mobs on startup
-        configLoader.loadAll()
+        timerManager.start()
+        debugLogger.detailed("TimerManager started")
 
+        reloadConfigs()
         debugLogger.critical("Unique plugin has been enabled!")
     }
 
     override fun onDisable() {
-        // Stop timer manager
         if (::timerManager.isInitialized) {
             timerManager.stop()
+            debugLogger.detailed("TimerManager stopped")
         }
 
-        // Cleanup all mobs
         if (::mobManager.isInitialized) {
             mobManager.clear()
+            debugLogger.detailed("MobManager cleared")
         }
 
-        // Terminate PacketEvents
-        PacketEvents.getAPI().terminate()
+        try {
+            PacketEvents.getAPI().terminate()
+            debugLogger.critical("PacketEvents terminated")
+        } catch (e: Exception) {
+            debugLogger.critical("Error terminating PacketEvents: ${e.message}")
+        }
 
         debugLogger.critical("Unique plugin has been disabled!")
     }

@@ -3,8 +3,9 @@ package com.github.azuazu3939.unique.mob
 import com.destroystokyo.paper.ParticleBuilder
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.cel.CelEvaluator
-import com.github.azuazu3939.unique.entity.BukkitEntityWrapper
-import com.github.azuazu3939.unique.entity.IEntity
+import com.github.azuazu3939.unique.entity.BukkitEntityAdapter
+import com.github.azuazu3939.unique.entity.AbstractEntity
+import com.github.azuazu3939.unique.entity.EntityState
 import com.github.azuazu3939.unique.event.SkillTrigger
 import com.github.azuazu3939.unique.event.TriggerEvent
 import com.github.azuazu3939.unique.event.TriggerParser
@@ -16,11 +17,7 @@ import com.github.azuazu3939.unique.mob.targeting.TargetResolver
 import com.github.azuazu3939.unique.nms.SchedulerTask
 import com.github.azuazu3939.unique.skill.CooldownManager
 import com.github.azuazu3939.unique.skill.SkillExecutor
-import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes
 import com.github.shynixn.mccoroutine.folia.launch
-import me.tofaa.entitylib.meta.types.LivingEntityMeta
-import me.tofaa.entitylib.wrapper.WrapperEntity
-import me.tofaa.entitylib.wrapper.WrapperLivingEntity
 import net.kyori.adventure.text.Component
 import org.bukkit.Location
 import org.bukkit.Particle
@@ -118,7 +115,7 @@ class MobManager(private val plugin: Unique) {
     private fun startTicking() {
         tickTask = platformScheduler.runTaskTimer(plugin, {
             tickAllMobs()
-        }, 0L, tickRate)
+        }, 1L, tickRate)
         plugin.debugLogger.detailed("Mob ticking started (platform: ${if (platformScheduler.isFolia()) "Folia" else "Paper"})")
     }
 
@@ -276,7 +273,7 @@ class MobManager(private val plugin: Unique) {
 
 /**
  * Represents a single custom mob instance
- * Implements IEntity to provide a unified interface for both packet and Bukkit entities
+ * Extends AbstractEntity using VirtualEntity for packet-based rendering
  */
 class UniqueMob(
     private val plugin: Unique,
@@ -284,15 +281,17 @@ class UniqueMob(
     val definition: MobDefinition,
     private var location: Location,
     private val celEvaluator: CelEvaluator
-) : IEntity {
-    val uuid: UUID = randomUUID()
-    private var entity: WrapperEntity? = null
+) : AbstractEntity() {
+    override val uuid: UUID = randomUUID()
+    override val entityId: Int = Random.nextInt(100000, 999999)
+    override val entityType: EntityType = definition.entityType
+
+    private var entity: com.github.azuazu3939.unique.entity.VirtualEntity? = null
     private var health: Double = definition.health
     private val cooldownManager = CooldownManager()
     private val conditionEvaluator = ConditionEvaluator()
     private val targetResolver = TargetResolver(conditionEvaluator)
     private val skillExecutor = SkillExecutor(plugin, celEvaluator, conditionEvaluator, targetResolver, cooldownManager)
-    private val id: Int = Random(uuid.leastSignificantBits).nextInt()
 
     // Potion effects management for packet entities
     // Map: PotionEffectType -> (PotionEffect, expirationTime in millis)
@@ -471,14 +470,9 @@ class UniqueMob(
     private val spawnLocation: Location = location.clone()
 
     /**
-     * Get the current location of the mob
-     */
-    fun getLocation(): Location = location.clone()
-
-    /**
      * Get the EntityLib entity ID
      */
-    fun getEntityId(): Int = id
+    fun getEntityId(): Int = entityId
 
     /**
      * Get the current AI state
@@ -501,38 +495,24 @@ class UniqueMob(
      */
     fun spawn(viewers: Collection<Player>) {
         try {
-            // Create EntityLib entity based on entity type
-            val wrapperEntity = createEntity(definition.entityType)
+            // Create VirtualEntity with configured properties
+            val virtualEntity = com.github.azuazu3939.unique.entity.VirtualEntity(
+                uuid = uuid,
+                entityId = entityId,
+                entityType = definition.entityType,
+                customName = Component.text(definition.displayName),
+                initialHealth = health,
+                maxHealth = definition.health
+            )
 
-            if (wrapperEntity is WrapperLivingEntity) {
-                // Configure entity metadata
-                val meta = wrapperEntity.entityMeta as? LivingEntityMeta
-                meta?.let {
-                    // Set custom name
-                    it.isCustomNameVisible = true
-                    it.customName = Component.text(definition.displayName)
+            // Spawn entity for all viewers
+            virtualEntity.spawn(location, viewers)
 
-                    // Apply model scale if configured
-                    definition.model?.scale?.let { scale ->
-                        // Note: Scale requires additional metadata configuration
-                        // This depends on the specific entity type
-                    }
-                }
+            entity = virtualEntity
 
-                // Spawn entity for all viewers
-                wrapperEntity.spawn(location.toPacket())
-                viewers.forEach { player ->
-                    wrapperEntity.addViewer(player.uniqueId)
-                }
-
-                entity = wrapperEntity
-
-                // Log spawn with appropriate detail level
-                val locationStr = "${location.world?.name} ${location.blockX}, ${location.blockY}, ${location.blockZ}"
-                plugin.debugLogger.mobSpawn(definition.id, definition.displayName, locationStr, viewers.size)
-            } else {
-                plugin.debugLogger.warning("Failed to spawn ${definition.id}: Entity type ${definition.entityType} is not a living entity")
-            }
+            // Log spawn with appropriate detail level
+            val locationStr = "${location.world?.name} ${location.blockX}, ${location.blockY}, ${location.blockZ}"
+            plugin.debugLogger.mobSpawn(definition.id, definition.displayName, locationStr, viewers.size)
         } catch (e: Exception) {
             plugin.debugLogger.error("Failed to spawn mob ${definition.id}: ${e.message}")
             if (plugin.debugLogger.getDebugLevel() >= 3) {
@@ -542,20 +522,13 @@ class UniqueMob(
     }
 
     /**
-     * Create an EntityLib entity based on the entity type
-     */
-    private fun createEntity(type: EntityType): WrapperEntity {
-        return WrapperEntity(id, uuid, EntityTypes.getByName(type.name))
-    }
-
-    /**
      * Despawn the mob
      */
-    fun despawn() {
+    override fun despawn() {
         // Unregister from timer manager
         plugin.timerManager.unregisterMob(uuid.toString())
 
-        entity?.remove()
+        entity?.despawn()
         entity = null
     }
 
@@ -749,7 +722,7 @@ class UniqueMob(
                     val dx = target.location.x - location.x
                     val dz = target.location.z - location.z
                     location.yaw = Math.toDegrees(atan2(-dx, dz)).toFloat()
-                    entity?.teleport(location.toPacket())
+                    entity?.teleport(location)
                 }
 
                 // Check if charge is complete
@@ -778,7 +751,7 @@ class UniqueMob(
                         val movement = direction.clone().multiply(ai.dashSpeed)
                         val newLocation = location.clone().add(movement)
                         location = newLocation
-                        entity?.teleport(location.toPacket())
+                        entity?.teleport(location)
 
                         // Damage players in path
                         currentTarget?.let { target ->
@@ -885,7 +858,7 @@ class UniqueMob(
                     val dx = target.location.x - location.x
                     val dz = target.location.z - location.z
                     location.yaw = Math.toDegrees(atan2(-dx, dz)).toFloat()
-                    entity?.teleport(location.toPacket())
+                    entity?.teleport(location)
                 }
             }
 
@@ -924,7 +897,7 @@ class UniqueMob(
                     val dx = target.location.x - location.x
                     val dz = target.location.z - location.z
                     location.yaw = Math.toDegrees(atan2(-dx, dz)).toFloat()
-                    entity?.teleport(location.toPacket())
+                    entity?.teleport(location)
                     executeSkills(target)
                 }
             } else {
@@ -948,7 +921,7 @@ class UniqueMob(
                 val dx = target.location.x - location.x
                 val dz = target.location.z - location.z
                 location.yaw = Math.toDegrees(atan2(-dx, dz)).toFloat()
-                entity?.teleport(location.toPacket())
+                entity?.teleport(location)
             }
 
             executeSkills(target)
@@ -1015,7 +988,7 @@ class UniqueMob(
         if (alwaysSkills.isEmpty()) return
 
         // Launch coroutine to execute skills sequentially using SkillExecutor
-        val iPlayer = BukkitEntityWrapper(target)
+        val iPlayer = BukkitEntityAdapter(target)
         plugin.launch {
             skillExecutor.executeSkillChain(
                 skills = alwaysSkills,
@@ -1060,8 +1033,8 @@ class UniqueMob(
         if (triggerSkills.isEmpty()) return
 
         // Launch coroutine to execute triggered skills
-        val iTarget = if (event.target == null) null else BukkitEntityWrapper(event.target)
-        val iTrigger = if (event.triggerEntity == null) null else BukkitEntityWrapper(event.triggerEntity)
+        val iTarget = if (event.target == null) null else BukkitEntityAdapter(event.target)
+        val iTrigger = if (event.triggerEntity == null) null else BukkitEntityAdapter(event.triggerEntity)
         plugin.launch {
             skillExecutor.executeSkillChain(
                 skills = triggerSkills,
@@ -1093,8 +1066,8 @@ class UniqueMob(
         val instance = skillMetadata[skillId]
 
         // Launch coroutine to execute the skill
-        val iTarget = if (event.target == null) currentTarget?.let { BukkitEntityWrapper(it) } else BukkitEntityWrapper(event.target)
-        val iTrigger = if (event.triggerEntity == null) null else BukkitEntityWrapper(event.triggerEntity)
+        val iTarget = if (event.target == null) currentTarget?.let { BukkitEntityAdapter(it) } else BukkitEntityAdapter(event.target)
+        val iTrigger = if (event.triggerEntity == null) null else BukkitEntityAdapter(event.triggerEntity)
         plugin.launch {
             skillExecutor.executeSkillChain(
                 skills = listOf(skill to instance),
@@ -1176,7 +1149,7 @@ class UniqueMob(
         val newLocation = location.clone().add(movement)
 
         location = newLocation
-        entity?.teleport(location.toPacket())
+        entity?.teleport(location)
     }
 
     /**
@@ -1206,7 +1179,7 @@ class UniqueMob(
         location = newLocation
 
         // Update entity position
-        entity?.teleport(location.toPacket())
+        entity?.teleport(location)
     }
 
 
@@ -1278,13 +1251,9 @@ class UniqueMob(
         manager.activeMobs.remove(uuid)
     }
 
-    // ============= IEntity Implementation =============
+    // ============= AbstractEntity Implementation =============
 
-    override fun getUniqueId(): UUID = uuid
-
-    override fun getLoc(): Location = location
-
-    override fun getEntityType(): EntityType = definition.entityType
+    override fun getLocation(): Location = location
 
     override fun getHealth(): Double = health
 
@@ -1319,9 +1288,9 @@ class UniqueMob(
 
     override fun getNoDamageTicks(): Int = 0 // Packet entities don't have invulnerability
 
-    override fun hasLineOfSight(other: IEntity): Boolean {
+    override fun hasLineOfSight(other: AbstractEntity): Boolean {
         // Simple line of sight check
-        val otherLoc = other.getLoc()
+        val otherLoc = other.getLocation()
         val distance = location.distance(otherLoc)
         if (distance > 100) return false // Too far
 
@@ -1369,15 +1338,15 @@ class UniqueMob(
         plugin.debugLogger.debug("Added potion effect ${effect.type.key} to mob ${definition.id} (duration: $duration ticks)")
     }
 
-    override fun damage(damage: Double, attacker: IEntity?) {
+    override fun damage(amount: Double, attacker: AbstractEntity?) {
         val bukkitAttacker = attacker?.getBukkitEntity()
 
         if (bukkitAttacker != null) {
             // 攻撃者がBukkitEntityの場合、onDamagedを呼ぶ（スキルトリガー付き）
-            onDamaged(bukkitAttacker, damage)
+            onDamaged(bukkitAttacker, amount)
         } else {
             // 攻撃者がPacketEntityまたはnullの場合、直接ダメージを適用
-            health = (health - damage).coerceAtLeast(0.0)
+            health = (health - amount).coerceAtLeast(0.0)
             if (attacker != null) {
                 lastDamageType = "ENTITY_ATTACK"
             }
@@ -1390,7 +1359,7 @@ class UniqueMob(
     /**
      * Remove a potion effect from this packet entity
      */
-    fun removePotionEffect(effectType: PotionEffectType) {
+    override fun removePotionEffect(effectType: PotionEffectType) {
         activePotionEffects.remove(effectType)
         plugin.debugLogger.debug("Removed potion effect ${effectType.key} from mob ${definition.id}")
     }
@@ -1398,7 +1367,7 @@ class UniqueMob(
     /**
      * Check if this entity has a specific potion effect
      */
-    fun hasPotionEffect(effectType: PotionEffectType): Boolean {
+    override fun hasPotionEffect(effectType: PotionEffectType): Boolean {
         cleanupExpiredEffects()
         return activePotionEffects.containsKey(effectType)
     }
@@ -1414,7 +1383,7 @@ class UniqueMob(
     /**
      * Clear all potion effects
      */
-    fun clearPotionEffects() {
+    override fun clearPotionEffects() {
         activePotionEffects.clear()
         plugin.debugLogger.debug("Cleared all potion effects from mob ${definition.id}")
     }
@@ -1442,5 +1411,75 @@ class UniqueMob(
      */
     fun setLastDamageType(damageType: String?) {
         this.lastDamageType = damageType
+    }
+
+    // ============= Additional AbstractEntity methods =============
+
+    override fun heal(amount: Double) {
+        health = (health + amount).coerceAtMost(definition.health)
+    }
+
+    override fun getState(): EntityState {
+        return when (aiState) {
+            AIState.IDLE -> EntityState.IDLE
+            AIState.CHASING, AIState.DASHING -> EntityState.MOVING
+            AIState.ATTACKING -> EntityState.ATTACKING
+            AIState.CHARGING -> EntityState.ATTACKING
+            AIState.COOLDOWN -> EntityState.IDLE
+            AIState.RETURNING -> EntityState.MOVING
+            else -> EntityState.MOVING
+        }
+    }
+
+    override fun setState(state: EntityState) {
+        // State management handled by AI system
+        // This is a no-op for UniqueMob as state is controlled by AIState
+    }
+
+    override fun spawn(location: Location, viewers: Collection<Player>) {
+        this.location = location
+        spawn(viewers)
+    }
+
+    override fun teleport(location: Location) {
+        this.location = location
+        entity?.teleport(location)
+    }
+
+    override fun move(delta: Vector) {
+        location.add(delta)
+        entity?.teleport(location)
+    }
+
+    // Metadata storage
+    private val customMetadata = ConcurrentHashMap<String, Any>()
+
+    override fun updateMetadata(key: String, value: Any) {
+        customMetadata[key] = value
+    }
+
+    override fun getMetadata(key: String): Any? {
+        return customMetadata[key]
+    }
+
+    override fun hasMetadata(key: String): Boolean {
+        return customMetadata.containsKey(key)
+    }
+
+    // Viewer management delegates to entity
+    override fun addViewer(player: Player) {
+        entity?.addViewer(player)
+    }
+
+    override fun removeViewer(player: Player) {
+        entity?.removeViewer(player)
+    }
+
+    override fun getViewers(): Collection<Player> {
+        return entity?.getViewers() ?: emptyList()
+    }
+
+    override fun isViewing(player: Player): Boolean {
+        return entity?.isViewing(player) ?: false
     }
 }

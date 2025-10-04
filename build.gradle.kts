@@ -23,7 +23,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
     compileOnly("com.github.retrooper:packetevents-spigot:2.9.5")
-    implementation("me.tofaa.entitylib:spigot:3.0.3-SNAPSHOT")
     implementation("dev.cel:cel:0.11.0")
 
     paperweight.foliaDevBundle("1.21.8-R0.1-SNAPSHOT")

@@ -32,7 +32,7 @@ class TimerManager(private val plugin: Unique) {
     fun start() {
         timerTask = platformScheduler.runTaskTimer(plugin, {
             tick()
-        }, 0L, 1L) // Run every tick
+        }, 1L, 1L) // Run every tick delay を1以上にしないといけない
 
         plugin.debugLogger.detailed("TimerManager started (1 tick interval)")
     }

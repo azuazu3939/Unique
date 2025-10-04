@@ -4,7 +4,7 @@ main: com.github.azuazu3939.unique.Unique
 bootstrapper: com.github.azuazu3939.unique.Bootstrap
 api-version: '1.21'
 folia-supported: true
-load: STARTUP
+load: POSTWORLD
 authors: [ MCLove32 ]
 website: https://github.com/azuazu3939
 

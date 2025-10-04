@@ -264,12 +264,12 @@ class ConfigLoader(private val plugin: Unique) {
     }
 
     private fun parseMobDefinition(section: ConfigurationSection): MobDefinition {
-        val id = section.getString("id") ?: throw IllegalArgumentException("Mob ID is required")
-        val displayName = section.getString("displayName") ?: id
-        val entityType = section.getString("entityType")?.let {
+        val id = YamlParser.getString(section, "id") ?: throw IllegalArgumentException("Mob ID is required")
+        val displayName = YamlParser.getString(section, "displayName") ?: id
+        val entityType = YamlParser.getString(section, "entityType")?.let {
             EntityType.valueOf(it.uppercase())
         } ?: EntityType.ZOMBIE
-        val health = section.getDouble("health", 20.0)
+        val health = YamlParser.getDouble(section, "health", 20.0)
 
         // Parse model
         val model = section.getConfigurationSection("model")?.let { modelSection ->
@@ -281,8 +281,8 @@ class ConfigLoader(private val plugin: Unique) {
         }
 
         // Parse AI (inline or reference - legacy)
-        val aiRef = section.getString("AIRef")
-        val ai = section.getConfigurationSection("AI")?.let { aiSection ->
+        val aiRef = YamlParser.getString(section, "AIRef")
+        val ai = YamlParser.getSection(section, "AI")?.let { aiSection ->
             parseAIConfig(aiSection)
         }
 
@@ -293,7 +293,7 @@ class ConfigLoader(private val plugin: Unique) {
         } ?: emptyList()
 
         // Parse AI switch mode - camelCase
-        val aiSwitchMode = section.getString("AISwitchMode")?.let {
+        val aiSwitchMode = YamlParser.getString(section, "AISwitchMode")?.let {
             try {
                 AISwitchMode.valueOf(it.uppercase())
             } catch (e: Exception) {
@@ -301,7 +301,7 @@ class ConfigLoader(private val plugin: Unique) {
             }
         } ?: AISwitchMode.PERIODIC
 
-        val aiSwitchInterval = section.getDouble("AISwitchInterval", 3.0)
+        val aiSwitchInterval = YamlParser.getDouble(section, "AISwitchInterval", 3.0)
 
         // Parse inline skills (lowercase 'skills' for inline definitions)
         val skills = section.getMapList("skills").mapNotNull { skillMap ->
@@ -362,7 +362,7 @@ class ConfigLoader(private val plugin: Unique) {
      * Returns Pair<id, AIConfig>
      */
     private fun parseAISection(section: ConfigurationSection): Pair<String, AIConfig> {
-        val id = section.getString("id") ?: throw IllegalArgumentException("AI ID is required")
+        val id = YamlParser.getString(section, "id") ?: throw IllegalArgumentException("AI ID is required")
         val aiConfig = parseAIConfig(section)
         return Pair(id, aiConfig)
     }
@@ -403,39 +403,39 @@ class ConfigLoader(private val plugin: Unique) {
      */
     private fun parseAIConfig(aiSection: ConfigurationSection): AIConfig {
         return AIConfig(
-            type = AIType.fromString(aiSection.getString("type") ?: "SIMPLE"),
-            targetCondition = aiSection.getString("targetCondition"),
-            damageFormula = aiSection.getString("damageFormula"),
-            moveSpeed = aiSection.getDouble("moveSpeed", 0.3),
-            followRange = aiSection.getDouble("followRange", 16.0),
+            type = AIType.fromString(YamlParser.getString(aiSection, "type") ?: "SIMPLE"),
+            targetCondition = YamlParser.getString(aiSection, "targetCondition"),
+            damageFormula = YamlParser.getString(aiSection, "damageFormula"),
+            moveSpeed = YamlParser.getDouble(aiSection, "moveSpeed", 0.3),
+            followRange = YamlParser.getDouble(aiSection, "followRange", 16.0),
             // Aggressive AI settings
-            pursuitTime = aiSection.getDouble("pursuitTime", 30.0),
-            memoryDuration = aiSection.getDouble("memoryDuration", 10.0),
-            aggroRange = aiSection.getDouble("aggroRange", 32.0),
+            pursuitTime = YamlParser.getDouble(aiSection, "pursuitTime", 30.0),
+            memoryDuration = YamlParser.getDouble(aiSection, "memoryDuration", 10.0),
+            aggroRange = YamlParser.getDouble(aiSection, "aggroRange", 32.0),
             // Pathfinding settings
             usePathfinding = aiSection.getBoolean("usePathfinding", false),
             pathfindingUpdateInterval = aiSection.getInt("pathfindingUpdateInterval", 20),
             // Charge AI settings
-            chargeDuration = aiSection.getDouble("chargeDuration", 2.0),
-            dashSpeed = aiSection.getDouble("dashSpeed", 2.0),
-            dashDistance = aiSection.getDouble("dashDistance", 20.0),
-            turnCooldown = aiSection.getDouble("turnCooldown", 3.0),
-            chargeParticle = aiSection.getString("chargeParticle"),
+            chargeDuration = YamlParser.getDouble(aiSection, "chargeDuration", 2.0),
+            dashSpeed = YamlParser.getDouble(aiSection, "dashSpeed", 2.0),
+            dashDistance = YamlParser.getDouble(aiSection, "dashDistance", 20.0),
+            turnCooldown = YamlParser.getDouble(aiSection, "turnCooldown", 3.0),
+            chargeParticle = YamlParser.getString(aiSection, "chargeParticle"),
             // Ranged AI settings
-            preferredDistance = aiSection.getDouble("preferredDistance", 10.0),
-            minDistance = aiSection.getDouble("minDistance", 5.0),
-            maxDistance = aiSection.getDouble("maxDistance", 20.0),
+            preferredDistance = YamlParser.getDouble(aiSection, "preferredDistance", 10.0),
+            minDistance = YamlParser.getDouble(aiSection, "minDistance", 5.0),
+            maxDistance = YamlParser.getDouble(aiSection, "maxDistance", 20.0),
             // Territorial AI settings
-            territoryRadius = aiSection.getDouble("territoryRadius", 32.0),
-            returnSpeed = aiSection.getDouble("returnSpeed", 0.5),
+            territoryRadius = YamlParser.getDouble(aiSection, "territoryRadius", 32.0),
+            returnSpeed = YamlParser.getDouble(aiSection, "returnSpeed", 0.5),
             // Stationary AI settings
             rotateToTarget = aiSection.getBoolean("rotateToTarget", true)
         )
     }
 
     private fun parseSkillSection(section: ConfigurationSection): SkillConfig {
-        val id = section.getString("id") ?: throw IllegalArgumentException("Skill ID is required")
-        val trigger = section.getString("trigger") ?: throw IllegalArgumentException("Skill trigger is required")
+        val id = YamlParser.getString(section, "id") ?: throw IllegalArgumentException("Skill ID is required")
+        val trigger = YamlParser.getString(section, "trigger") ?: throw IllegalArgumentException("Skill trigger is required")
 
         // Parse aliases (supports both list and single string)
         val aliases = YamlParser.getStringList(section, "aliases") ?: emptyList()
@@ -444,15 +444,15 @@ class ConfigLoader(private val plugin: Unique) {
             if (effectMap is Map<*, *>) YamlParser.parseEffect(effectMap) else null
         }
 
-        val particle = section.getConfigurationSection("particle")?.let { YamlParser.parseParticleSection(it) }
-        val sound = section.getConfigurationSection("sound")?.let { YamlParser.parseSoundSection(it) }
+        val particle = YamlParser.getSection(section, "particle")?.let { YamlParser.parseParticleSection(it) }
+        val sound = YamlParser.getSection(section, "sound")?.let { YamlParser.parseSoundSection(it) }
 
         return SkillConfig(
             id = id,
             aliases = aliases,
             trigger = trigger,
-            damage = section.getString("damage"),
-            cooldown = section.getDouble("cooldown", 0.0),
+            damage = YamlParser.getString(section, "damage"),
+            cooldown = YamlParser.getDouble(section, "cooldown", 0.0),
             effects = effects,
             particles = particle,
             sound = sound
