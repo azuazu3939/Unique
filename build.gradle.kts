@@ -21,7 +21,8 @@ dependencies {
     implementation("com.github.shynixn.mccoroutine:mccoroutine-folia-core:2.22.0")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-
+    implementation("com.sksamuel.hoplite:hoplite-core:2.9.0")
+    implementation("com.sksamuel.hoplite:hoplite-yaml:2.9.0")
     compileOnly("com.github.retrooper:packetevents-spigot:2.9.5")
     implementation("dev.cel:cel:0.11.0")
 
@@ -57,11 +58,11 @@ tasks {
     shadowJar {
         archiveBaseName.set(project.name)
         archiveClassifier.set("")
-        relocate("com.zaxxer.hikari", "com.github.azuazu3939.lib.com.zaxxer.hikari")
-        relocate("org.mariadb.jdbc", "com.github.azuazu3939.lib.org.mariadb.jdbc")
         relocate("com.github.shynixn", "com.github.azuazu3939.lib.com.github.shynixn")
         relocate("org.jetbrains", "com.github.azuazu3939.lib.org.jetbrains")
         relocate("me.tofaa.entitylib", "com.github.azuazu3939.lib.me.tofaa.entitylib")
+        relocate("dev.cel", "com.github.azuazu3939.lib.dev.cel")
+        relocate("com.sksamuel", "com.github.azuazu3939.lib.com.sksamuel")
         relocate("dev.cel", "com.github.azuazu3939.lib.dev.cel")
     }
 }
