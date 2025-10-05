@@ -116,10 +116,26 @@ skills:
 - [x] 条件評価システム（CEL統合）
 - [x] 範囲指定スポーン（円形・矩形）
 
-### Phase 7: 統合とテスト
-- [ ] イベントリスナー
-- [ ] コマンドハンドラー
-- [ ] 総合テスト
+### Phase 7: 統合とテスト ✅
+- [x] イベントリスナー
+- [x] コマンドハンドラー
+- [x] PacketMobEvent
+- [x] MobListener
+- [x] UniqueCommand
+
+### Phase 8: CEL動的機能（最新実装） ✅
+- [x] Effect動的パラメータ（Damage, Heal, PotionEffect）
+- [x] MobDefinition動的ステータス（Health, Damage）
+- [x] Drop完全CEL化（amount, chance）
+- [x] Targeterリファクタリング（ChainTargeter重複削減）
+- [x] サンプルファイル作成（cel_dynamic_features.yml）
+
+### Phase 9: 今後の予定
+- [ ] AI動的パラメータ（MovementSpeed, FollowRange）
+- [ ] Effect実行条件（個別conditions）
+- [ ] 動的クールダウン（intervalをCEL式化）
+- [ ] 動的Targeter生成
+- [ ] 複数ドロップテーブル
 
 ## 📖 ドキュメント
 

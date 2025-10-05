@@ -8,9 +8,6 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
-import org.bukkit.event.entity.EntityDamageByEntityEvent
-import org.bukkit.event.entity.EntityDamageEvent
-import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 
@@ -56,59 +53,6 @@ class MobListener(private val plugin: Unique) : Listener {
         entities.forEach { entity ->
             entity.removeViewer(player)
         }
-    }
-
-    /**
-     * エンティティがダメージを受けた時
-     *
-     * 注意: PacketEntityは実際のサーバーエンティティではないため、
-     * このイベントは発生しません。PacketMobへのダメージは、
-     * プレイヤーのインタラクション（右クリック、左クリック等）を
-     * 別途検出して処理する必要があります。
-     */
-    @EventHandler(priority = EventPriority.HIGH)
-    fun onEntityDamage(event: EntityDamageEvent) {
-        val entity = event.entity
-
-        // 通常のエンティティ（非PacketEntity）のダメージ処理
-        DebugLogger.verbose("Entity damaged: ${entity.type} (${event.cause})")
-    }
-
-    /**
-     * エンティティが他のエンティティからダメージを受けた時
-     *
-     * 注意: PacketEntityからのダメージやPacketEntityへのダメージは
-     * このイベントでは検出されません。
-     *
-     * PacketMobからの攻撃: PacketMob.performAttack()で直接処理済み
-     * PacketMobへの攻撃: カスタムインタラクション処理が必要
-     */
-    @EventHandler(priority = EventPriority.HIGH)
-    fun onEntityDamageByEntity(event: EntityDamageByEntityEvent) {
-        val entity = event.entity
-        val damager = event.damager
-
-        DebugLogger.verbose("Entity ${entity.type} damaged by ${damager.type}")
-
-        // 将来の実装: PacketMobが攻撃を受けた際の処理
-        // プレイヤーのインタラクションイベント（PlayerInteractEntityEvent等）で
-        // PacketMobを特定し、MobManager.handleMobDamaged()を呼び出す
-    }
-
-    /**
-     * エンティティが死亡した時
-     *
-     * 注意: PacketEntityの死亡はこのイベントでは検出されません。
-     * PacketMobの死亡処理は MobManager.handleMobDeath() で行われます。
-     */
-    @EventHandler(priority = EventPriority.HIGH)
-    fun onEntityDeath(event: EntityDeathEvent) {
-        val entity = event.entity
-
-        DebugLogger.debug("Entity died: ${entity.type}")
-
-        // 通常のエンティティ（非PacketEntity）の死亡処理
-        // PacketMobの死亡は MobManager.handleMobDeath() で処理される
     }
 
     // ========================================

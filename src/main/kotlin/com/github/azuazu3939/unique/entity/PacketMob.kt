@@ -92,6 +92,18 @@ class PacketMob(
             }
         }
 
+    /**
+     * 防具値（0-30）
+     * Minecraftのダメージ軽減計算に使用される
+     */
+    var armor: Double = 0.0
+
+    /**
+     * 防具強度（0-20）
+     * 高ダメージに対する追加軽減
+     */
+    var armorToughness: Double = 0.0
+
     // ========================================
     // AI関連フィールド
     // ========================================
@@ -254,11 +266,45 @@ class PacketMob(
      * ダメージを受ける（オーバーライド）
      */
     override suspend fun damage(amount: Double) {
-        DebugLogger.debug("$mobName took $amount damage (${health}/${maxHealth} HP)")
-        super.damage(amount)
+        // Armor/ArmorToughnessによるダメージ軽減計算
+        val reducedDamage = calculateArmorReduction(amount)
+
+        DebugLogger.debug("$mobName took $reducedDamage damage (original: $amount, armor: $armor, toughness: $armorToughness) (${health}/${maxHealth} HP)")
+        super.damage(reducedDamage)
 
         // ダメージアニメーション再生
         playAnimation(DAMAGE)
+    }
+
+    /**
+     * Minecraftのダメージ軽減計算（Armor + ArmorToughness）
+     *
+     * 計算式：
+     * 1. defensePoints = armor値（0-30）
+     * 2. toughness = armorToughness値（0-20）
+     * 3. damageReduction = defensePoints - (damage / (2 + toughness / 4))
+     * 4. finalDamage = damage * (1 - min(20, max(damageReduction / 5, damageReduction - damage / (2 + toughness / 4))) / 25)
+     *
+     * 簡易版: damage * (1 - min(20, armor) / 25)
+     */
+    private fun calculateArmorReduction(damage: Double): Double {
+        if (armor <= 0.0) return damage
+
+        // Minecraftの防具軽減計算（簡易版）
+        // armor値による軽減率: 1ポイントあたり4%（最大20ポイント = 80%軽減）
+        val armorReduction = min(20.0, armor) / 25.0  // 最大80%軽減
+
+        // ArmorToughnessによる追加軽減（高ダメージに対してより効果的）
+        val toughnessBonus = if (damage > 10.0 && armorToughness > 0.0) {
+            val excessDamage = damage - 10.0
+            val toughnessEffect = armorToughness / 20.0  // 0.0-1.0
+            min(0.2, excessDamage / 100.0 * toughnessEffect)  // 最大20%追加軽減
+        } else {
+            0.0
+        }
+
+        val totalReduction = (armorReduction + toughnessBonus).coerceIn(0.0, 0.8)  // 最大80%軽減
+        return damage * (1.0 - totalReduction)
     }
 
     /**
@@ -500,6 +546,8 @@ class PacketMob(
     ) {
         private var health: Double = 20.0
         private var maxHealth: Double = 20.0
+        private var armor: Double = 0.0
+        private var armorToughness: Double = 0.0
         private var customNameVisible: Boolean = true
         private var hasAI: Boolean = true
         private var hasGravity: Boolean = true
@@ -516,6 +564,8 @@ class PacketMob(
 
         fun health(health: Double) = apply { this.health = health }
         fun maxHealth(maxHealth: Double) = apply { this.maxHealth = maxHealth }
+        fun armor(armor: Double) = apply { this.armor = armor.coerceIn(0.0, 30.0) }
+        fun armorToughness(toughness: Double) = apply { this.armorToughness = toughness.coerceIn(0.0, 20.0) }
         fun customNameVisible(visible: Boolean) = apply { this.customNameVisible = visible }
         fun hasAI(ai: Boolean) = apply { this.hasAI = ai }
         fun hasGravity(gravity: Boolean) = apply { this.hasGravity = gravity }
@@ -534,6 +584,8 @@ class PacketMob(
             val mob = PacketMob(entityId, uuid, entityType, location, mobName)
             mob.health = health
             mob.maxHealth = maxHealth
+            mob.armor = armor
+            mob.armorToughness = armorToughness
             mob.customNameVisible = customNameVisible
             mob.hasAI = hasAI
             mob.hasGravity = hasGravity

@@ -1,8 +1,11 @@
 package com.github.azuazu3939.unique.command
 
 import com.github.azuazu3939.unique.Unique
+import com.github.azuazu3939.unique.event.UniqueReloadAfterEvent
+import com.github.azuazu3939.unique.event.UniqueReloadBeforeEvent
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.shynixn.mccoroutine.folia.launch
+import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
@@ -70,7 +73,26 @@ class UniqueCommand(private val plugin: Unique) : CommandExecutor, TabCompleter 
      * reload - 設定とMob定義を再読み込み
      */
     private fun handleReload(sender: CommandSender) {
+        val startTime = System.currentTimeMillis()
+
+        // Beforeイベント発火
+        val beforeEvent = UniqueReloadBeforeEvent(sender)
+        Bukkit.getPluginManager().callEvent(beforeEvent)
+
+        // キャンセルチェック
+        if (beforeEvent.isCancelled) {
+            val reason = beforeEvent.cancelReason ?: "Unknown reason"
+            sender.sendMessage("§6[Unique] §cReload cancelled: $reason")
+            DebugLogger.info("Reload cancelled by event: $reason")
+            return
+        }
+
         sender.sendMessage("§6[Unique] §7Reloading...")
+
+        var success = true
+        var errorMessage: String? = null
+        var mobCount = 0
+        var spawnCount = 0
 
         try {
             // 設定再読み込み
@@ -78,18 +100,34 @@ class UniqueCommand(private val plugin: Unique) : CommandExecutor, TabCompleter 
 
             // Mob定義再読み込み
             plugin.mobManager.loadMobDefinitions()
+            mobCount = plugin.mobManager.getAllMobDefinitions().size
 
             // スポーン定義再読み込み
             plugin.spawnManager.loadSpawnDefinitions()
             plugin.spawnManager.restartSpawnTasks()
+            spawnCount = plugin.spawnManager.getAllSpawnDefinitions().size
 
             sender.sendMessage("§6[Unique] §aReload complete!")
+            sender.sendMessage("§6[Unique] §7Loaded §e$mobCount§7 mobs and §e$spawnCount§7 spawns")
             DebugLogger.info("Configuration reloaded by ${sender.name}")
 
         } catch (e: Exception) {
+            success = false
+            errorMessage = e.message
             sender.sendMessage("§6[Unique] §cReload failed: ${e.message}")
             DebugLogger.error("Failed to reload configuration", e)
         }
+
+        // Afterイベント発火
+        val duration = System.currentTimeMillis() - startTime
+        val afterEvent = UniqueReloadAfterEvent(sender, success, errorMessage).apply {
+            this.mobCount = mobCount
+            this.spawnCount = spawnCount
+            this.duration = duration
+        }
+        Bukkit.getPluginManager().callEvent(afterEvent)
+
+        DebugLogger.debug("Reload completed in ${duration}ms")
     }
 
     /**

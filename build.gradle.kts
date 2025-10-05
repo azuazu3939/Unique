@@ -63,7 +63,6 @@ tasks {
         relocate("me.tofaa.entitylib", "com.github.azuazu3939.lib.me.tofaa.entitylib")
         relocate("dev.cel", "com.github.azuazu3939.lib.dev.cel")
         relocate("com.sksamuel", "com.github.azuazu3939.lib.com.sksamuel")
-        relocate("dev.cel", "com.github.azuazu3939.lib.dev.cel")
     }
 }
 

@@ -368,9 +368,11 @@ class MobManager(private val plugin: Unique) {
         // CEL評価用のコンテキストを構築
         val context = buildMobSpawnContext(location)
 
-        // Health, Damageを動的に評価
+        // Health, Damage, Armor, ArmorToughnessを動的に評価
         val evaluatedHealth = evaluateHealth(definition.health, context)
         val evaluatedDamage = evaluateDamage(definition.damage, context)
+        val evaluatedArmor = evaluateArmor(definition.armor, context)
+        val evaluatedArmorToughness = evaluateArmorToughness(definition.armorToughness, context)
 
         // PacketMobを生成
         val entityId = plugin.packetEntityManager.generateEntityId()
@@ -385,6 +387,8 @@ class MobManager(private val plugin: Unique) {
         )
             .health(evaluatedHealth)
             .maxHealth(evaluatedHealth)
+            .armor(evaluatedArmor)
+            .armorToughness(evaluatedArmorToughness)
             .customNameVisible(definition.appearance.customNameVisible)
             .hasAI(definition.ai.hasAI)
             .hasGravity(definition.ai.hasGravity)
@@ -844,6 +848,38 @@ class MobManager(private val plugin: Unique) {
         } catch (e: Exception) {
             DebugLogger.error("Failed to evaluate damage: $damageExpression", e)
             5.0
+        }
+    }
+
+    /**
+     * Armor値を評価（CEL式対応）
+     */
+    private fun evaluateArmor(armorExpression: String?, context: Map<String, Any>): Double {
+        if (armorExpression == null) return 0.0
+
+        return try {
+            armorExpression.toDoubleOrNull() ?: run {
+                plugin.celEvaluator.evaluateNumber(armorExpression, context).coerceIn(0.0, 30.0)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate armor: $armorExpression", e)
+            0.0
+        }
+    }
+
+    /**
+     * ArmorToughness値を評価（CEL式対応）
+     */
+    private fun evaluateArmorToughness(armorToughnessExpression: String?, context: Map<String, Any>): Double {
+        if (armorToughnessExpression == null) return 0.0
+
+        return try {
+            armorToughnessExpression.toDoubleOrNull() ?: run {
+                plugin.celEvaluator.evaluateNumber(armorToughnessExpression, context).coerceIn(0.0, 20.0)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate armor toughness: $armorToughnessExpression", e)
+            0.0
         }
     }
 

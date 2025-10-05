@@ -18,6 +18,8 @@ data class MobDefinition(
     val display: String? = null,
     val health: String? = null,  // CEL式対応
     val damage: String? = null,  // CEL式対応
+    val armor: String? = null,  // CEL式対応 - 防具値
+    val armorToughness: String? = null,  // CEL式対応 - 防具強度
 
     // AI設定
     val ai: MobAI = MobAI(),

@@ -1,0 +1,247 @@
+# ===========================================
+# Armor/ArmorToughnessの使用例
+# src/main/resources/sample/armor_examples.yml
+# ===========================================
+#
+# Armor（防具値）とArmorToughness（防具強度）の実装例
+# Minecraftのダメージ軽減計算と同様の仕組みを提供
+#
+# Armor: 0-30（ダイヤフル装備 = 20, ネザライトフル装備 = 20）
+# ArmorToughness: 0-20（ダイヤフル装備 = 8, ネザライトフル装備 = 12）
+
+# ========== 例1: 固定Armor値 ==========
+LightlyArmoredMob:
+  Type: ZOMBIE
+  Display: '&7軽装甲ゾンビ'
+  Health: 100
+  Damage: 10
+  Armor: "5"  # 革装備レベル（約20%軽減）
+  ArmorToughness: "0"
+
+MediumArmoredMob:
+  Type: ZOMBIE
+  Display: '&e中装甲ゾンビ'
+  Health: 150
+  Damage: 12
+  Armor: "12"  # 鉄装備レベル（約48%軽減）
+  ArmorToughness: "2"
+
+HeavilyArmoredMob:
+  Type: ZOMBIE
+  Display: '&bダイヤ装甲ゾンビ'
+  Health: 200
+  Damage: 15
+  Armor: "20"  # ダイヤ装備レベル（約80%軽減）
+  ArmorToughness: "8"
+
+UltimateArmoredMob:
+  Type: WITHER_SKELETON
+  Display: '&5ネザライト装甲'
+  Health: 300
+  Damage: 20
+  Armor: "20"  # ネザライト装備レベル
+  ArmorToughness: "12"  # 高ダメージに強い
+
+# ========== 例2: プレイヤー数でArmor変化 ==========
+ScalingArmorBoss:
+  Type: IRON_GOLEM
+  Display: '&6スケーリング装甲ボス'
+  Health: "200 + (nearbyPlayers.count * 100)"
+  Damage: "15 + (nearbyPlayers.count * 2)"
+
+  # プレイヤー数に応じて装甲強化
+  Armor: "5 + (nearbyPlayers.count * 3)"  # 1人につき+3装甲
+  ArmorToughness: "nearbyPlayers.count * 2"  # 1人につき+2強度
+
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 30
+
+# 結果:
+# プレイヤー1人: Armor 8, ArmorToughness 2
+# プレイヤー3人: Armor 14, ArmorToughness 6
+# プレイヤー5人: Armor 20, ArmorToughness 10
+
+# ========== 例3: HP比例Armor（瀕死で装甲強化） ==========
+AdaptiveArmorMob:
+  Type: WITHER_SKELETON
+  Display: '&4適応装甲Mob'
+  Health: 250
+  Damage: 18
+
+  # HPが低いほど装甲が上がる
+  Armor: "math.ceil((1 - entity.health / entity.maxHealth) * 20)"
+  # HP100% → Armor 0
+  # HP50%  → Armor 10
+  # HP10%  → Armor 18
+
+  ArmorToughness: "math.ceil((1 - entity.health / entity.maxHealth) * 10)"
+
+  Skills:
+    OnDamaged:
+      # HP低下時に装甲強化メッセージ
+      - name: ArmorUp
+        condition: "entity.health < entity.maxHealth * 0.5"
+        targeter:
+          type: RadiusPlayers
+          range: 20.0
+        skills:
+          - skill: ArmorUpMessage
+
+# ========== 例4: 時間帯でArmor変化 ==========
+NightArmorMob:
+  Type: ZOMBIE
+  Display: '&8夜間装甲ゾンビ'
+  Health: 120
+  Damage: 12
+
+  # 夜間に装甲強化
+  Armor: "world.isNight ? 15.0 : 5.0"  # 夜15, 昼5
+  ArmorToughness: "world.isNight ? 5.0 : 0.0"  # 夜5, 昼0
+
+# ========== 例5: 難易度別Armor ==========
+DifficultyScalingMob:
+  Type: SKELETON
+  Display: '&7難易度スケールSkeleton'
+  Health: 100
+  Damage: 10
+
+  # 難易度によってArmor変化
+  Armor: |
+    world.difficulty == 'EASY' ? 5.0 :
+    world.difficulty == 'NORMAL' ? 10.0 :
+    world.difficulty == 'HARD' ? 15.0 : 0.0
+
+  ArmorToughness: |
+    world.difficulty == 'HARD' ? 5.0 : 0.0
+
+# ========== 例6: 満月でArmor最大化 ==========
+LunarArmorWolf:
+  Type: WOLF
+  Display: '&f月光の狼'
+  Health: 150
+  Damage: 12
+
+  # 満月でArmor/ArmorToughness最大
+  Armor: "environment.moonPhase == 0 ? 20.0 : 8.0"
+  ArmorToughness: "environment.moonPhase == 0 ? 10.0 : 2.0"
+
+# ========== 例7: ランダムArmor ==========
+RandomArmorMob:
+  Type: CREEPER
+  Display: '&aランダム装甲Creeper'
+  Health: 100
+  Damage: 10
+
+  # スポーン時にランダムな装甲値
+  Armor: "random.range(0, 20)"  # 0-20のランダム
+  ArmorToughness: "random.range(0, 10)"  # 0-10のランダム
+
+# ========== 例8: フェーズ別Armor（ボス戦） ==========
+PhaseArmorBoss:
+  Type: ENDER_DRAGON
+  Display: '&5&lフェーズ装甲ドラゴン'
+  Health: 500
+  Damage: 25
+
+  # HP段階別にArmor変化
+  Armor: |
+    entity.health > entity.maxHealth * 0.7 ? 5.0 :
+    entity.health > entity.maxHealth * 0.3 ? 15.0 : 25.0
+  # Phase 1 (HP70%+): Armor 5
+  # Phase 2 (HP30-70%): Armor 15
+  # Phase 3 (HP30%-): Armor 25 (ほぼ無敵）
+
+  ArmorToughness: |
+    entity.health > entity.maxHealth * 0.7 ? 0.0 :
+    entity.health > entity.maxHealth * 0.3 ? 5.0 : 15.0
+
+  Skills:
+    OnTimer:
+      # フェーズ3で超強力攻撃
+      - name: Phase3Attack
+        interval: 60
+        condition: "entity.health <= entity.maxHealth * 0.3"
+        targeter:
+          type: Area
+          shape: CIRCLE
+          radius: "30.0"
+        skills:
+          - skill: UltimateAttack
+
+# ========== 例9: 平均レベル依存Armor ==========
+LevelAdaptiveArmor:
+  Type: IRON_GOLEM
+  Display: '&fレベル適応Golem'
+  Health: "100 + (nearbyPlayers.avgLevel * 10)"
+  Damage: "10 + (nearbyPlayers.avgLevel * 0.5)"
+
+  # 平均レベルに応じてArmor増加
+  Armor: "math.min(20, nearbyPlayers.avgLevel / 2)"  # レベル2につき1装甲（最大20）
+  ArmorToughness: "math.min(10, nearbyPlayers.avgLevel / 4)"  # レベル4につき1強度（最大10）
+
+# 結果:
+# 平均レベル10: Armor 5, ArmorToughness 2.5
+# 平均レベル40: Armor 20, ArmorToughness 10 (上限)
+
+# ========== 例10: 複合条件Armor ==========
+ComplexArmorBoss:
+  Type: WITHER_SKELETON
+  Display: '&4&l複雑装甲ボス'
+  Health: 400
+  Damage: 20
+
+  # 複数条件でArmor計算
+  Armor: |
+    (world.isNight ? 5.0 : 0.0) +
+    (nearbyPlayers.count * 2) +
+    (entity.health < entity.maxHealth * 0.5 ? 5.0 : 0.0)
+  # 夜間 +5, プレイヤー1人につき +2, HP50%以下で +5
+
+  ArmorToughness: |
+    (world.isThundering ? 5.0 : 0.0) +
+    (nearbyPlayers.avgLevel > 20 ? 5.0 : 0.0)
+  # 雷雨 +5, 平均レベル20以上で +5
+
+# ========================================
+# Armor/ArmorToughnessのダメージ軽減計算
+# ========================================
+#
+# 軽減計算式:
+# 1. Armorによる基本軽減: 1ポイントあたり約4%（最大20ポイント = 80%）
+# 2. ArmorToughnessによる追加軽減: 高ダメージに対してより効果的
+#
+# 例: Armor 20, ArmorToughness 10のMob
+# - 10ダメージ → 約2ダメージ（80%軽減）
+# - 50ダメージ → 約10-15ダメージ（70-80%軽減、Toughness効果）
+#
+# 参考値:
+# - Armor 5   = 革装備レベル（約20%軽減）
+# - Armor 12  = 鉄装備レベル（約48%軽減）
+# - Armor 20  = ダイヤ/ネザライト装備レベル（約80%軽減）
+# - ArmorToughness 8  = ダイヤ装備レベル
+# - ArmorToughness 12 = ネザライト装備レベル
+
+# ========================================
+# スキル定義例
+# ========================================
+
+ArmorUpMessage:
+  type: Message
+  effects:
+    - type: Message
+      message: "&c&l装甲強化！&7 ダメージが大幅に減少します！"
+    - type: Particle
+      particle: ENCHANTMENT_TABLE
+      count: 50
+
+UltimateAttack:
+  type: Damage
+  effects:
+    - type: Damage
+      amount: "target.health * 0.6"  # 現在HPの60%
+    - type: Particle
+      particle: DRAGON_BREATH
+      count: 100
+    - type: Sound
+      sound: ENTITY_ENDER_DRAGON_GROWL
