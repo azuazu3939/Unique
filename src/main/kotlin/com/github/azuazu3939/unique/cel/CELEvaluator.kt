@@ -2,10 +2,8 @@ package com.github.azuazu3939.unique.cel
 
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.entity.PacketEntity
-import com.github.azuazu3939.unique.entity.PacketMob
 import com.github.azuazu3939.unique.util.DebugLogger
 import org.bukkit.entity.Entity
-import org.bukkit.entity.Player
 
 /**
  * CEL評価ヘルパークラス
@@ -231,104 +229,82 @@ class CELEvaluator(private val engine: CELEngineManager) {
     }
 
     /**
+     * 汎用評価（カスタムコンテキスト）
+     */
+    fun evaluate(
+        expression: String,
+        context: Map<String, Any>
+    ): Any? {
+        val fullContext = CELVariableProvider.buildFullContext(context)
+        return engine.evaluate(expression, fullContext)
+    }
+
+    /**
+     * Boolean評価（カスタムコンテキスト）
+     */
+    fun evaluateBoolean(
+        expression: String,
+        context: Map<String, Any>
+    ): Boolean {
+        val fullContext = CELVariableProvider.buildFullContext(context)
+        return engine.evaluateBoolean(expression, fullContext)
+    }
+
+    /**
+     * 数値評価（カスタムコンテキスト）
+     */
+    fun evaluateNumber(
+        expression: String,
+        context: Map<String, Any>
+    ): Double {
+        val fullContext = CELVariableProvider.buildFullContext(context)
+        return engine.evaluateNumber(expression, fullContext)
+    }
+
+    /**
+     * 文字列評価（カスタムコンテキスト）
+     */
+    fun evaluateString(
+        expression: String,
+        context: Map<String, Any>
+    ): String {
+        val fullContext = CELVariableProvider.buildFullContext(context)
+        return engine.evaluateString(expression, fullContext)
+    }
+
+    /**
      * エンティティコンテキストを構築
      */
     private fun buildEntityContext(entity: Entity): Map<String, Any> {
-        val context = mutableMapOf<String, Any>()
-
-        // エンティティ情報
-        if (entity is Player) {
-            context["entity"] = CELVariableProvider.fromPlayer(entity)
-            context["player"] = CELVariableProvider.fromPlayer(entity)
-        } else {
-            context["entity"] = CELVariableProvider.fromEntity(entity)
-        }
-
-        // ワールド情報
-        entity.world.let {
-            context["world"] = CELVariableProvider.fromWorld(it)
-        }
-
-        // Location情報
-        context["location"] = CELVariableProvider.fromLocation(entity.location)
-
-        return CELVariableProvider.buildFullContext(context)
+        return CELVariableProvider.buildEntityContext(entity)
     }
 
     /**
      * ターゲットコンテキストを構築
      */
     private fun buildTargetContext(source: Entity, target: Entity): Map<String, Any> {
-        val context = mutableMapOf<String, Any>()
-
-        // エンティティペア情報
-        context.putAll(CELVariableProvider.fromEntityPair(source, target))
-
-        // ワールド情報
-        source.world.let {
-            context["world"] = CELVariableProvider.fromWorld(it)
-        }
-
-        return CELVariableProvider.buildFullContext(context)
+        return CELVariableProvider.buildTargetContext(source, target)
     }
 
     /**
      * PacketEntityコンテキストを構築
      */
     private fun buildPacketEntityContext(packetEntity: PacketEntity): Map<String, Any> {
-        val context = mutableMapOf<String, Any>()
-
-        // PacketEntity情報
-        if (packetEntity is PacketMob) {
-            context["entity"] = CELVariableProvider.fromPacketMob(packetEntity)
-            context["mob"] = CELVariableProvider.fromPacketMob(packetEntity)
-        } else {
-            context["entity"] = CELVariableProvider.fromPacketEntity(packetEntity)
-        }
-
-        // ワールド情報
-        packetEntity.location.world?.let {
-            context["world"] = CELVariableProvider.fromWorld(it)
-        }
-
-        // Location情報
-        context["location"] = CELVariableProvider.fromLocation(packetEntity.location)
-
-        return CELVariableProvider.buildFullContext(context)
+        return CELVariableProvider.buildPacketEntityContext(packetEntity)
     }
 
     /**
      * PacketEntityとEntityのターゲットコンテキストを構築
      */
     private fun buildPacketEntityTargetContext(source: PacketEntity, target: Entity): Map<String, Any> {
-        val context = mutableMapOf<String, Any>()
-
-        // PacketEntityとEntityのペア情報
-        context.putAll(CELVariableProvider.fromPacketEntityPair(source, target))
-
-        // ワールド情報
-        source.location.world?.let {
-            context["world"] = CELVariableProvider.fromWorld(it)
-        }
-
-        return CELVariableProvider.buildFullContext(context)
+        return CELVariableProvider.buildPacketEntityTargetContext(source, target)
     }
 
     /**
      * PacketEntity同士のペアコンテキストを構築
      */
     private fun buildPacketEntityPairContext(source: PacketEntity, target: PacketEntity): Map<String, Any> {
-        val context = mutableMapOf<String, Any>()
-
-        // PacketEntity同士のペア情報
-        context.putAll(CELVariableProvider.fromPacketEntityPair(source, target))
-
-        // ワールド情報
-        source.location.world?.let {
-            context["world"] = CELVariableProvider.fromWorld(it)
-        }
-
-        return CELVariableProvider.buildFullContext(context)
+        return CELVariableProvider.buildPacketEntityPairContext(source, target)
     }
 
     /**
