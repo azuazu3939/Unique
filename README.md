@@ -131,7 +131,7 @@ skills:
 
 ## 📄 ライセンス
 
-MIT License
+GPL v3（GNU General Public License version 3）
 
 ## 🔗 リンク
 
