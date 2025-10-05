@@ -5,6 +5,7 @@ import io.papermc.paper.registry.RegistryKey
 import net.kyori.adventure.key.Key
 import org.bukkit.Sound
 import org.bukkit.attribute.Attribute
+import org.bukkit.block.Biome
 import org.bukkit.entity.LivingEntity
 import org.bukkit.potion.PotionEffectType
 
@@ -15,3 +16,5 @@ fun PotionEffectType.name(): String = this.key.toString()
 fun Sound.soundName(): String = RegistryAccess.registryAccess().getRegistry(RegistryKey.SOUND_EVENT).getKeyOrThrow(this).toString()
 
 fun getSound(name: Key): Sound = RegistryAccess.registryAccess().getRegistry(RegistryKey.SOUND_EVENT).getOrThrow(name)
+
+fun Biome.biomeName(): String = RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME).getKeyOrThrow(this).toString()

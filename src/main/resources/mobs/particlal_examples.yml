@@ -1,0 +1,351 @@
+# ===========================================
+# 実践的なCEL使用例
+# src/main/resources/sample/mobs/practical_examples.yml
+# ===========================================
+
+# ========== 例1: ベーシックなボス（HP段階で攻撃変化） ==========
+BasicBoss:
+  Type: ZOMBIE
+  Display: '&c&lベーシックボス'
+  Health: 200
+  Damage: 15
+
+  Skills:
+    OnTimer:
+      # HP100%〜70%: 通常攻撃
+      - skill: NormalAttack
+        interval: 3s
+        condition: "entity.health > entity.maxHealth * 0.7"
+        targeter:
+          type: NearestPlayer
+          range: 20
+
+      # HP70%〜30%: 強化攻撃
+      - skill: PowerfulAttack
+        interval: 2s
+        condition: "entity.health <= entity.maxHealth * 0.7 && entity.health > entity.maxHealth * 0.3"
+        targeter:
+          type: NearestPlayer
+          range: 25
+
+      # HP30%以下: 究極攻撃
+      - skill: UltimateAttack
+        interval: 5s
+        condition: "entity.health <= entity.maxHealth * 0.3"
+        targeter:
+          type: RadiusPlayers
+          range: 15.0
+
+# ========== 例2: 距離適応型（近接/遠距離で戦略変更） ==========
+RangeAdaptiveMob:
+  Type: SKELETON
+  Display: '&7適応型スケルトン'
+  Health: 100
+  Damage: 10
+
+  Skills:
+    OnTimer:
+      # 遠距離（15ブロック以上）: 弓攻撃
+      - skill: BowAttack
+        interval: 2s
+        condition: "distance.horizontal(entity.location, target.location) > 15.0"
+        targeter:
+          type: NearestPlayer
+          range: 30
+
+      # 中距離（5〜15ブロック）: 突撃
+      - skill: ChargeAttack
+        interval: 3s
+        condition: >
+          distance.horizontal(entity.location, target.location) >= 5.0 &&
+          distance.horizontal(entity.location, target.location) <= 15.0"
+        targeter:
+          type: NearestPlayer
+          range: 20
+
+      # 近距離（5ブロック未満）: 近接攻撃
+      - skill: MeleeAttack
+        interval: 1s
+        condition: "distance.horizontal(entity.location, target.location) < 5.0"
+        targeter:
+          type: NearestPlayer
+          range: 10
+
+# ========== 例3: プレイヤー数適応型（人数で召喚数変更） ==========
+PlayerScalingMob:
+  Type: EVOKER
+  Display: '&d人数適応召喚師'
+  Health: 150
+  Damage: 5
+
+  Skills:
+    OnTimer:
+      - skill: SummonHelpers
+        interval: 10s
+        # プレイヤー1人につき1体召喚（最大5体）
+        condition: "nearbyPlayerCount > 0"
+        targeter:
+          type: Self
+
+# SummonHelpers定義（skills/practical_skills.yml）
+SummonHelpers:
+  type: Summon
+  summon:
+    entityType: ZOMBIE
+    amount: "math.min(nearbyPlayerCount, 5)"
+    spreadRange: 3.0
+    duration: 30000
+
+# ========== 例4: 時間帯適応型（昼夜で能力変化） ==========
+TimeBasedMob:
+  Type: ZOMBIE
+  Display: '&8夜行性ゾンビ'
+  Health: 100
+  Damage: 10
+
+  Skills:
+    OnTimer:
+      # 夜間のみバフ
+      - skill: NightBuff
+        interval: 30s
+        condition: "world.isNight"
+        targeter:
+          type: Self
+
+      # 昼間は弱体化
+      - skill: DayDebuff
+        interval: 30s
+        condition: "world.isDay"
+        targeter:
+          type: Self
+
+# ========== 例5: 確率発動型（ランダム要素） ==========
+RandomMob:
+  Type: WITCH
+  Display: '&5ランダムウィッチ'
+  Health: 120
+  Damage: 8
+
+  Skills:
+    OnTimer:
+      # 30%の確率で特殊攻撃
+      - skill: SpecialAttack
+        interval: 5s
+        condition: "random.chance(0.3)"
+        targeter:
+          type: NearestPlayer
+          range: 20
+
+      # 10%の確率でテレポート
+      - skill: RandomTeleport
+        interval: 10s
+        condition: "random.chance(0.1)"
+        targeter:
+          type: Self
+
+# ========== 例6: フィルター付きターゲティング ==========
+SelectiveMob:
+  Type: BLAZE
+  Display: '&c選択的ブレイズ'
+  Health: 150
+  Damage: 12
+
+  Skills:
+    OnTimer:
+      # HP50以上のプレイヤーのみ攻撃
+      - skill: HighHPAttack
+        interval: 3s
+        targeter:
+          type: RadiusPlayers
+          range: 20.0
+          filter: "target.health > 50"
+
+      # サバイバルモードのプレイヤーのみ攻撃
+      - skill: SurvivalOnlyAttack
+        interval: 4s
+        targeter:
+          type: RadiusPlayers
+          range: 25.0
+          filter: "target.gameMode == 'SURVIVAL'"
+
+# ========== 例7: 距離ベースダメージ ==========
+DistanceMob:
+  Type: IRON_GOLEM
+  Display: '&f距離型ゴーレム'
+  Health: 200
+  Damage: 15
+
+  Skills:
+    OnTimer:
+      - skill: DistanceBasedPunch
+        interval: 2s
+        targeter:
+          type: NearestPlayer
+          range: 10
+
+# DistanceBasedPunch定義
+DistanceBasedPunch:
+  type: Damage
+  # 近いほど強力（10ブロックで0、0ブロックで30ダメージ）
+  damage: "30 * math.max(0, 1 - distance.horizontal(source.location, target.location) / 10.0)"
+
+# ========== 例8: 動的バフ（HPに応じて強度変化） ==========
+DynamicBuffMob:
+  Type: ZOMBIE
+  Display: '&a動的バフゾンビ'
+  Health: 100
+  Damage: 10
+
+  Skills:
+    OnTimer:
+      - skill: HPBasedBuff
+        interval: 5s
+        targeter:
+          type: Self
+
+# HPBasedBuff定義
+HPBasedBuff:
+  type: Buff
+  potionEffects:
+    - type: STRENGTH
+      # HPが低いほど強力（HP100%で0、HP0%で3）
+      amplifier: "math.floor((1 - entity.health / entity.maxHealth) * 3)"
+      showIcon: true
+  duration: 200
+
+# ========== 例9: 環境適応型（バイオーム・天候） ==========
+EnvironmentMob:
+  Type: WITCH
+  Display: '&5環境ウィッチ'
+  Health: 130
+  Damage: 8
+
+  Skills:
+    OnTimer:
+      # 雷雨時のみ特殊攻撃
+      - skill: ThunderAttack
+        interval: 3s
+        condition: "world.isThundering"
+        targeter:
+          type: NearestPlayer
+          range: 30
+
+      # ダークフォレストで強化
+      - skill: ForestBuff
+        interval: 10s
+        condition: "string.contains(environment.biome, 'DARK')"
+        targeter:
+          type: Self
+
+      # 満月の夜は究極攻撃
+      - skill: FullMoonAttack
+        interval: 20s
+        condition: "world.isNight && environment.moonPhase == 0"
+        targeter:
+          type: RadiusPlayers
+          range: 20.0
+
+# ========== 例10: プレイヤーレベル適応型 ==========
+LevelScalingMob:
+  Type: IRON_GOLEM
+  Display: '&fレベル適応ゴーレム'
+  # プレイヤーレベルに応じてHPスケール
+  Health: "100 + (nearbyPlayers.avgLevel * 10)"
+  Damage: "10 + (nearbyPlayers.maxLevel * 0.5)"
+
+  Skills:
+    OnTimer:
+      - skill: LevelBasedAttack
+        interval: 3s
+        targeter:
+          type: NearestPlayer
+          range: 20
+
+# LevelBasedAttack定義
+LevelBasedAttack:
+  type: Damage
+  # プレイヤーの平均レベルに応じてダメージ
+  damage: "10 + (nearbyPlayers.avgLevel * 0.5)"
+
+# ========== 例11: 円形範囲攻撃（CELでフィルタ） ==========
+CircleMob:
+  Type: BLAZE
+  Display: '&c円形ブレイズ'
+  Health: 150
+  Damage: 12
+
+  Skills:
+    OnTimer:
+      - skill: CircleFlame
+        interval: 5s
+        targeter:
+          type: RadiusPlayers
+          range: 10.0
+          # CEL式で円形判定（Y軸±3ブロック）
+          filter: >
+            math.sqrt(
+              math.pow(target.location.x - source.location.x, 2) + 
+              math.pow(target.location.z - source.location.z, 2)
+            ) <= 10.0 &&
+            math.abs(target.location.y - source.location.y) <= 3.0
+
+# ========== 例12: ドーナツ型範囲攻撃 ==========
+DonutMob:
+  Type: WARDEN
+  Display: '&8ドーナツウォーデン'
+  Health: 500
+  Damage: 30
+
+  Skills:
+    OnTimer:
+      - skill: DonutWave
+        interval: 8s
+        targeter:
+          type: RadiusPlayers
+          range: 15.0
+          # ドーナツ型（内径5、外径15）
+          filter: >
+            (function() {
+              var dx = target.location.x - source.location.x;
+              var dz = target.location.z - source.location.z;
+              var distSq = dx * dx + dz * dz;
+              return distSq >= 25 && distSq <= 225;
+            })()
+
+DonutWave:
+  type: Damage
+  damage: 20
+  effects:
+    - type: Particle
+      particle: SONIC_BOOM
+      count: 50
+
+# ========== 例13: 連鎖攻撃（近くの敵に順番に） ==========
+ChainMob:
+  Type: WITCH
+  Display: '&5連鎖ウィッチ'
+  Health: 120
+  Damage: 8
+
+  Skills:
+    OnTimer:
+      - skill: ChainMagic
+        interval: 5s
+        targeter:
+          type: NearestPlayer
+          range: 20
+          # 最大3回連鎖、範囲5ブロック
+          chain:
+            maxChains: 3
+            chainRange: 5.0
+            # 生きているプレイヤーのみ
+            condition: "target.health > 0"
+
+ChainMagic:
+  type: Damage
+  # 連鎖するごとにダメージ減少
+  damage: "15 - (chainIndex * 3)"
+  effects:
+    - type: Particle
+      particle: ELECTRIC_SPARK
+      count: 20

@@ -1,0 +1,343 @@
+# ===========================================
+# CELベースの高度なスキル定義
+# src/main/resources/sample/skills/advanced_skills.yml
+# ===========================================
+#
+# 設計思想:
+# - Javaクラスを増やさない
+# - CEL式で全ての条件・計算・フィルタリングを行う
+# - YAMLで柔軟に機能を組み合わせる
+
+# ========== 条件付きターゲティング（CEL式で実現） ==========
+ConditionalFireball:
+  type: Projectile
+  meta:
+    sync: false
+    executeDelay: 0ms
+
+  # ターゲット取得
+  targeter:
+    type: NearestPlayer
+    range: 30
+    # CEL式でフィルタリング
+    filter: "target.health > 50 && target.gameMode == 'SURVIVAL' && !target.isFlying"
+
+  projectile:
+    type: FIREBALL
+    speed: 1.5
+    # CEL式でダメージ計算
+    damage: "math.min(target.health * 0.3, 20)"
+
+# ========== 連鎖攻撃（CEL式で近接エンティティを取得） ==========
+ChainLightning:
+  type: Damage
+  meta:
+    sync: false
+    executeDelay: 0ms
+
+  targeter:
+    type: NearestPlayer
+    range: 20
+    # CEL式で連鎖ロジック（変数でカスタマイズ可能）
+    chain:
+      maxChains: 5
+      chainRange: 5.0
+      # 連鎖条件
+      condition: "target.health > 0 && target.type == 'PLAYER'"
+
+  # 各ターゲットに対して実行
+  damage: "10 - (chainIndex * 1.5)"  # 連鎖するごとにダメージ減少
+
+  effects:
+    - type: Lightning
+      # CEL式で位置調整
+      offset:
+        x: "random.range(-0.5, 0.5)"
+        y: 0
+        z: "random.range(-0.5, 0.5)"
+
+    - type: Particle
+      particle: ELECTRIC_SPARK
+      count: 30
+
+# ========== エリア攻撃（CEL式で範囲判定） ==========
+CircleExplosion:
+  type: Damage
+  meta:
+    sync: false
+    executeDelay: 1s
+
+  targeter:
+    type: RadiusPlayers
+    range: 10.0
+    # CEL式で円形フィルタ（Y軸も考慮）
+    filter: >
+      math.sqrt(
+        math.pow(target.location.x - source.location.x, 2) + 
+        math.pow(target.location.z - source.location.z, 2)
+      ) <= 10.0 &&
+      math.abs(target.location.y - source.location.y) <= 3.0
+
+  # CEL式で距離に応じたダメージ
+  damage: >
+    20 * (1 - (
+      math.sqrt(
+        math.pow(target.location.x - source.location.x, 2) + 
+        math.pow(target.location.z - source.location.z, 2)
+      ) / 10.0
+    ))
+
+  effects:
+    - type: Explosion
+      power: 2.0
+      setFire: false
+      breakBlocks: false
+
+# ========== 円錐攻撃（CEL式で角度判定） ==========
+ConeFlameAttack:
+  type: Damage
+  meta:
+    sync: false
+    executeDelay: 500ms
+
+  targeter:
+    type: RadiusPlayers
+    range: 15.0
+    # CEL式で円錐形状判定（内積を使用）
+    filter: >
+      (function() {
+        var dx = target.location.x - source.location.x;
+        var dz = target.location.z - source.location.z;
+        var distance = math.sqrt(dx * dx + dz * dz);
+      
+        var dirX = math.cos(math.toRadians(source.location.yaw));
+        var dirZ = math.sin(math.toRadians(source.location.yaw));
+      
+        var dotProduct = (dx * dirX + dz * dirZ) / distance;
+        var angleRadians = math.acos(dotProduct);
+      
+        return distance <= 15.0 && angleRadians <= math.toRadians(45);
+      })()
+
+  damage: 8
+
+  effects:
+    - type: Particle
+      particle: FLAME
+      count: 100
+    - type: Sound
+      sound: ENTITY_BLAZE_SHOOT
+      volume: 1.0
+      pitch: 0.8
+
+# ========== ドーナツ型攻撃（CEL式で内外半径判定） ==========
+DonutShockwave:
+  type: Damage
+  meta:
+    sync: false
+    executeDelay: 1s
+
+  targeter:
+    type: RadiusPlayers
+    range: 10.0
+    # CEL式でドーナツ形状判定
+    filter: >
+      (function() {
+        var dx = target.location.x - source.location.x;
+        var dz = target.location.z - source.location.z;
+        var distanceSquared = dx * dx + dz * dz;
+        var innerRadius = 3.0;
+        var outerRadius = 10.0;
+      
+        return distanceSquared >= innerRadius * innerRadius && 
+               distanceSquared <= outerRadius * outerRadius &&
+               math.abs(target.location.y - source.location.y) <= 2.0;
+      })()
+
+  damage: 15
+
+  effects:
+    - type: Particle
+      particle: SONIC_BOOM
+      count: 50
+    - type: Sound
+      sound: ENTITY_WARDEN_SONIC_BOOM
+      volume: 2.0
+      pitch: 1.0
+
+# ========== 召喚スキル（CEL式で召喚位置計算） ==========
+SummonMinions:
+  type: Summon
+  meta:
+    sync: false
+    executeDelay: 500ms
+
+  summon:
+    entityType: ZOMBIE
+    # CEL式で召喚数を動的に決定
+    amount: "math.min(math.floor(nearbyPlayerCount / 2), 5)"
+
+    # CEL式で召喚位置を計算（円形配置）
+    positions:
+      - x: "source.location.x + math.cos(0) * 3"
+        z: "source.location.z + math.sin(0) * 3"
+      - x: "source.location.x + math.cos(math.pi * 2 / 3) * 3"
+        z: "source.location.z + math.sin(math.pi * 2 / 3) * 3"
+      - x: "source.location.x + math.cos(math.pi * 4 / 3) * 3"
+        z: "source.location.z + math.sin(math.pi * 4 / 3) * 3"
+
+    # CEL式で持続時間を決定
+    duration: "30000 + (entity.health / entity.maxHealth * 30000)"
+
+    # 召喚されたエンティティの設定
+    configuration:
+      # CEL式でHPを設定
+      health: "entity.maxHealth * 0.3"
+      # CEL式でダメージを設定
+      damage: "entity.damage * 0.5"
+
+# ========== テレポートスキル（CEL式で座標計算） ==========
+TeleportBehind:
+  type: Teleport
+  meta:
+    sync: true  # テレポートは同期必須
+    executeDelay: 200ms
+
+  targeter:
+    type: NearestPlayer
+    range: 30
+
+  # CEL式でテレポート先を計算
+  destination:
+    # ターゲットの背後5ブロック
+    x: "target.location.x - math.cos(math.toRadians(target.location.yaw)) * 5"
+    y: "target.location.y"
+    z: "target.location.z - math.sin(math.toRadians(target.location.yaw)) * 5"
+    yaw: "target.location.yaw + 180"
+
+  playEffect: true
+  playSound: true
+
+# ========== ランダムテレポート（CEL式でランダム座標） ==========
+RandomTeleport:
+  type: Teleport
+  meta:
+    sync: true
+    executeDelay: 0ms
+
+  targeter:
+    type: Self
+
+  destination:
+    # CEL式でランダムオフセット
+    x: "source.location.x + random.range(-10, 10)"
+    y: "source.location.y"
+    z: "source.location.z + random.range(-10, 10)"
+
+  playEffect: true
+
+# ========== バフスキル（CEL式で効果時間・強度計算） ==========
+DynamicStrengthBuff:
+  type: Buff
+  meta:
+    sync: false
+    executeDelay: 0ms
+
+  targeter:
+    type: Self
+
+  potionEffects:
+    - type: STRENGTH
+      # CEL式でアンプリファイアを計算（HPが低いほど強力）
+      amplifier: "math.floor((1 - entity.health / entity.maxHealth) * 3)"
+      showIcon: true
+
+    - type: SPEED
+      amplifier: 1
+      showIcon: true
+
+  # CEL式で持続時間を計算
+  duration: "200 + (nearbyPlayerCount * 100)"  # プレイヤーが多いほど長持ち
+
+  showParticles: true
+
+# ========== コマンドスキル（CEL式でプレースホルダー） ==========
+DynamicReward:
+  type: Command
+  meta:
+    sync: true
+    executeDelay: 0ms
+
+  targeter:
+    type: RadiusPlayers
+    range: 50.0
+
+  executor: CONSOLE
+
+  commands:
+    # CEL式でコマンドを動的生成
+    - "give {target} diamond {math.max(1, math.floor(entity.maxHealth / 100))}"
+    - "give {target} emerald {nearbyPlayerCount * 2}"
+    - "title {target} title {\"text\":\"Victory!\",\"color\":\"gold\"}"
+
+  commandDelay: 100
+
+# ========== メタスキル（複数スキルの組み合わせ） ==========
+UltimateCombo:
+  type: Meta
+  meta:
+    sync: false
+    executeDelay: 0ms
+
+  # CEL式で実行条件
+  condition: "entity.health < entity.maxHealth * 0.3"
+
+  skills:
+    # フェーズ1: バフ
+    - skill: DynamicStrengthBuff
+      targeter:
+        type: Self
+      meta:
+        executeDelay: 0ms
+
+    # フェーズ2: テレポート
+    - skill: TeleportBehind
+      targeter:
+        type: NearestPlayer
+        range: 30
+      meta:
+        executeDelay: 500ms
+
+    # フェーズ3: 範囲攻撃
+    - skill: CircleExplosion
+      targeter:
+        type: Self
+      meta:
+        executeDelay: 1s
+
+    # フェーズ4: 召喚
+    - skill: SummonMinions
+      targeter:
+        type: Self
+      meta:
+        executeDelay: 2s
+
+# ========== 条件分岐スキル（CEL式で分岐） ==========
+AdaptiveAttack:
+  type: Meta
+  meta:
+    sync: false
+
+  # CEL式で条件ごとに異なるスキルを実行
+  branches:
+    - condition: "nearbyPlayerCount >= 3"
+      skills:
+        - skill: CircleExplosion  # 多数の敵には範囲攻撃
+
+    - condition: "target.health > 100"
+      skills:
+        - skill: ConditionalFireball  # HPが高い敵には強攻撃
+
+    - default: true
+      skills:
+        - skill: BasicAttack  # デフォルト攻撃

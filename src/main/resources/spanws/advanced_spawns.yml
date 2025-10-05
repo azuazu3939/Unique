@@ -1,0 +1,247 @@
+# ===========================================
+# 高度なスポーン定義サンプル
+# src/main/resources/sample/spawns/advanced_spawns.yml
+# ===========================================
+
+# ========== ボススポーン：満月の夜 ==========
+DragonFullMoonSpawn:
+  mob: AncientDragon
+
+  conditions:
+    - "world.isNight"
+    - "world.playerCount >= 3"
+    - "!world.hasStorm"
+
+  spawnRate: 12000  # 10分ごと
+  maxNearby: 1
+  chunkRadius: 20
+
+  region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 150
+
+  advancedConditions:
+    moonPhase: FULL_MOON
+    weatherRequired: CLEAR
+    playerLevelMin: 30
+    nearbyPlayerCount: 3
+
+  onSpawn:
+    - skill: BroadcastDefeat
+      meta:
+        executeDelay: 0ms
+        sync: true
+
+# ========== 雷雨時のスポーン ==========
+ThunderstormMageSpawn:
+  mob: LightningMage
+
+  conditions:
+    - "world.isThundering"
+    - "world.playerCount >= 1"
+
+  spawnRate: 600  # 30秒ごと
+  maxNearby: 3
+  chunkRadius: 5
+
+  region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 100
+
+  advancedConditions:
+    weatherRequired: THUNDER
+
+# ========== ネザー要塞風スポーン ==========
+FlameWarriorSpawn:
+  mob: FlameWarrior
+
+  conditions:
+    - "world.name == 'world_nether'"
+    - "world.playerCount >= 1"
+
+  spawnRate: 1200  # 1分ごと
+  maxNearby: 5
+  chunkRadius: 8
+
+  region:
+    type: box
+    min:
+      x: -200
+      y: 30
+      z: -200
+    max:
+      x: 200
+      y: 100
+      z: 200
+
+# ========== ダンジョン風定期スポーン ==========
+DungeonWaveSpawn:
+  mob: Summoner
+
+  conditions:
+    - "world.time >= 13000"  # 夜間のみ
+    - "world.playerCount >= 2"
+
+  spawnRate: 2400  # 2分ごと
+  maxNearby: 2
+  chunkRadius: 10
+
+  region:
+    type: circle
+    center:
+      x: 100
+      z: 100
+    radius: 50
+
+  onSpawn:
+    # スポーン時に周囲のプレイヤーにデバフ
+    - skill: WeaknessDebuff
+      meta:
+        executeDelay: 500ms
+
+# ========== ボスアリーナスポーン ==========
+BossArenaSpawn:
+  mob: AncientDragon
+
+  # 固定位置にスポーン
+  location:
+    world: world
+    x: 0.5
+    y: 100.0
+    z: 0.5
+    yaw: 0.0
+    pitch: 0.0
+
+  conditions:
+    - "world.playerCount >= 5"
+    - "world.time % 24000 == 0"  # 日の出時
+
+  spawnRate: 24000  # 1日ごと
+  maxNearby: 1
+  chunkRadius: 15
+
+  onSpawn:
+    - skill: BroadcastDefeat
+      meta:
+        executeDelay: 0ms
+        sync: true
+
+# ========== ヒーラーのサポートスポーン ==========
+HealerSupportSpawn:
+  mob: SupportHealer
+
+  conditions:
+    - "nearbyMobCount >= 3"  # 他のMobが3体以上いる場合
+    - "world.playerCount >= 2"
+
+  spawnRate: 1800  # 1分30秒ごと
+  maxNearby: 2
+  chunkRadius: 8
+
+  region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 80
+
+# ========== アサシンの奇襲スポーン ==========
+AssassinAmbushSpawn:
+  mob: Assassin
+
+  conditions:
+    - "world.isNight"
+    - "player.isSneaking"  # プレイヤーがスニーク中
+    - "random.chance(0.3)"  # 30%の確率
+
+  spawnRate: 200  # 10秒ごとチェック
+  maxNearby: 1
+  chunkRadius: 3
+
+  region:
+    type: donut  # プレイヤーの周囲にスポーン
+    innerRadius: 10.0
+    outerRadius: 20.0
+
+# ========== ネクロマンサーの墓地スポーン ==========
+NecromancerGraveyardSpawn:
+  mob: Necromancer
+
+  conditions:
+    - "world.isNight"
+    - "biome == 'DARK_FOREST' || biome == 'SWAMP'"
+
+  spawnRate: 3600  # 3分ごと
+  maxNearby: 2
+  chunkRadius: 12
+
+  region:
+    type: circle
+    center:
+      x: -500
+      z: -500
+    radius: 200
+
+  advancedConditions:
+    moonPhase: NEW_MOON
+
+  onSpawn:
+    # スポーン時に初期ミニオンを召喚
+    - skill: SummonMinions
+      meta:
+        executeDelay: 1s
+
+# ========== イベントスポーン：プレイヤーレベル依存 ==========
+EliteSpawn:
+  mob: LightningMage
+
+  conditions:
+    - "world.playerCount >= 1"
+
+  spawnRate: 1200
+  maxNearby: 3
+  chunkRadius: 10
+
+  region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 100
+
+  advancedConditions:
+    playerLevelMin: 20
+    playerLevelMax: 50
+
+# ========== 複数Mob同時スポーン ==========
+MixedWaveSpawn:
+  # 注: これは複数のスポーン定義を使うことで実現
+  # FlameWarrior と Summoner を同時にスポーン
+  mob: FlameWarrior
+
+  conditions:
+    - "world.isNight"
+    - "world.playerCount >= 3"
+
+  spawnRate: 6000  # 5分ごと
+  maxNearby: 2
+  chunkRadius: 8
+
+  region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 50
+
+  onSpawn:
+    # スポーン時にサポーターも召喚
+    - skill: SummonCustomBoss
+      meta:
+        executeDelay: 2s

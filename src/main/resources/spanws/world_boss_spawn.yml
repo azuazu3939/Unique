@@ -1,0 +1,28 @@
+# spawns/world_boss_spawn.yml
+DragonSpawn:
+  mob: BossDragon
+
+  conditions:
+    - "world.fullTime % 24000 > 18000"  # 夜間のみ
+    - "world.playerCount >= 3"           # 3人以上のプレイヤー
+
+  spawnRate: 6000  # 5分ごと
+  maxNearby: 1
+  chunkRadius: 10
+
+  region:
+    type: circle
+    center:
+      x: 0
+      z: 0
+    radius: 100
+
+  advancedConditions:
+    moonPhase: FULL_MOON
+    weatherRequired: CLEAR
+    playerLevelMin: 20
+
+  onSpawn:
+    - skill: AnnounceSpawn
+      meta:
+        executeDelay: 0ms

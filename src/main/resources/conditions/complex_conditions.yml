@@ -1,0 +1,12 @@
+# conditions/complex_conditions.yml
+NightTime:
+  expression: "world.isNight"
+
+HealthLow:
+  expression: "entity.health < entity.maxHealth * 0.3"
+
+PlayerNearby:
+  expression: "player.location.distance(entity.location) < 20"
+
+CombinedCondition:
+  expression: "world.isNight && entity.health < 50 && player.level > 10"

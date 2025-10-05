@@ -1,0 +1,285 @@
+# ===========================================
+# CELベースの高度なMob定義
+# src/main/resources/sample/mobs/advanced_mobs.yml
+# ===========================================
+
+# ========== 適応型ボス（CEL式で戦略変更） ==========
+AdaptiveBoss:
+  Type: ENDER_DRAGON
+  Display: '&5&l適応型ドラゴン'
+  Health: 2000
+  Damage: 50
+
+  AI:
+    MovementSpeed: 0.4
+    FollowRange: 100
+
+  Skills:
+    OnTimer:
+      # CEL式でフェーズ判定
+      - skill: ConditionalFireball
+        interval: 3s
+        # HP 70%以上: 通常攻撃
+        condition: "entity.health > entity.maxHealth * 0.7"
+        targeter:
+          type: NearestPlayer
+          range: 50
+
+      - skill: ChainLightning
+        interval: 5s
+        # HP 30-70%: 連鎖攻撃
+        condition: "entity.health <= entity.maxHealth * 0.7 && entity.health > entity.maxHealth * 0.3"
+        targeter:
+          type: NearestPlayer
+          range: 40
+
+      - skill: UltimateCombo
+        interval: 10s
+        # HP 30%以下: 究極攻撃
+        condition: "entity.health <= entity.maxHealth * 0.3"
+        targeter:
+          type: Self
+
+    OnDamaged:
+      # CEL式で反撃条件判定
+      - skill: TeleportBehind
+        # 大ダメージを受けたら背後にテレポート
+        condition: "damage.amount > entity.maxHealth * 0.1"
+        targeter:
+          type: Attacker
+
+# ========== 召喚師（CEL式で召喚数制御） ==========
+IntelligentSummoner:
+  Type: EVOKER
+  Display: '&d&l知能型召喚師'
+  Health: 150
+  Damage: 5
+
+  AI:
+    MovementSpeed: 0.25
+    FollowRange: 30
+
+  Skills:
+    OnTimer:
+      - skill: SummonMinions
+        interval: 10s
+        # CEL式で召喚条件（近くの味方が少ない場合）
+        condition: "nearbyMobCount < 3 && nearbyPlayerCount > 0"
+        targeter:
+          type: Self
+
+      - skill: RandomTeleport
+        interval: 15s
+        # CEL式で逃走条件（HPが低い or 近くに敵が多い）
+        condition: "entity.health < entity.maxHealth * 0.5 || nearbyPlayerCount >= 2"
+        targeter:
+          type: Self
+
+    OnDamaged:
+      - skill: SummonMinions
+        # 緊急召喚（HPが半分以下）
+        condition: "entity.health < entity.maxHealth * 0.5 && nearbyMobCount < 2"
+        targeter:
+          type: Self
+
+# ========== 範囲攻撃型（CEL式でエリア判定） ==========
+AreaAttacker:
+  Type: BLAZE
+  Display: '&c&l炎の戦士'
+  Health: 200
+  Damage: 12
+
+  AI:
+    MovementSpeed: 0.35
+    FollowRange: 25
+
+  Skills:
+    OnTimer:
+      - skill: ConeFlameAttack
+        interval: 3s
+        # 正面に敵がいる場合
+        condition: "nearbyPlayerCount > 0"
+        targeter:
+          type: Self
+
+      - skill: CircleExplosion
+        interval: 8s
+        # 周囲に複数の敵がいる場合
+        condition: "nearbyPlayerCount >= 2"
+        targeter:
+          type: Self
+
+      - skill: DonutShockwave
+        interval: 12s
+        # 囲まれている場合
+        condition: "nearbyPlayerCount >= 3"
+        targeter:
+          type: Self
+
+# ========== バフサポート型（CEL式でバフ対象選択） ==========
+BuffSupporter:
+  Type: VILLAGER
+  Display: '&a&lサポーター'
+  Health: 80
+  Damage: 0
+
+  AI:
+    MovementSpeed: 0.2
+    FollowRange: 20
+
+  Skills:
+    OnTimer:
+      - skill: DynamicStrengthBuff
+        interval: 5s
+        # 近くの味方をバフ（CEL式で自分以外のMobを選択）
+        targeter:
+          type: RadiusEntities
+          range: 10.0
+          filter: "target.type != 'PLAYER' && target.uuid != entity.uuid"
+
+      - skill: RandomTeleport
+        interval: 10s
+        # 危険を感知したら逃げる
+        condition: "nearbyPlayerCount >= 2 || entity.health < entity.maxHealth * 0.7"
+        targeter:
+          type: Self
+
+# ========== 距離適応型（CEL式で距離判定） ==========
+RangeAdaptive:
+  Type: SKELETON
+  Display: '&7&l適応型スケルトン'
+  Health: 120
+  Damage: 10
+
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 35
+
+  Skills:
+    OnTimer:
+      # CEL式で距離に応じて攻撃を変更
+      - skill: ConditionalFireball
+        interval: 2s
+        # 遠距離: 弾幕攻撃
+        condition: >
+          (function() {
+            var dx = target.location.x - entity.location.x;
+            var dz = target.location.z - entity.location.z;
+            var distance = math.sqrt(dx * dx + dz * dz);
+            return distance > 15.0;
+          })()
+        targeter:
+          type: NearestPlayer
+          range: 35
+
+      - skill: ConeFlameAttack
+        interval: 3s
+        # 中距離: 円錐攻撃
+        condition: >
+          (function() {
+            var dx = target.location.x - entity.location.x;
+            var dz = target.location.z - entity.location.z;
+            var distance = math.sqrt(dx * dx + dz * dz);
+            return distance >= 5.0 && distance <= 15.0;
+          })()
+        targeter:
+          type: Self
+
+      - skill: CircleExplosion
+        interval: 5s
+        # 近距離: 自爆攻撃
+        condition: >
+          (function() {
+            var dx = target.location.x - entity.location.x;
+            var dz = target.location.z - entity.location.z;
+            var distance = math.sqrt(dx * dx + dz * dz);
+            return distance < 5.0;
+          })()
+        targeter:
+          type: Self
+
+# ========== 時間帯適応型（CEL式で時刻判定） ==========
+TimeBasedMob:
+  Type: ZOMBIE
+  Display: '&8&l夜行性ゾンビ'
+  Health: 100
+  Damage: 15
+
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 30
+
+  Skills:
+    OnTimer:
+      - skill: DynamicStrengthBuff
+        interval: 30s
+        # 夜間はバフ強化
+        condition: "world.isNight"
+        targeter:
+          type: Self
+
+      - skill: ChainLightning
+        interval: 5s
+        # 満月の夜は特殊攻撃
+        condition: "world.isNight && environment.moonPhase == 0"
+        targeter:
+          type: NearestPlayer
+          range: 30
+
+# ========== プレイヤーレベル適応型（CEL式でレベル判定） ==========
+LevelScaling:
+  Type: IRON_GOLEM
+  Display: '&f&lスケーリングゴーレム'
+  # CEL式でHPを動的設定
+  Health: "100 + (nearbyPlayers.avgLevel * 10)"
+  # CEL式でダメージを動的設定
+  Damage: "10 + (nearbyPlayers.maxLevel * 0.5)"
+
+  AI:
+    MovementSpeed: 0.25
+    FollowRange: 40
+
+  Skills:
+    OnTimer:
+      - skill: AdaptiveAttack
+        interval: 4s
+        # プレイヤーのレベルに応じて攻撃変更
+        targeter:
+          type: NearestPlayer
+          range: 30
+
+# ========== 環境適応型（CEL式で天候・バイオーム判定） ==========
+EnvironmentAdaptive:
+  Type: WITCH
+  Display: '&5&l環境適応ウィッチ'
+  Health: 130
+  Damage: 8
+
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 35
+
+  Skills:
+    OnTimer:
+      - skill: ChainLightning
+        interval: 3s
+        # 雷雨時は稲妻攻撃
+        condition: "world.isThundering"
+        targeter:
+          type: NearestPlayer
+          range: 30
+
+      - skill: ConditionalFireball
+        interval: 5s
+        # 晴天時は火球攻撃
+        condition: "!world.hasStorm && world.isDay"
+        targeter:
+          type: NearestPlayer
+          range: 30
+
+      - skill: DonutShockwave
+        interval: 8s
+        # ネザーでは特殊攻撃
+        condition: "world.name == 'world_nether'"
+        targeter:
+          type: Self

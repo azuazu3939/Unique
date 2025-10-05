@@ -132,12 +132,24 @@ object DebugLogger {
         }
     }
 
+    fun targeter(targeterType: String, content: String) {
+        if (debugMode) {
+            debug("§3[TARGETER] §f$targeterType §7found §f$content §7target(s)")
+        }
+    }
+
     /**
      * エフェクトログ（詳細モード用）
      */
     fun effect(effectType: String, target: String) {
         if (verboseMode) {
             verbose("§5[EFFECT] §f$effectType §7applied to §f$target")
+        }
+    }
+
+    fun skill(content: String) {
+        if (debugMode) {
+            debug("§a[SKILL] §f$content")
         }
     }
 
