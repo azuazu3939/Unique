@@ -301,16 +301,11 @@ DonutMob:
       - skill: DonutWave
         interval: 8s
         targeter:
-          type: RadiusPlayers
-          range: 15.0
-          # ドーナツ型（内径5、外径15）
-          filter: >
-            (function() {
-              var dx = target.location.x - source.location.x;
-              var dz = target.location.z - source.location.z;
-              var distSq = dx * dx + dz * dz;
-              return distSq >= 25 && distSq <= 225;
-            })()
+          type: Area
+          shape: DONUT
+          innerRadius: "5.0"   # 内径5ブロック
+          radius: "15.0"       # 外径15ブロック
+          targetPlayers: true
 
 DonutWave:
   type: Damage

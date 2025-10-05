@@ -7,13 +7,17 @@ import org.bukkit.entity.EntityType
  *
  * YAMLから読み込まれるMobの設定
  * Hopliteで型安全に読み込まれる
+ *
+ * health, damageはCEL式をサポート
+ * 例: health="100", health="100 + (nearbyPlayers.count * 50)"
+ *     damage="10", damage="10 + (nearbyPlayers.avgLevel * 0.5)"
  */
 data class MobDefinition(
     // 基本設定
     val type: String,  // EntityTypeの文字列
     val display: String? = null,
-    val health: Double? = null,
-    val damage: Double? = null,
+    val health: String? = null,  // CEL式対応
+    val damage: String? = null,  // CEL式対応
 
     // AI設定
     val ai: MobAI = MobAI(),
@@ -43,20 +47,6 @@ data class MobDefinition(
      */
     fun getDisplayName(): String {
         return display ?: type
-    }
-
-    /**
-     * HP を取得（デフォルト値対応）
-     */
-    fun getHealth(): Double {
-        return health ?: 20.0
-    }
-
-    /**
-     * ダメージを取得（デフォルト値対応）
-     */
-    fun getDamage(): Double {
-        return damage ?: 5.0
     }
 }
 
@@ -162,16 +152,22 @@ data class EffectDefinition(
 
 /**
  * ドロップ定義
+ *
+ * amount, chanceはCEL式をサポート
+ * 例: amount="1", amount="math.max(1, nearbyPlayers.maxLevel / 10)"
+ *     chance="1.0", chance="0.1 + (killer.level * 0.01)", chance="environment.moonPhase == 0 ? 0.5 : 0.1"
  */
 data class DropDefinition(
     val item: String,
-    val amount: String = "1",  // "1" or "1-3" 形式
-    val chance: Double = 1.0,
+    val amount: String = "1",  // CEL式対応（範囲形式 "1-3" も互換性維持）
+    val chance: String = "1.0",  // CEL式対応
     val condition: String = "true"
 ) {
     /**
-     * ドロップ個数を取得（範囲対応）
+     * ドロップ個数を取得（範囲対応、CEL評価は呼び出し側で行う）
+     * @deprecated Use evaluateAmount() in MobManager instead
      */
+    @Deprecated("Use evaluateAmount() in MobManager", ReplaceWith("amount"))
     fun getAmount(): Int {
         return if (amount.contains("-")) {
             val parts = amount.split("-")

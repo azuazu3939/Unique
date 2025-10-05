@@ -161,13 +161,7 @@ RangeAdaptive:
       - skill: ConditionalFireball
         interval: 2s
         # 遠距離: 弾幕攻撃
-        condition: >
-          (function() {
-            var dx = target.location.x - entity.location.x;
-            var dz = target.location.z - entity.location.z;
-            var distance = math.sqrt(dx * dx + dz * dz);
-            return distance > 15.0;
-          })()
+        condition: "distance.horizontal(entity.location, target.location) > 15.0"
         targeter:
           type: NearestPlayer
           range: 35
@@ -176,25 +170,15 @@ RangeAdaptive:
         interval: 3s
         # 中距離: 円錐攻撃
         condition: >
-          (function() {
-            var dx = target.location.x - entity.location.x;
-            var dz = target.location.z - entity.location.z;
-            var distance = math.sqrt(dx * dx + dz * dz);
-            return distance >= 5.0 && distance <= 15.0;
-          })()
+          distance.horizontal(entity.location, target.location) >= 5.0 &&
+          distance.horizontal(entity.location, target.location) <= 15.0
         targeter:
           type: Self
 
       - skill: CircleExplosion
         interval: 5s
         # 近距離: 自爆攻撃
-        condition: >
-          (function() {
-            var dx = target.location.x - entity.location.x;
-            var dz = target.location.z - entity.location.z;
-            var distance = math.sqrt(dx * dx + dz * dz);
-            return distance < 5.0;
-          })()
+        condition: "distance.horizontal(entity.location, target.location) < 5.0"
         targeter:
           type: Self
 

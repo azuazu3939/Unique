@@ -54,25 +54,58 @@ abstract class Effect(
 
 /**
  * ダメージエフェクト
+ *
+ * amountパラメータはCEL式をサポート
+ * 例: "10", "target.health * 0.3", "20 * (1 - distance.horizontal(source.location, target.location) / 30)"
  */
 class DamageEffect(
     id: String = "damage",
-    private val amount: Double,
+    private val amount: String,
     sync: Boolean = true
 ) : Effect(id, sync) {
 
     override suspend fun apply(source: Entity, target: Entity) {
         if (target !is LivingEntity) return
 
-        target.damage(amount, source)
-        DebugLogger.effect("Damage($amount)", target.name)
+        val damageValue = evaluateDamage(source, target)
+        target.damage(damageValue, source)
+        DebugLogger.effect("Damage($damageValue)", target.name)
     }
 
     override suspend fun apply(source: PacketEntity, target: Entity) {
         if (target !is LivingEntity) return
 
-        target.damage(amount)
-        DebugLogger.effect("Damage($amount) from PacketEntity", target.name)
+        val damageValue = evaluateDamageFromPacket(source, target)
+        target.damage(damageValue)
+        DebugLogger.effect("Damage($damageValue) from PacketEntity", target.name)
+    }
+
+    private fun evaluateDamage(source: Entity, target: Entity): Double {
+        return try {
+            // 固定値ならそのまま返す
+            amount.toDoubleOrNull() ?: run {
+                // CEL式として評価
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(amount, context)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate damage amount: $amount", e)
+            0.0
+        }
+    }
+
+    private fun evaluateDamageFromPacket(source: PacketEntity, target: Entity): Double {
+        return try {
+            amount.toDoubleOrNull() ?: run {
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildPacketEntityTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(amount, context)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate damage amount: $amount", e)
+            0.0
+        }
     }
 
     override fun getDescription(): String = "Damage: $amount"
@@ -80,29 +113,60 @@ class DamageEffect(
 
 /**
  * 回復エフェクト
+ *
+ * amountパラメータはCEL式をサポート
+ * 例: "10", "target.maxHealth * 0.2", "entity.maxHealth - entity.health"
  */
 class HealEffect(
     id: String = "heal",
-    private val amount: Double,
+    private val amount: String,
     sync: Boolean = true
 ) : Effect(id, sync) {
 
     override suspend fun apply(source: Entity, target: Entity) {
         if (target !is LivingEntity) return
 
-        val newHealth = (target.health + amount).coerceAtMost(target.maxHealth())
+        val healValue = evaluateHeal(source, target)
+        val newHealth = (target.health + healValue).coerceAtMost(target.maxHealth())
         target.health = newHealth
 
-        DebugLogger.effect("Heal($amount)", target.name)
+        DebugLogger.effect("Heal($healValue)", target.name)
     }
 
     override suspend fun apply(source: PacketEntity, target: Entity) {
         if (target !is LivingEntity) return
 
-        val newHealth = (target.health + amount).coerceAtMost(target.maxHealth())
+        val healValue = evaluateHealFromPacket(source, target)
+        val newHealth = (target.health + healValue).coerceAtMost(target.maxHealth())
         target.health = newHealth
 
-        DebugLogger.effect("Heal($amount) from PacketEntity", target.name)
+        DebugLogger.effect("Heal($healValue) from PacketEntity", target.name)
+    }
+
+    private fun evaluateHeal(source: Entity, target: Entity): Double {
+        return try {
+            amount.toDoubleOrNull() ?: run {
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(amount, context)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate heal amount: $amount", e)
+            0.0
+        }
+    }
+
+    private fun evaluateHealFromPacket(source: PacketEntity, target: Entity): Double {
+        return try {
+            amount.toDoubleOrNull() ?: run {
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildPacketEntityTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(amount, context)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate heal amount: $amount", e)
+            0.0
+        }
     }
 
     override fun getDescription(): String = "Heal: $amount"
@@ -148,45 +212,107 @@ class KnockbackEffect(
 
 /**
  * ポーション効果
+ *
+ * duration, amplifierパラメータはCEL式をサポート
+ * 例: duration="200", duration="world.isNight ? 600 : 300"
+ *     amplifier="1", amplifier="math.floor((1 - entity.health / entity.maxHealth) * 3)"
  */
 class PotionEffectEffect(
     id: String = "potion_effect",
     private val effectType: org.bukkit.potion.PotionEffectType,
-    private val duration: Duration,
-    private val amplifier: Int = 0,
+    private val duration: String,  // tick単位のCEL式
+    private val amplifier: String = "0",
     sync: Boolean = true
 ) : Effect(id, sync) {
 
     override suspend fun apply(source: Entity, target: Entity) {
         if (target !is LivingEntity) return
 
+        val durationTicks = evaluateDuration(source, target)
+        val amplifierLevel = evaluateAmplifier(source, target)
+
         val potionEffect = org.bukkit.potion.PotionEffect(
             effectType,
-            (duration.inWholeMilliseconds / 50).toInt(), // ミリ秒→tick
-            amplifier
+            durationTicks,
+            amplifierLevel
         )
 
         target.addPotionEffect(potionEffect)
 
-        DebugLogger.effect("PotionEffect(${effectType.name()})", target.name)
+        DebugLogger.effect("PotionEffect(${effectType.name()}, amp=$amplifierLevel, dur=$durationTicks)", target.name)
     }
 
     override suspend fun apply(source: PacketEntity, target: Entity) {
         if (target !is LivingEntity) return
 
+        val durationTicks = evaluateDurationFromPacket(source, target)
+        val amplifierLevel = evaluateAmplifierFromPacket(source, target)
+
         val potionEffect = org.bukkit.potion.PotionEffect(
             effectType,
-            (duration.inWholeMilliseconds / 50).toInt(),
-            amplifier
+            durationTicks,
+            amplifierLevel
         )
 
         target.addPotionEffect(potionEffect)
 
-        DebugLogger.effect("PotionEffect(${effectType.name()}) from PacketEntity", target.name)
+        DebugLogger.effect("PotionEffect(${effectType.name()}, amp=$amplifierLevel, dur=$durationTicks) from PacketEntity", target.name)
+    }
+
+    private fun evaluateDuration(source: Entity, target: Entity): Int {
+        return try {
+            duration.toIntOrNull() ?: run {
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(duration, context).toInt()
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate potion duration: $duration", e)
+            200  // デフォルト10秒
+        }
+    }
+
+    private fun evaluateDurationFromPacket(source: PacketEntity, target: Entity): Int {
+        return try {
+            duration.toIntOrNull() ?: run {
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildPacketEntityTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(duration, context).toInt()
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate potion duration: $duration", e)
+            200
+        }
+    }
+
+    private fun evaluateAmplifier(source: Entity, target: Entity): Int {
+        return try {
+            amplifier.toIntOrNull() ?: run {
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(amplifier, context).toInt()
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate potion amplifier: $amplifier", e)
+            0
+        }
+    }
+
+    private fun evaluateAmplifierFromPacket(source: PacketEntity, target: Entity): Int {
+        return try {
+            amplifier.toIntOrNull() ?: run {
+                val context = com.github.azuazu3939.unique.cel.CELVariableProvider.buildPacketEntityTargetContext(source, target)
+                val evaluator = com.github.azuazu3939.unique.Unique.instance.celEvaluator
+                evaluator.evaluateNumber(amplifier, context).toInt()
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate potion amplifier: $amplifier", e)
+            0
+        }
     }
 
     override fun getDescription(): String {
-        return "Potion Effect: ${effectType.name()} for ${duration.inWholeSeconds}s"
+        return "Potion Effect: ${effectType.name()} (dur=$duration, amp=$amplifier)"
     }
 }
 

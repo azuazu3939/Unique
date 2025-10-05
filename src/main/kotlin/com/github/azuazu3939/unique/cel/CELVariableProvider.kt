@@ -100,9 +100,39 @@ object CELVariableProvider {
     }
 
     /**
+     * PacketEntityとEntityのターゲットコンテキストを構築
+     */
+    fun buildPacketEntityTargetContext(source: PacketEntity, target: Entity): Map<String, Any> {
+        val context = buildPacketEntityContext(source).toMutableMap()
+
+        // ターゲット情報を追加
+        context["target"] = buildEntityInfo(target)
+
+        // ソース情報を明示的に追加
+        context["source"] = context["entity"]!!
+
+        return context
+    }
+
+    /**
+     * PacketEntity同士のペアコンテキストを構築
+     */
+    fun buildPacketEntityPairContext(source: PacketEntity, target: PacketEntity): Map<String, Any> {
+        val context = buildPacketEntityContext(source).toMutableMap()
+
+        // ターゲット情報を追加
+        context["target"] = buildPacketEntityInfo(target)
+
+        // ソース情報を明示的に追加
+        context["source"] = context["entity"]!!
+
+        return context
+    }
+
+    /**
      * エンティティ情報を構築
      */
-    private fun buildEntityInfo(entity: Entity): Map<String, Any> {
+    internal fun buildEntityInfo(entity: Entity): Map<String, Any> {
         val info = mutableMapOf<String, Any>()
 
         info["type"] = entity.type.name
@@ -137,7 +167,7 @@ object CELVariableProvider {
     /**
      * PacketEntity情報を構築
      */
-    private fun buildPacketEntityInfo(packetEntity: PacketEntity): Map<String, Any> {
+    internal fun buildPacketEntityInfo(packetEntity: PacketEntity): Map<String, Any> {
         return mapOf(
             "entityId" to packetEntity.entityId,
             "location" to buildLocationInfo(packetEntity.location)
@@ -147,7 +177,7 @@ object CELVariableProvider {
     /**
      * 位置情報を構築
      */
-    private fun buildLocationInfo(location: Location): Map<String, Any> {
+    internal fun buildLocationInfo(location: Location): Map<String, Any> {
         return mapOf(
             "x" to location.x,
             "y" to location.y,
@@ -161,7 +191,7 @@ object CELVariableProvider {
     /**
      * ワールド情報を構築
      */
-    private fun buildWorldInfo(world: org.bukkit.World): Map<String, Any> {
+    internal fun buildWorldInfo(world: org.bukkit.World): Map<String, Any> {
         return mapOf(
             "name" to world.name,
             "time" to world.time,
@@ -370,83 +400,6 @@ object CELVariableProvider {
             "replace" to { str: String, old: String, new: String ->
                 str.replace(old, new)
             }
-        )
-    }
-
-    // ========== 後方互換性メソッド（CELEvaluator用） ==========
-
-    /**
-     * エンティティ情報を取得（後方互換）
-     */
-    fun fromEntity(entity: Entity): Map<String, Any> {
-        return buildEntityInfo(entity)
-    }
-
-    /**
-     * プレイヤー情報を取得（後方互換）
-     */
-    fun fromPlayer(player: Player): Map<String, Any> {
-        return buildEntityInfo(player)
-    }
-
-    /**
-     * ワールド情報を取得（後方互換）
-     */
-    fun fromWorld(world: org.bukkit.World): Map<String, Any> {
-        return buildWorldInfo(world)
-    }
-
-    /**
-     * ロケーション情報を取得（後方互換）
-     */
-    fun fromLocation(location: Location): Map<String, Any> {
-        return buildLocationInfo(location)
-    }
-
-    /**
-     * エンティティペア情報を取得（後方互換）
-     */
-    fun fromEntityPair(source: Entity, target: Entity): Map<String, Any> {
-        return mapOf(
-            "source" to buildEntityInfo(source),
-            "target" to buildEntityInfo(target),
-            "entity" to buildEntityInfo(source)
-        )
-    }
-
-    /**
-     * PacketEntity情報を取得（後方互換）
-     */
-    fun fromPacketEntity(packetEntity: PacketEntity): Map<String, Any> {
-        return buildPacketEntityInfo(packetEntity)
-    }
-
-    /**
-     * PacketMob情報を取得（後方互換）
-     */
-    fun fromPacketMob(packetMob: PacketEntity): Map<String, Any> {
-        return buildPacketEntityInfo(packetMob)
-    }
-
-    /**
-     * PacketEntityとEntityのペア情報を取得（後方互換）
-     */
-    fun fromPacketEntityPair(source: PacketEntity, target: Entity): Map<String, Any> {
-        return mapOf(
-            "source" to buildPacketEntityInfo(source),
-            "target" to buildEntityInfo(target),
-            "entity" to buildPacketEntityInfo(source)
-        )
-    }
-
-    /**
-     * PacketEntity同士のペア情報を取得（後方互換）
-     */
-    fun fromPacketEntityPair(source: PacketEntity, target: PacketEntity): Map<String, Any> {
-        return mapOf(
-            "source" to buildPacketEntityInfo(source),
-            "target" to buildPacketEntityInfo(target),
-            "entity" to buildPacketEntityInfo(source)
         )
     }
 

@@ -1,6 +1,7 @@
 package com.github.azuazu3939.unique.spawn
 
 import com.github.azuazu3939.unique.Unique
+import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.event.PacketMobSkillEvent
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.TimeParser
@@ -399,26 +400,38 @@ class SpawnManager(private val plugin: Unique) {
      * スポーン条件を評価
      */
     private fun evaluateSpawnConditions(definition: SpawnDefinition, world: World): Boolean {
-        // CEL条件評価
+        // CEL条件評価用のコンテキストを構築
         val context = buildSpawnContext(definition, world)
 
-        for (condition in definition.conditions) {
+        // 全てのCEL条件を評価（短絡評価）
+        for ((index, condition) in definition.conditions.withIndex()) {
+            // "true"はスキップ（常にtrue）
+            if (condition.trim() == "true") continue
+
             try {
-                if (!plugin.celEngine.evaluateBoolean(condition, context)) {
-                    DebugLogger.verbose("Spawn condition failed: $condition")
+                val result = plugin.celEngine.evaluateBoolean(condition, context)
+
+                if (!result) {
+                    DebugLogger.verbose("Spawn condition #${index + 1} failed: $condition")
                     return false
                 }
+
+                DebugLogger.verbose("Spawn condition #${index + 1} passed: $condition")
+
             } catch (e: Exception) {
-                DebugLogger.error("Failed to evaluate spawn condition: $condition", e)
+                DebugLogger.error("Failed to evaluate spawn condition #${index + 1}: $condition", e)
+                DebugLogger.debug("Context: world=${world.name}, time=${world.time}, players=${world.players.size}")
                 return false
             }
         }
 
-        // 高度な条件評価
+        // 高度な条件評価（後方互換性のため維持）
         if (!evaluateAdvancedConditions(definition.advancedConditions, world)) {
+            DebugLogger.verbose("Advanced conditions failed for spawn: ${definition.mob}")
             return false
         }
 
+        DebugLogger.verbose("All spawn conditions passed for: ${definition.mob}")
         return true
     }
 
@@ -429,7 +442,7 @@ class SpawnManager(private val plugin: Unique) {
         val context = mutableMapOf<String, Any>()
 
         // ワールド情報（CELVariableProviderを使用）
-        context["world"] = com.github.azuazu3939.unique.cel.CELVariableProvider.fromWorld(world)
+        context["world"] = CELVariableProvider.buildWorldInfo(world)
 
         // スポーン定義情報
         context["spawn"] = mapOf(
@@ -460,12 +473,7 @@ class SpawnManager(private val plugin: Unique) {
             "dayOfCycle" to (world.fullTime / 24000).toInt(),
             "tickOfDay" to (world.time % 24000).toInt()
         )
-
-        // Math関数とString関数を追加
-        context["math"] = com.github.azuazu3939.unique.cel.CELVariableProvider.getMathFunctions()
-        context["string"] = com.github.azuazu3939.unique.cel.CELVariableProvider.getStringFunctions()
-
-        return context
+        return CELVariableProvider.buildFullContext(context)
     }
 
     /**
@@ -527,7 +535,7 @@ class SpawnManager(private val plugin: Unique) {
     private fun generateLocationInRegion(region: SpawnRegion, world: World): Location? {
         return when (region.type.lowercase()) {
             "circle" -> {
-                val center = region.center ?: RegionCenter(0.0, 0.0)
+                val center = region.center ?: RegionCenter()
                 val radius = region.radius ?: 100.0
 
                 val angle = Random.nextDouble() * 2 * Math.PI
@@ -540,7 +548,7 @@ class SpawnManager(private val plugin: Unique) {
                 Location(world, x, y, z)
             }
             "box" -> {
-                val min = region.min ?: RegionPoint(0.0, 64.0, 0.0)
+                val min = region.min ?: RegionPoint(y = 64.0)
                 val max = region.max ?: RegionPoint(100.0, 100.0, 100.0)
 
                 val x = Random.nextDouble(min.x, max.x)

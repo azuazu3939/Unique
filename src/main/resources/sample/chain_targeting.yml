@@ -1,0 +1,261 @@
+# Chain Targeterのデモンストレーション
+# ChainTargeterは初期ターゲットから連鎖的にターゲットを拡散
+# 稲妻攻撃などに最適
+
+# ======================================
+# 基本的な連鎖攻撃
+# ======================================
+BasicChainMob:
+  Type: WITCH
+  Display: '&9Basic Chain Lightning'
+  Health: 100
+
+  Skills:
+    OnTimer:
+      # シンプルな連鎖攻撃
+      - name: SimpleLightning
+        interval: 5s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: NearestPlayer
+            range: 20
+          maxChains: "5"          # 最大5ターゲット
+          chainRange: "5.0"       # 連鎖範囲5ブロック
+
+      # 固定値での連鎖
+      - name: FixedChain
+        interval: 7s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: RadiusPlayers
+            range: 15
+          maxChains: "3"
+          chainRange: "6.0"
+          chainCondition: "target.health > 0"  # HP > 0のみ
+
+# ======================================
+# CEL式による動的連鎖
+# ======================================
+DynamicChainMob:
+  Type: BLAZE
+  Display: '&cDynamic Chain Attacker'
+  Health: 120
+
+  Skills:
+    OnTimer:
+      # プレイヤー数で連鎖数が変化
+      - name: ScalingChain
+        interval: 5s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: NearestPlayer
+            range: 25
+          maxChains: "math.min(nearbyPlayers.count, 8)"  # 最大8、プレイヤー数に応じて
+          chainRange: "5.0 + random.range(0, 2.0)"        # ランダム範囲5-7ブロック
+
+      # レベルで連鎖範囲が変化
+      - name: LevelBasedChain
+        interval: 6s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: NearestPlayer
+            range: 20
+          maxChains: "5"
+          chainRange: "3.0 + nearbyPlayers.avgLevel / 10"  # 平均レベルで範囲拡大
+
+# ======================================
+# chainIndex変数の活用
+# ======================================
+IndexBasedChainMob:
+  Type: VEX
+  Display: '&5Chain Index Example'
+  Health: 80
+
+  Skills:
+    OnTimer:
+      # 連鎖インデックスで条件分岐
+      - name: IndexConditionalChain
+        interval: 5s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: NearestPlayer
+            range: 20
+          maxChains: "10"
+          chainRange: "7.0"
+          chainCondition: >
+            target.health > 0 &&
+            (chainIndex <= 5 || target.health < target.maxHealth * 0.5)
+            # 最初の5回は無条件、それ以降はHP50%未満のみ
+
+      # インデックスで確率変化
+      - name: DecreasingProbability
+        interval: 7s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: RadiusPlayers
+            range: 15
+          maxChains: "8"
+          chainRange: "6.0"
+          chainCondition: >
+            random.chance(1.0 - (chainIndex * 0.1))
+            # 連鎖が進むほど確率が下がる（100%, 90%, 80%...）
+
+# ======================================
+# 複雑なフィルター条件
+# ======================================
+ComplexChainMob:
+  Type: VINDICATOR
+  Display: '&4Complex Chain Boss'
+  Health: 150
+
+  Skills:
+    OnTimer:
+      # HP条件付き連鎖
+      - name: HealthFilterChain
+        interval: 4s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: NearestPlayer
+            range: 25
+          maxChains: "7"
+          chainRange: "8.0"
+          chainCondition: >
+            target.health > target.maxHealth * 0.3 &&
+            target.gameMode == 'SURVIVAL'
+
+      # 距離と体力の組み合わせ
+      - name: DistanceHealthChain
+        interval: 6s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: RadiusPlayers
+            range: 20
+            filter: "target.health < target.maxHealth * 0.8"
+          maxChains: "6"
+          chainRange: "10.0"
+          chainCondition: >
+            distance.horizontal(currentTarget.location, target.location) <= 10.0 &&
+            target.health < target.maxHealth * 0.7
+
+# ======================================
+# 全体フィルターと連鎖条件の組み合わせ
+# ======================================
+FilteredChainMob:
+  Type: EVOKER
+  Display: '&d&lFiltered Chain Master'
+  Health: 180
+
+  Skills:
+    OnTimer:
+      # 初期ターゲットにフィルター + 連鎖条件
+      - name: DoubleFiltered
+        interval: 5s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: RadiusPlayers
+            range: 20
+            filter: "target.level >= nearbyPlayers.avgLevel"  # 平均以上のレベル
+          maxChains: "math.min(10, nearbyPlayers.count * 2)"
+          chainRange: "6.0"
+          chainCondition: >
+            target.level >= nearbyPlayers.minLevel &&
+            !target.isSneaking
+          filter: "target.health > 20"  # 全体フィルター: HP20以上
+
+# ======================================
+# 実践例: フェーズ別連鎖攻撃
+# ======================================
+PhasedChainBoss:
+  Type: RAVAGER
+  Display: '&4&l&oChain Lightning Boss'
+  Health: 300
+
+  Skills:
+    OnTimer:
+      # フェーズ1: HP > 70% - 小規模連鎖
+      - name: Phase1Lightning
+        interval: 3s
+        condition: "entity.health > entity.maxHealth * 0.7"
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: NearestPlayer
+            range: 15
+          maxChains: "3"
+          chainRange: "4.0"
+
+      # フェーズ2: HP 30-70% - 中規模連鎖
+      - name: Phase2Lightning
+        interval: 2.5s
+        condition: "entity.health > entity.maxHealth * 0.3 && entity.health <= entity.maxHealth * 0.7"
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: RadiusPlayers
+            range: 20
+          maxChains: "math.min(6, nearbyPlayers.count)"
+          chainRange: "6.0"
+          chainCondition: "target.health > 0 && chainIndex < 6"
+
+      # フェーズ3: HP < 30% - 大規模連鎖
+      - name: Phase3Storm
+        interval: 2s
+        condition: "entity.health <= entity.maxHealth * 0.3"
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: RadiusPlayers
+            range: 30
+          maxChains: "math.min(12, nearbyPlayers.count * 2)"
+          chainRange: "8.0 + random.range(0, 3.0)"
+          chainCondition: >
+            target.health > 0 &&
+            (chainIndex <= 3 || random.chance(0.7))
+            # 最初の3回は確定、それ以降は70%の確率
+
+# ======================================
+# 時間帯・環境依存の連鎖
+# ======================================
+EnvironmentChainMob:
+  Type: PHANTOM
+  Display: '&9Night Chain Phantom'
+  Health: 100
+
+  Skills:
+    OnTimer:
+      # 夜間は連鎖が強化
+      - name: NightChain
+        interval: 4s
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: NearestPlayer
+            range: 25
+          maxChains: "world.isNight ? 8 : 4"              # 夜8回、昼4回
+          chainRange: "world.isNight ? 8.0 : 5.0"         # 夜8ブロック、昼5ブロック
+          chainCondition: >
+            target.health > 0 &&
+            (world.isNight || chainIndex <= 2)
+            # 夜は無制限、昼は最初の2回のみ
+
+      # 満月時特殊連鎖
+      - name: FullMoonChain
+        interval: 10s
+        condition: "world.isNight && environment.moonPhase == 0"
+        targeter:
+          type: Chain
+          initialTargeter:
+            type: RadiusPlayers
+            range: 30
+          maxChains: "15"  # 満月時は大規模
+          chainRange: "10.0"
+          chainCondition: "random.chance(0.8 - (chainIndex * 0.05))"

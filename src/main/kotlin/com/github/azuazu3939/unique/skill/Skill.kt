@@ -1,5 +1,7 @@
 package com.github.azuazu3939.unique.skill
 
+import com.github.azuazu3939.unique.Unique
+import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.condition.Condition
 import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketEntity
@@ -420,3 +422,160 @@ data class PhaseMeta(
     val executeDelay: Duration = 0.milliseconds,
     val sync: Boolean = false
 )
+
+/**
+ * スキル分岐
+ *
+ * CEL式による条件分岐でスキルを実行
+ */
+data class SkillBranch(
+    val condition: String?,  // CEL式（nullの場合はdefault）
+    val skills: List<Skill>,
+    val targeter: Targeter,
+    val isDefault: Boolean = false
+)
+
+/**
+ * 分岐スキル
+ *
+ * 条件に応じて異なるスキルを実行
+ * 最初にマッチした分岐のみ実行される
+ */
+class BranchSkill(
+    id: String,
+    meta: SkillMeta = SkillMeta(),
+    condition: Condition? = null,
+    private val branches: List<SkillBranch>
+) : Skill(id, meta, condition) {
+
+    override suspend fun execute(
+        plugin: Plugin,
+        source: Entity,
+        targeter: Targeter
+    ) {
+        val startTime = System.currentTimeMillis()
+
+        // 条件チェック
+        if (!checkCondition(source)) {
+            DebugLogger.debug("BranchSkill $id failed condition check")
+            return
+        }
+
+        // executeDelay
+        if (meta.executeDelay.inWholeMilliseconds > 0) {
+            delay(meta.executeDelay.inWholeMilliseconds)
+        }
+
+        // 死亡チェック
+        if (meta.cancelOnDeath && source.isDead) {
+            DebugLogger.debug("BranchSkill $id cancelled (source is dead)")
+            return
+        }
+
+        // CEL評価器とコンテキストを準備
+        val evaluator = Unique.instance.celEvaluator
+        val context = CELVariableProvider.buildEntityContext(source)
+
+        // 最初にマッチした分岐を実行
+        for (branch in branches) {
+            val shouldExecute = if (branch.isDefault) {
+                true
+            } else if (branch.condition != null) {
+                try {
+                    evaluator.evaluateBoolean(branch.condition, context)
+                } catch (e: Exception) {
+                    DebugLogger.error("Branch condition evaluation failed: ${branch.condition}", e)
+                    false
+                }
+            } else {
+                false
+            }
+
+            if (shouldExecute) {
+                DebugLogger.debug("BranchSkill $id executing branch: ${branch.condition ?: "default"}")
+
+                // 分岐のスキルを実行
+                for (skill in branch.skills) {
+                    skill.execute(plugin, source, branch.targeter)
+                }
+
+                // 最初にマッチした分岐のみ実行
+                break
+            }
+        }
+
+        val duration = System.currentTimeMillis() - startTime
+        DebugLogger.skillExecution(id, "completed", duration)
+    }
+
+    override suspend fun execute(
+        plugin: Plugin,
+        source: PacketEntity,
+        targeter: Targeter
+    ) {
+        val startTime = System.currentTimeMillis()
+
+        // 条件チェック
+        if (!checkCondition(source)) {
+            DebugLogger.debug("BranchSkill $id (PacketEntity) failed condition check")
+            return
+        }
+
+        // executeDelay
+        if (meta.executeDelay.inWholeMilliseconds > 0) {
+            delay(meta.executeDelay.inWholeMilliseconds)
+        }
+
+        // 死亡チェック
+        if (meta.cancelOnDeath && source.isDead) {
+            DebugLogger.debug("BranchSkill $id (PacketEntity) cancelled (source is dead)")
+            return
+        }
+
+        // CEL評価器とコンテキストを準備
+        val evaluator = Unique.instance.celEvaluator
+        val context = CELVariableProvider.buildPacketEntityContext(source)
+
+        // 最初にマッチした分岐を実行
+        for (branch in branches) {
+            val shouldExecute = if (branch.isDefault) {
+                true
+            } else if (branch.condition != null) {
+                try {
+                    evaluator.evaluateBoolean(branch.condition, context)
+                } catch (e: Exception) {
+                    DebugLogger.error("Branch condition evaluation failed: ${branch.condition}", e)
+                    false
+                }
+            } else {
+                false
+            }
+
+            if (shouldExecute) {
+                DebugLogger.debug("BranchSkill $id (PacketEntity) executing branch: ${branch.condition ?: "default"}")
+
+                // 分岐のスキルを実行
+                for (skill in branch.skills) {
+                    skill.execute(plugin, source, branch.targeter)
+                }
+
+                // 最初にマッチした分岐のみ実行
+                break
+            }
+        }
+
+        val duration = System.currentTimeMillis() - startTime
+        DebugLogger.skillExecution(id, "completed (PacketEntity)", duration)
+    }
+
+    override fun getDescription(): String {
+        return "Branch Skill with ${branches.size} branches"
+    }
+
+    override fun debugInfo(): String {
+        val branchInfo = branches.joinToString(", ") {
+            it.condition ?: "default"
+        }
+        return "BranchSkill[id=$id, branches=[$branchInfo]]"
+    }
+}

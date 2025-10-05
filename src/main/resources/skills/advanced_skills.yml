@@ -100,24 +100,13 @@ ConeFlameAttack:
     sync: false
     executeDelay: 500ms
 
+  # AreaTargeterのCONE形状を使用（推奨）
   targeter:
-    type: RadiusPlayers
-    range: 15.0
-    # CEL式で円錐形状判定（内積を使用）
-    filter: >
-      (function() {
-        var dx = target.location.x - source.location.x;
-        var dz = target.location.z - source.location.z;
-        var distance = math.sqrt(dx * dx + dz * dz);
-      
-        var dirX = math.cos(math.toRadians(source.location.yaw));
-        var dirZ = math.sin(math.toRadians(source.location.yaw));
-      
-        var dotProduct = (dx * dirX + dz * dirZ) / distance;
-        var angleRadians = math.acos(dotProduct);
-      
-        return distance <= 15.0 && angleRadians <= math.toRadians(45);
-      })()
+    type: Area
+    shape: CONE
+    radius: "15.0"
+    angle: "45.0"  # 度数法
+    direction: FORWARD
 
   damage: 8
 
@@ -137,22 +126,14 @@ DonutShockwave:
     sync: false
     executeDelay: 1s
 
+  # AreaTargeterのDONUT形状を使用（推奨）
   targeter:
-    type: RadiusPlayers
-    range: 10.0
-    # CEL式でドーナツ形状判定
-    filter: >
-      (function() {
-        var dx = target.location.x - source.location.x;
-        var dz = target.location.z - source.location.z;
-        var distanceSquared = dx * dx + dz * dz;
-        var innerRadius = 3.0;
-        var outerRadius = 10.0;
-      
-        return distanceSquared >= innerRadius * innerRadius && 
-               distanceSquared <= outerRadius * outerRadius &&
-               math.abs(target.location.y - source.location.y) <= 2.0;
-      })()
+    type: Area
+    shape: DONUT
+    innerRadius: "3.0"
+    radius: "10.0"  # 外側の半径
+    targetPlayers: true
+    targetMobs: false
 
   damage: 15
 

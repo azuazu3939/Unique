@@ -106,7 +106,7 @@ class UniqueCommand(private val plugin: Unique) : CommandExecutor, TabCompleter 
                 val mobs = plugin.mobManager.getAllMobDefinitions()
                 sender.sendMessage("§6[Unique] §7Loaded Mobs (${mobs.size}):")
                 mobs.forEach { (name, def) ->
-                    sender.sendMessage("  §e$name §7- ${def.type} (HP: ${def.getHealth()})")
+                    sender.sendMessage("  §e$name §7- ${def.type} (HP: ${def.health})")
                 }
             }
 

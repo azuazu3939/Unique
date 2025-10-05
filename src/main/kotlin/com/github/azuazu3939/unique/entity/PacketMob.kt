@@ -446,7 +446,7 @@ class PacketMob(
 
         // MobInstance取得
         val instance = com.github.azuazu3939.unique.Unique.instance.mobManager.getMobInstance(this)
-        val damage = instance?.definition?.getDamage() ?: 5.0
+        val damage = instance?.definition?.damage?.toDouble() ?: 5.0
 
         // 攻撃イベント発火＆キャンセルチェック
         val attackEvent = EventUtil.callEventOrNull(PacketMobAttackEvent(this, target, damage)) ?: run {

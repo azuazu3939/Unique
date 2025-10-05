@@ -1,7 +1,7 @@
 package com.github.azuazu3939.unique.mob
 
 import com.github.azuazu3939.unique.Unique
-import com.github.azuazu3939.unique.condition.CelCondition
+import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.effect.*
 import com.github.azuazu3939.unique.entity.PacketMob
 import com.github.azuazu3939.unique.event.*
@@ -18,6 +18,7 @@ import org.bukkit.NamespacedKey
 import org.bukkit.Particle
 import org.bukkit.Sound
 import org.bukkit.configuration.ConfigurationSection
+import org.bukkit.entity.Player
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -103,8 +104,8 @@ class MobManager(private val plugin: Unique) {
         return MobDefinition(
             type = section.getString("Type") ?: "ZOMBIE",
             display = section.getString("Display"),
-            health = section.getDouble("Health", -1.0).takeIf { it >= 0 },
-            damage = section.getDouble("Damage", -1.0).takeIf { it >= 0 },
+            health = section.getDouble("Health", -1.0).takeIf { it >= 0 }.toString(),
+            damage = section.getDouble("Damage", -1.0).takeIf { it >= 0 }.toString(),
             ai = parseAI(section.getConfigurationSection("AI")),
             appearance = parseAppearance(section.getConfigurationSection("Appearance")),
             skills = parseSkills(section.getConfigurationSection("Skills")),
@@ -289,7 +290,7 @@ class MobManager(private val plugin: Unique) {
                         drops.add(DropDefinition(
                             item = item,
                             amount = amount,
-                            chance = chance,
+                            chance = chance.toString(),
                             condition = condition
                         ))
                     }
@@ -306,7 +307,8 @@ class MobManager(private val plugin: Unique) {
                     // セクション形式
                     val item = dropSection.getString("item") ?: key
                     val amount = dropSection.getString("amount") ?: "1"
-                    val chance = dropSection.getDouble("chance", 1.0)
+                    // chanceもStringで取得（CEL式対応）
+                    val chance = dropSection.getString("chance") ?: dropSection.getDouble("chance", 1.0).toString()
                     val condition = dropSection.getString("condition") ?: "true"
 
                     drops.add(DropDefinition(
@@ -324,7 +326,7 @@ class MobManager(private val plugin: Unique) {
                         }
                         is Number -> {
                             // chance指定
-                            drops.add(DropDefinition(item = key, chance = value.toDouble()))
+                            drops.add(DropDefinition(item = key, chance = value.toString()))
                         }
                         else -> {
                             // デフォルト
@@ -363,6 +365,13 @@ class MobManager(private val plugin: Unique) {
             return null
         }
 
+        // CEL評価用のコンテキストを構築
+        val context = buildMobSpawnContext(location)
+
+        // Health, Damageを動的に評価
+        val evaluatedHealth = evaluateHealth(definition.health, context)
+        val evaluatedDamage = evaluateDamage(definition.damage, context)
+
         // PacketMobを生成
         val entityId = plugin.packetEntityManager.generateEntityId()
         val uuid = plugin.packetEntityManager.generateUUID()
@@ -374,8 +383,8 @@ class MobManager(private val plugin: Unique) {
             location = location,
             mobName = definition.getDisplayName()
         )
-            .health(definition.getHealth())
-            .maxHealth(definition.getHealth())
+            .health(evaluatedHealth)
+            .maxHealth(evaluatedHealth)
             .customNameVisible(definition.appearance.customNameVisible)
             .hasAI(definition.ai.hasAI)
             .hasGravity(definition.ai.hasGravity)
@@ -385,6 +394,9 @@ class MobManager(private val plugin: Unique) {
             .followRange(definition.ai.followRange)
             .knockbackResistance(definition.ai.knockbackResistance)
             .build()
+
+        // ダメージ値を保存（後で使用するため）
+        // TODO: PacketMobにdamageフィールドがあれば設定
 
         // スポーンイベント発火（キャンセルされた場合はnullを返す）
         if (EventUtil.callEvent(PacketMobSpawnEvent(mob, location, mobName))) {
@@ -460,7 +472,6 @@ class MobManager(private val plugin: Unique) {
             val skill = BasicSkill(
                 id = skillRef.skill,
                 meta = buildSkillMeta(skillRef.meta),
-                condition = null,
                 effects = buildEffects(skillRef.effects)
             )
             plugin.skillExecutor.executeSkill(skill, mob, targeter)
@@ -471,32 +482,30 @@ class MobManager(private val plugin: Unique) {
      * ターゲッターを構築
      */
     private fun buildTargeter(definition: TargeterDefinition): Targeter {
-        val condition = if (definition.condition != "true") {
-            CelCondition(
-                id = "targeter_condition",
-                expressions = listOf(definition.condition)
-            )
+        // filterはCEL式文字列として直接使用
+        val filter = if (definition.condition != "true") {
+            definition.condition
         } else null
 
         return when (definition.type.lowercase()) {
-            "self" -> SelfTargeter(condition = condition)
+            "self" -> SelfTargeter(filter = filter)
             "nearestplayer" -> NearestPlayerTargeter(
                 range = definition.range,
-                condition = condition
+                filter = filter
             )
             "radiusplayers" -> RadiusPlayersTargeter(
                 range = definition.range,
-                condition = condition
+                filter = filter
             )
             "radiusentities" -> RadiusEntitiesTargeter(
                 range = definition.range,
-                condition = condition
+                filter = filter
             )
             "lineofsight" -> LineOfSightTargeter(
                 maxDistance = definition.maxDistance,
-                condition = condition
+                filter = filter
             )
-            else -> SelfTargeter(condition = condition)
+            else -> SelfTargeter(filter = filter)
         }
     }
 
@@ -522,11 +531,11 @@ class MobManager(private val plugin: Unique) {
 
         return when (def.type.lowercase()) {
             "damage" -> DamageEffect(
-                amount = def.amount,
+                amount = def.amount.toString(),
                 sync = sync
             )
             "heal" -> HealEffect(
-                amount = def.amount,
+                amount = def.amount.toString(),
                 sync = sync
             )
             "knockback" -> KnockbackEffect(
@@ -619,7 +628,7 @@ class MobManager(private val plugin: Unique) {
     /**
      * Mob死亡処理
      */
-    suspend fun handleMobDeath(mob: PacketMob, killer: org.bukkit.entity.Player?) {
+    suspend fun handleMobDeath(mob: PacketMob, killer: Player?) {
         val instance = getMobInstance(mob) ?: return
         val definition = instance.definition
 
@@ -656,7 +665,7 @@ class MobManager(private val plugin: Unique) {
     private fun processDrops(
         definition: MobDefinition,
         location: Location,
-        killer: org.bukkit.entity.Player,
+        killer: Player,
         eventDrops: MutableList<org.bukkit.inventory.ItemStack>
     ) {
         if (definition.drops.isEmpty() && eventDrops.isEmpty()) return
@@ -672,7 +681,7 @@ class MobManager(private val plugin: Unique) {
                 if (!shouldDrop(drop, context)) return@forEach
 
                 // アイテムスタック作成＆追加
-                createDropItem(drop)?.let { eventDrops.add(it) }
+                createDropItem(drop, context)?.let { eventDrops.add(it) }
 
             } catch (e: Exception) {
                 DebugLogger.error("Failed to process drop: ${drop.item}", e)
@@ -699,9 +708,10 @@ class MobManager(private val plugin: Unique) {
             }
         }
 
-        // 確率チェック
-        if (Math.random() > drop.chance) {
-            DebugLogger.verbose("Drop chance failed: ${drop.item} (${drop.chance})")
+        // 確率チェック（CEL評価）
+        val chanceValue = evaluateDropChance(drop.chance, context)
+        if (Math.random() > chanceValue) {
+            DebugLogger.verbose("Drop chance failed: ${drop.item} (${chanceValue})")
             return false
         }
 
@@ -711,14 +721,14 @@ class MobManager(private val plugin: Unique) {
     /**
      * ドロップアイテムを作成
      */
-    private fun createDropItem(drop: DropDefinition): org.bukkit.inventory.ItemStack? {
+    private fun createDropItem(drop: DropDefinition, context: Map<String, Any>): org.bukkit.inventory.ItemStack? {
         val material = org.bukkit.Material.getMaterial(drop.item.uppercase())
         if (material == null) {
             DebugLogger.error("Invalid drop material: ${drop.item}")
             return null
         }
 
-        val amount = drop.getAmount()
+        val amount = evaluateDropAmount(drop.amount, context)
         DebugLogger.debug("Added drop: ${amount}x ${drop.item}")
         return org.bukkit.inventory.ItemStack(material, amount)
     }
@@ -726,22 +736,21 @@ class MobManager(private val plugin: Unique) {
     /**
      * ドロップコンテキストを構築
      */
-    private fun buildDropContext(killer: org.bukkit.entity.Player, location: Location): Map<String, Any> {
+    private fun buildDropContext(killer: Player, location: Location): Map<String, Any> {
         val nearbyPlayers = location.world?.getNearbyEntities(location, 50.0, 50.0, 50.0)
-            ?.filterIsInstance<org.bukkit.entity.Player>() ?: emptyList()
+            ?.filterIsInstance<Player>() ?: emptyList()
 
-        return buildMap {
-            put("killer", com.github.azuazu3939.unique.cel.CELVariableProvider.fromPlayer(killer))
-            location.world?.let { put("world", com.github.azuazu3939.unique.cel.CELVariableProvider.fromWorld(it)) }
+        val baseContext = buildMap {
+            put("killer", CELVariableProvider.buildEntityInfo(killer))
+            location.world?.let { put("world", CELVariableProvider.buildWorldInfo(it)) }
             put("nearbyPlayers", mapOf(
                 "count" to nearbyPlayers.size,
                 "maxLevel" to (nearbyPlayers.maxOfOrNull { it.level } ?: 0),
                 "minLevel" to (nearbyPlayers.minOfOrNull { it.level } ?: 0),
                 "avgLevel" to (nearbyPlayers.map { it.level }.average().takeIf { !it.isNaN() } ?: 0.0)
             ))
-            put("math", com.github.azuazu3939.unique.cel.CELVariableProvider.getMathFunctions())
-            put("string", com.github.azuazu3939.unique.cel.CELVariableProvider.getStringFunctions())
         }
+        return CELVariableProvider.buildFullContext(baseContext)
     }
 
     /**
@@ -754,7 +763,7 @@ class MobManager(private val plugin: Unique) {
         DebugLogger.debug("Mob ${instance.definitionName} damaged by ${damager.type} ($damage damage)")
 
         // ダメージイベント発火＆キャンセルチェック
-        val cause = if (damager is org.bukkit.entity.Player) {
+        val cause = if (damager is Player) {
             PacketMobDamageEvent.DamageCause.PLAYER_ATTACK
         } else {
             PacketMobDamageEvent.DamageCause.ENTITY_ATTACK
@@ -775,8 +784,103 @@ class MobManager(private val plugin: Unique) {
 
         // 死亡チェック
         if (mob.isDead) {
-            val killer = damager as? org.bukkit.entity.Player
+            val killer = damager as? Player
             handleMobDeath(mob, killer)
+        }
+    }
+
+    /**
+     * Mobスポーン時のCELコンテキストを構築
+     */
+    private fun buildMobSpawnContext(location: Location): Map<String, Any> {
+        val world = location.world ?: return emptyMap()
+
+        val nearbyPlayers = world.getNearbyEntities(location, 50.0, 50.0, 50.0)
+            .filterIsInstance<Player>()
+
+        val baseContext = buildMap {
+            put("world", CELVariableProvider.buildWorldInfo(world))
+            put("location", CELVariableProvider.buildLocationInfo(location))
+            put("nearbyPlayers", mapOf(
+                "count" to nearbyPlayers.size,
+                "maxLevel" to (nearbyPlayers.maxOfOrNull { it.level } ?: 0),
+                "minLevel" to (nearbyPlayers.minOfOrNull { it.level } ?: 0),
+                "avgLevel" to (nearbyPlayers.map { it.level }.average().takeIf { !it.isNaN() } ?: 0.0)
+            ))
+            put("nearbyPlayerCount", nearbyPlayers.size)
+        }
+
+        return CELVariableProvider.buildFullContext(baseContext)
+    }
+
+    /**
+     * Health値を評価（CEL式対応）
+     */
+    private fun evaluateHealth(healthExpression: String?, context: Map<String, Any>): Double {
+        if (healthExpression == null) return 20.0
+
+        return try {
+            // 固定値ならそのまま返す
+            healthExpression.toDoubleOrNull() ?: run {
+                // CEL式として評価
+                plugin.celEvaluator.evaluateNumber(healthExpression, context)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate health: $healthExpression", e)
+            20.0
+        }
+    }
+
+    /**
+     * Damage値を評価（CEL式対応）
+     */
+    private fun evaluateDamage(damageExpression: String?, context: Map<String, Any>): Double {
+        if (damageExpression == null) return 5.0
+
+        return try {
+            damageExpression.toDoubleOrNull() ?: run {
+                plugin.celEvaluator.evaluateNumber(damageExpression, context)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate damage: $damageExpression", e)
+            5.0
+        }
+    }
+
+    /**
+     * ドロップ個数を評価（CEL式対応、範囲形式も対応）
+     */
+    private fun evaluateDropAmount(amountExpression: String, context: Map<String, Any>): Int {
+        return try {
+            // 範囲形式 "1-3" のチェック
+            if (amountExpression.contains("-") && amountExpression.toIntOrNull() == null) {
+                val parts = amountExpression.split("-")
+                val min = parts[0].trim().toIntOrNull() ?: 1
+                val max = parts[1].trim().toIntOrNull() ?: min
+                return (min..max).random()
+            }
+
+            // 固定値または CEL式
+            amountExpression.toIntOrNull() ?: run {
+                plugin.celEvaluator.evaluateNumber(amountExpression, context).toInt().coerceAtLeast(1)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate drop amount: $amountExpression", e)
+            1
+        }
+    }
+
+    /**
+     * ドロップ確率を評価（CEL式対応）
+     */
+    private fun evaluateDropChance(chanceExpression: String, context: Map<String, Any>): Double {
+        return try {
+            chanceExpression.toDoubleOrNull() ?: run {
+                plugin.celEvaluator.evaluateNumber(chanceExpression, context).coerceIn(0.0, 1.0)
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to evaluate drop chance: $chanceExpression", e)
+            1.0
         }
     }
 
@@ -789,7 +893,7 @@ class MobManager(private val plugin: Unique) {
         DebugLogger.info("Active mob instances: ${activeMobs.size}")
 
         mobDefinitions.forEach { (name, def) ->
-            DebugLogger.info("  $name: ${def.type} (HP: ${def.getHealth()})")
+            DebugLogger.info("  $name: ${def.type} (HP: ${def.health})")
         }
 
         DebugLogger.separator()
