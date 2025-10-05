@@ -257,7 +257,7 @@ git commit -m "docs: add comprehensive CEL documentation
 
 ## 🔗 関連ドキュメント
 
-- [メインREADME](README.md)
+- [メインREADME](../README.md)
 - [プロジェクトナレッジ](cel_mob_plugin_knowledge.md)
 - [CEL公式仕様](https://github.com/google/cel-spec)
 

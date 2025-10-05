@@ -1,23 +1,93 @@
-# Git Commit Guide - Phase 7 追加実装
+# Git Commit Guide - CELベース実装対応
 
-## 📋 コミット手順
+## 📋 コミット手順（CEL拡張ベース）
 
-### 1. 新しいターゲッタークラスの追加
+このガイドは、**CELベースの実装方針**に従った開発のコミット手順を示します。
+Javaクラスを増やさず、YAMLとCELで機能を実現する設計思想に基づいています。
+
+---
+
+## 🎯 CEL拡張実装のコミット
+
+### 1. CEL変数・関数の拡張
+
+```bash
+git add src/main/kotlin/com/github/azuazu3939/unique/cel/CELVariableProvider.kt
+
+git commit -m "feat: extend CEL variables with advanced functions
+
+- math.*: 三角関数、角度変換、基本演算 (cos, sin, tan, sqrt, pow, etc.)
+- random.*: 範囲、確率判定、ランダム生成 (range, int, chance, boolean)
+- distance.*: 2点間距離計算 (between, horizontal, squared)
+- string.*: 文字列操作関数 (contains, startsWith, length, etc.)
+- environment.*: 環境情報 (moonPhase, biome, tickOfDay)
+- nearbyPlayers.*: プレイヤー統計 (avgLevel, maxLevel, minLevel, count)
+
+後方互換性を維持しつつ、YAMLからアクセス可能な変数を大幅拡張"
+```
+
+### 2. YAML機能拡張（CELベース）
+
+```bash
+git add src/main/resources/sample/skills/advanced_skills_cel.yml
+git add src/main/resources/sample/mobs/practical_examples.yml
+
+git commit -m "feat: add CEL-powered YAML features
+
+【YAML機能追加】
+- filter式: ターゲットをCEL式でフィルタリング
+- chain設定: 連鎖ターゲティング（稲妻攻撃等）
+- CEL式計算: damage, amount等をCEL式で動的計算
+
+【サンプル追加】
+- advanced_skills_cel.yml: 15種類のCELベーススキル例
+- practical_examples.yml: 13種類の実践的Mob定義
+  * HP段階別ボス (BasicBoss)
+  * 距離適応型Mob (RangeAdaptiveMob)
+  * プレイヤー数スケーリング (PlayerScalingMob)
+  * 時間帯反応型 (TimeBasedMob)
+  * 環境反応型 (EnvironmentMob)
+
+Javaクラスを追加せず、YAMLとCELだけで高度な機能を実現"
+```
+
+### 3. ドキュメント追加
+
+```bash
+git add docs/CEL_QUICK_START.md
+git add docs/CEL_EXTENSIONS_GUIDE.md
+git add docs/CEL_IMPLEMENTATION_COMMIT.md
+
+git commit -m "docs: add comprehensive CEL documentation
+
+- CEL_QUICK_START.md: 初心者向けクイックスタートガイド
+- CEL_EXTENSIONS_GUIDE.md: 全CEL変数・関数の完全リファレンス
+- CEL_IMPLEMENTATION_COMMIT.md: 実装コミットガイド
+
+YAMLでの実装方法、CEL式の書き方、利用可能な全変数を網羅的に解説"
+```
+
+---
+
+## 📝 通常機能追加のコミット
+
+### 1. ターゲッター追加（CEL統合）
 
 ```bash
 git add src/main/kotlin/com/github/azuazu3939/unique/targeter/ConditionalTargeter.kt
 git add src/main/kotlin/com/github/azuazu3939/unique/targeter/ChainTargeter.kt
 git add src/main/kotlin/com/github/azuazu3939/unique/targeter/AreaTargeter.kt
 
-git commit -m "feat: add advanced targeter types (Conditional, Chain, Area)
+git commit -m "feat: add advanced targeters with CEL integration
 
-- ConditionalTargeter: フィルタリング機能を持つ条件付きターゲッター
-- ChainTargeter: 連鎖的にターゲットを選択するターゲッター  
-- AreaTargeter: Circle, Box, Cone, Donut の形状に対応
-- 各ターゲッターはPacketEntityとEntityの両方に対応"
+- ConditionalTargeter: CEL式によるフィルタリング機能
+- ChainTargeter: 連鎖ターゲティング（CEL条件で制御）
+- AreaTargeter: Circle, Box, Cone, Donut形状（CEL式で範囲計算）
+
+PacketEntity/Entity両対応、条件式はすべてCELで記述"
 ```
 
-### 2. 新しいスキルタイプの追加
+### 2. スキルタイプ追加（CEL統合）
 
 ```bash
 git add src/main/kotlin/com/github/azuazu3939/unique/skill/types/SummonSkill.kt
@@ -25,297 +95,135 @@ git add src/main/kotlin/com/github/azuazu3939/unique/skill/types/TeleportSkill.k
 git add src/main/kotlin/com/github/azuazu3939/unique/skill/types/BuffSkill.kt
 git add src/main/kotlin/com/github/azuazu3939/unique/skill/types/CommandSkill.kt
 
-git commit -m "feat: add new skill types (Summon, Teleport, Buff, Command)
+git commit -m "feat: add skill types with dynamic CEL calculations
 
-- SummonSkill: バニラ/カスタムMobの召喚
-- TeleportSkill: 5種類のテレポートタイプ (OFFSET, ABSOLUTE, BEHIND, TO_SOURCE, SWAP)
-- BuffSkill: ポーション効果と属性変更
-- CommandSkill: プレースホルダー対応のコマンド実行
-- 全スキルでFolia対応の非同期/同期制御"
+- SummonSkill: CEL式で召喚数・持続時間を動的計算
+- TeleportSkill: CEL式でテレポート座標を計算
+- BuffSkill: CEL式で効果時間・強度を計算
+- CommandSkill: プレースホルダーでCEL変数を展開
+
+全スキルがCEL式による動的な値計算に対応"
 ```
 
-### 3. マネージャークラスの更新
+### 3. マネージャー更新
 
 ```bash
 git add src/main/kotlin/com/github/azuazu3939/unique/manager/TargeterManager.kt
 git add src/main/kotlin/com/github/azuazu3939/unique/manager/SkillManager.kt
 
-git commit -m "refactor: update managers to support new targeter and skill types
+git commit -m "refactor: update managers for CEL-based configuration
 
-- TargeterManager: 新しいターゲッタータイプの登録と生成に対応
-- SkillManager: 新しいスキルタイプの読み込みと生成に対応
-- YAML設定からの自動生成機能を強化"
+- TargeterManager: CEL式によるフィルタ・条件サポート
+- SkillManager: CEL式による動的パラメータ計算サポート
+
+YAML設定からCEL式を評価して動的に値を生成"
 ```
 
-### 4. サンプルYAMLファイルの追加
+### 4. サンプルYAML追加
 
 ```bash
-git add src/main/resources/sample/skills/advanced_skills.yml
-git add src/main/resources/sample/mobs/advanced_mobs.yml
-git add src/main/resources/sample/spawns/advanced_spawns.yml
+git add src/main/resources/sample/skills/*.yml
+git add src/main/resources/sample/mobs/*.yml
+git add src/main/resources/sample/spawns/*.yml
 
-git commit -m "sample: add comprehensive examples for advanced features
+git commit -m "sample: add practical YAML examples with CEL
 
-- advanced_skills.yml: 全ての新スキルタイプの使用例
-- advanced_mobs.yml: 8種類の高度なMob定義例
-  * Summoner, LightningMage, FlameWarrior
-  * AncientDragon (フェーズ制ボス)
-  * SupportHealer, Assassin, Necromancer
-- advanced_spawns.yml: 条件付き/イベント駆動スポーン例"
-```
+- 各機能の実用的なCEL式使用例
+- コメント付きで学習しやすい構成
+- コピー&ペーストで即座に利用可能
 
-### 5. ドキュメントの更新
-
-```bash
-git add README_EXTENDED.md
-
-git commit -m "docs: add extended features documentation
-
-- 新しいターゲッタータイプの詳細説明
-- 新しいスキルタイプの使用方法とパラメータ
-- 実装例とベストプラクティス
-- プレースホルダー一覧
-- 実装状況の更新"
-```
-
-### 6. 全てをまとめてコミット（推奨）
-
-もし上記を個別にコミットせず、一度にまとめる場合:
-
-```bash
-git add src/main/kotlin/com/github/azuazu3939/unique/targeter/*.kt
-git add src/main/kotlin/com/github/azuazu3939/unique/skill/types/*.kt
-git add src/main/kotlin/com/github/azuazu3939/unique/manager/*.kt
-git add src/main/resources/sample/**/*.yml
-git add README_EXTENDED.md
-
-git commit -m "feat: Phase 7 - Advanced Targeters and Skills Implementation
-
-【ターゲッター拡張】
-- ConditionalTargeter: 条件付きフィルタリング
-- ChainTargeter: 連鎖ターゲティング (稲妻/感染効果)
-- AreaTargeter: Circle, Box, Cone, Donut形状対応
-
-【スキルタイプ追加】
-- SummonSkill: バニラ/カスタムMob召喚、持続時間制御
-- TeleportSkill: 5種類のテレポートモード
-- BuffSkill: ポーション効果 + 属性変更システム
-- CommandSkill: プレースホルダー対応コマンド実行
-
-【マネージャー更新】
-- TargeterManager/SkillManager: 新タイプの自動読み込み
-- YAML設定からの型安全な生成
-
-【サンプル追加】
-- 8種類の高度なMob定義
-- ボス戦、連鎖攻撃、サポートMobの実装例
-- 条件付きスポーン、イベント駆動スポーン
-
-【ドキュメント】
-- README_EXTENDED.md: 全機能の詳細ドキュメント
-
-Phase 6完了後の追加実装
-次: イベントリスナー、コマンドハンドラー実装"
+実装した機能を示す具体例を提供"
 ```
 
 ---
 
 ## 🔍 コミット前チェックリスト
 
+### ✅ CEL統合の確認
+- [ ] 新機能の条件判定はCEL式で記述されている
+- [ ] 動的な値計算にCEL式を活用している
+- [ ] Javaクラスはデータ取得・適用のみを担当
+- [ ] ビジネスロジックはYAML/CELに記述
+
 ### ✅ コード品質
-- [ ] 全ての新クラスにKDocコメントが記述されている
+- [ ] KDocコメントが記述されている
 - [ ] パッケージ構造が正しい
 - [ ] import文が整理されている
-- [ ] 未使用のimportがない
+- [ ] 後方互換性が維持されている
 
-### ✅ 機能
-- [ ] 全てのターゲッタークラスがEntityとPacketEntityに対応
-- [ ] 全てのスキルが非同期/同期を制御可能
-- [ ] 条件システムが正しく統合されている
-- [ ] エラーハンドリングが適切
-
-### ✅ サンプル
-- [ ] サンプルYAMLの構文が正しい
-- [ ] 実際に動作するコード例
-- [ ] コメントが十分
-
-### ✅ ドキュメント
-- [ ] README_EXTENDED.mdに全機能が記載
-- [ ] 使用例が明確
-- [ ] パラメータの説明が完全
+### ✅ サンプル・ドキュメント
+- [ ] サンプルYAMLにCEL式の使用例がある
+- [ ] コメントで説明が十分
+- [ ] ドキュメントに新CEL変数が記載されている
 
 ---
 
-## 📊 変更ファイルサマリー
+## 📊 推奨コミット単位
 
-### 新規追加ファイル (7ファイル)
-```
-src/main/kotlin/com/github/azuazu3939/unique/targeter/
-├── ConditionalTargeter.kt
-├── ChainTargeter.kt
-└── AreaTargeter.kt
+### オプション1: 機能ごとに分割
+```bash
+# 1. CEL変数拡張
+git commit -m "feat: extend CEL variables..."
 
-src/main/kotlin/com/github/azuazu3939/unique/skill/types/
-├── SummonSkill.kt
-├── TeleportSkill.kt
-├── BuffSkill.kt
-└── CommandSkill.kt
-```
+# 2. YAML機能追加
+git commit -m "feat: add YAML features with CEL..."
 
-### 更新ファイル (2ファイル)
-```
-src/main/kotlin/com/github/azuazu3939/unique/manager/
-├── TargeterManager.kt
-└── SkillManager.kt
+# 3. サンプル追加
+git commit -m "sample: add CEL usage examples..."
+
+# 4. ドキュメント
+git commit -m "docs: update CEL reference..."
 ```
 
-### サンプルファイル (3ファイル)
-```
-src/main/resources/sample/
-├── skills/advanced_skills.yml
-├── mobs/advanced_mobs.yml
-└── spawns/advanced_spawns.yml
-```
+### オプション2: 一括コミット
+```bash
+git add src/main/kotlin/**/*.kt
+git add src/main/resources/sample/**/*.yml
+git add docs/*.md
 
-### ドキュメント (1ファイル)
-```
-README_EXTENDED.md
-```
+git commit -m "feat: CEL-based feature implementation
 
-**合計**: 13ファイル
+【CEL変数拡張】
+- math.*, random.*, distance.*, string.*
+- environment.*, nearbyPlayers.*
+
+【YAML機能】
+- filter式、chain設定、CEL式計算
+
+【サンプル】
+- 15スキル、13Mob定義の実例
+
+【ドキュメント】
+- クイックスタート、リファレンス、実装ガイド
+
+設計思想: Javaクラスを増やさず、YAMLとCELで実現"
+```
 
 ---
 
-## 🚀 プッシュコマンド
+## 🎯 CELベース設計の原則
+
+1. **条件判定はCELで** - Java側に条件ロジックを書かない
+2. **動的計算はCELで** - ダメージ、範囲、個数などをCEL式で計算
+3. **Javaは実行環境のみ** - データ取得と適用のみを担当
+4. **YAML中心の設定** - ロジックはすべてYAMLに記述
+
+---
+
+## 🚀 プッシュ
 
 ```bash
-# ブランチを作成して作業する場合
-git checkout -b feature/phase7-advanced-features
-git push -u origin feature/phase7-advanced-features
+# ブランチを作成
+git checkout -b feature/cel-extensions
 
-# mainブランチに直接プッシュする場合
-git push origin main
+# コミット後プッシュ
+git push -u origin feature/cel-extensions
+
+# プルリクエスト作成
+# タイトル: "CELベース機能拡張実装"
+# 説明: YAML+CELで実現した機能、追加したCEL変数、サンプル例を記載
 ```
 
 ---
 
-## 📝 Pull Request テンプレート
-
-GitHubでPRを作成する場合の推奨テンプレート:
-
-```markdown
-## 概要
-Phase 7: 高度なターゲッターとスキルシステムの実装
-
-## 変更内容
-
-### 新機能
-- ✨ ConditionalTargeter: 条件付きターゲット選択
-- ✨ ChainTargeter: 連鎖ターゲティング
-- ✨ AreaTargeter: 4種類の形状対応 (Circle, Box, Cone, Donut)
-- ✨ SummonSkill: Mob召喚システム
-- ✨ TeleportSkill: 5種類のテレポートモード
-- ✨ BuffSkill: ポーション効果 + 属性変更
-- ✨ CommandSkill: コマンド実行システム
-
-### 改善
-- 🔧 TargeterManager/SkillManager: 新タイプ対応
-- 📝 包括的なサンプルYAML追加
-- 📖 詳細ドキュメント作成
-
-### サンプル
-- 8種類の高度なMob定義
-- ボス戦の実装例
-- 連鎖攻撃、サポートMobの例
-
-## テスト
-- [ ] ConditionalTargeterの条件フィルタリング
-- [ ] ChainTargeterの連鎖動作
-- [ ] AreaTargeterの各形状
-- [ ] SummonSkillのバニラ/カスタムMob召喚
-- [ ] TeleportSkillの各モード
-- [ ] BuffSkillのポーション効果
-- [ ] CommandSkillのプレースホルダー
-
-## スクリーンショット
-（必要に応じて追加）
-
-## 関連Issue
-- Closes #X (該当するissue番号)
-
-## チェックリスト
-- [x] コードレビュー済み
-- [x] ドキュメント更新済み
-- [x] サンプルファイル追加済み
-- [ ] 実機テスト完了
-```
-
----
-
-## 🎯 次のステップ
-
-このコミット後の作業:
-
-1. **Phase 7-B: イベントリスナー**
-   ```bash
-   git checkout -b feature/phase7b-event-listeners
-   ```
-    - EntityDamageListener
-    - EntityDeathListener
-    - PlayerInteractListener
-
-2. **Phase 7-C: コマンドハンドラー**
-   ```bash
-   git checkout -b feature/phase7c-command-handler
-   ```
-    - `/unique reload`
-    - `/unique spawn <mob>`
-    - `/unique list`
-    - `/unique debug`
-
-3. **Phase 7-D: 統合テスト**
-   ```bash
-   git checkout -b feature/phase7d-integration-tests
-   ```
-    - ボス戦シナリオテスト
-    - パフォーマンステスト
-    - エッジケーステスト
-
----
-
-## 🔖 タグ付け（リリース時）
-
-メジャーマイルストーン達成時:
-
-```bash
-git tag -a v1.0.0-phase7 -m "Phase 7: Advanced Targeters and Skills"
-git push origin v1.0.0-phase7
-```
-
----
-
-## 💡 ベストプラクティス
-
-### コミットメッセージ規約
-- `feat:` 新機能
-- `fix:` バグ修正
-- `refactor:` リファクタリング
-- `docs:` ドキュメント
-- `sample:` サンプルファイル
-- `test:` テスト
-- `chore:` その他
-
-### コミットサイズ
-- 1機能 = 1コミット
-- 大きすぎる場合は分割
-- 関連する変更はまとめる
-
-### ブランチ戦略
-- `main`: 安定版
-- `develop`: 開発版
-- `feature/*`: 機能開発
-- `hotfix/*`: 緊急修正
-
----
-
-以上でPhase 7の追加実装のコミットガイドは完了です！
+以上がCELベース実装方針に対応したコミットガイドです！
