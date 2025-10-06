@@ -11,6 +11,8 @@ data class MainConfig(
     val performance: PerformanceConfig = PerformanceConfig(),
     val spawn: SpawnConfig = SpawnConfig(),
     val cel: CelConfig = CelConfig(),
+    val damage: DamageConfig = DamageConfig(),
+    val resources: ResourceConfig = ResourceConfig(),
     val experimental: ExperimentalConfig = ExperimentalConfig()
 )
 
@@ -51,6 +53,44 @@ data class SpawnConfig(
 data class CelConfig(
     val cacheSize: Int = 1000,
     val evaluationTimeout: Long = 100L
+)
+
+/**
+ * ダメージ計算設定
+ */
+data class DamageConfig(
+    /**
+     * デフォルトのダメージ計算式（CEL式）
+     * 個々のMobでdamageFormulaが指定されていない場合に使用される
+     *
+     * 例: "damage * (1 - min(20, armor) / 25)"  # Minecraft標準式
+     *     "damage * (1 - armor / 100)"          # パーセント軽減
+     *     null                                  # デフォルトの計算式を使用
+     */
+    val defaultFormula: String? = null
+)
+
+/**
+ * リソースキー設定
+ */
+data class ResourceConfig(
+    /**
+     * カスタムリソースキーの名前空間
+     *
+     * 例: customNamespace = "myserver"
+     *     → "myserver:custom_sound" を探し、なければ "minecraft:custom_sound"
+     */
+    val customNamespace: String = "custom",
+
+    /**
+     * リソースが見つからない場合にエラーログを出力するか
+     */
+    val logMissingResources: Boolean = false,
+
+    /**
+     * カスタムリソースキー機能を有効にするか
+     */
+    val enableCustomKeys: Boolean = true
 )
 
 /**

@@ -1,0 +1,165 @@
+# ==========================================
+# Boss Mobs - ボス級カスタムMob
+# ==========================================
+# 超コンパクト構文 + CEL式による動的スケーリング
+
+# 炎龍
+FlameDragon:
+  Type: ENDER_DRAGON
+  Display: "&c&l&k|&r &c&l炎龍 &k|"
+  Health: "500 + (nearbyPlayers.count * 100)"
+  Damage: "30 + (nearbyPlayers.avgLevel * 0.5)"
+  Armor: "15"
+  ArmorToughness: "10"
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 60.0
+    KnockbackResistance: 1.0
+  Appearance:
+    CustomNameVisible: true
+    Glowing: true
+  Skills:
+    # 2秒ごとに強力ファイアボール
+    - PowerfulFireball @NP{r=50} ~onTimer:40
+    # 5秒ごとにホーミングミサイル
+    - HomingMissile @RP{r=40;c=3} ~onTimer:100
+    # スポーン時に炎のオーラ
+    - FlameAura @Self ~onSpawn
+    # 7秒ごとに炎のビーム
+    - FlameBeam @NP{r=35} ~onTimer:140
+    # ダメージ時に範囲爆発
+    - AreaExplosion @Self ~onDamaged
+    # HP30%以下で回復
+    - SelfHeal @Self{cond=entity.health < entity.maxHealth * 0.3} ~onTimer:200
+    # 死亡時に大爆発
+    - AreaExplosion @Self ~onDeath
+  Drops:
+    - item: DRAGON_HEAD
+      amount: "1"
+      chance: "1.0"
+    - item: DIAMOND_BLOCK
+      amount: "3-5"
+      chance: "1.0"
+    - item: NETHERITE_INGOT
+      amount: "2-4"
+      chance: "0.8"
+
+# 氷結王
+FrostKing:
+  Type: GIANT
+  Display: "&b&l&k|&r &b&l氷結王 &k|"
+  Health: "400 + (nearbyPlayers.count * 80)"
+  Damage: "25 + (nearbyPlayers.maxLevel * 0.4)"
+  Armor: "12 + (nearbyPlayers.count)"
+  ArmorToughness: "8"
+  AI:
+    MovementSpeed: 0.25
+    FollowRange: 50.0
+    KnockbackResistance: 0.9
+  Appearance:
+    CustomNameVisible: true
+    Glowing: true
+  Skills:
+    # 攻撃時に氷の矢
+    - FrostArrow @TL ~onAttack
+    # 3秒ごとに氷のビーム
+    - FrostBeam @NP{r=30} ~onTimer:60
+    # 6秒ごとに氷結オーラ
+    - FrostAura @Self ~onTimer:120
+    # ダメージ時にシールド
+    - DeployShield @Self{cond=entity.health < entity.maxHealth * 0.5} ~onDamaged
+    # 10秒ごとに範囲凍結
+    - AreaExplosion @Self ~onTimer:200
+    # 死亡時に氷の爆発
+    - AreaExplosion @Self ~onDeath
+  Drops:
+    - item: ICE
+      amount: "10-20"
+      chance: "1.0"
+    - item: BLUE_ICE
+      amount: "5-10"
+      chance: "1.0"
+    - item: DIAMOND
+      amount: "5-10"
+      chance: "0.9"
+
+# 雷帝
+ThunderEmperor:
+  Type: WITHER
+  Display: "&e&l&k|&r &e&l雷帝 &k|"
+  Health: "600 + (nearbyPlayers.count * 120)"
+  Damage: "35 + (nearbyPlayers.avgLevel * 0.6)"
+  Armor: "18"
+  ArmorToughness: "12"
+  AI:
+    MovementSpeed: 0.28
+    FollowRange: 55.0
+    KnockbackResistance: 1.0
+  Appearance:
+    CustomNameVisible: true
+    Glowing: true
+  Skills:
+    # 攻撃時に雷撃
+    - ThunderStrike @TL ~onAttack
+    # 2秒ごとにホーミングミサイル
+    - HomingMissile @NP{r=45} ~onTimer:40
+    # 4秒ごとに雷のビーム
+    - ThunderBeam @RP{r=35;c=5} ~onTimer:80
+    # 範囲への雷撃
+    - ThunderStrike @RP{r=40;c=3} ~onTimer:120
+    # ダメージ時にテレポート
+    - RandomTeleport @Self{cond=damage.amount > 20} ~onDamaged
+    # HP50%以下で回復
+    - SelfHeal @Self{cond=entity.health < entity.maxHealth * 0.5} ~onTimer:180
+    # 死亡時に大雷撃
+    - ThunderStrike @RP{r=50} ~onDeath
+  Drops:
+    - item: NETHER_STAR
+      amount: "1"
+      chance: "1.0"
+    - item: EMERALD_BLOCK
+      amount: "3-6"
+      chance: "1.0"
+    - item: NETHERITE_SCRAP
+      amount: "5-10"
+      chance: "0.7"
+
+# 適応型ボス（プレイヤー数・レベルに応じて戦略変更）
+AdaptiveBoss:
+  Type: ENDER_DRAGON
+  Display: "&5&l&k|&r &5&l適応型ボス &k|"
+  Health: "300 + (nearbyPlayers.count * 100) + (nearbyPlayers.avgLevel * 10)"
+  Damage: "20 + (nearbyPlayers.avgLevel)"
+  Armor: "nearbyPlayers.count > 5 ? 20 : 15"
+  ArmorToughness: "nearbyPlayers.count > 5 ? 12 : 8"
+  AI:
+    MovementSpeed: 0.32
+    FollowRange: 65.0
+    KnockbackResistance: 1.0
+  Appearance:
+    CustomNameVisible: true
+    Glowing: true
+  Skills:
+    # プレイヤー数に応じた攻撃頻度
+    - PowerfulFireball @NP{r=50} ~onTimer:60
+    - HomingMissile @RP{r=45;c=3} ~onTimer:80
+    - ThunderStrike @RP{r=40;c=2} ~onTimer:100
+    # HP依存のスキル
+    - FlameBeam @NP{r=35;cond=entity.health > entity.maxHealth * 0.5} ~onTimer:120
+    - ThunderBeam @RP{r=30;c=5;cond=entity.health <= entity.maxHealth * 0.5} ~onTimer:100
+    # 戦略的スキル
+    - DeployShield @Self{cond=nearbyPlayers.count > 3} ~onTimer:150
+    - SelfHeal @Self{cond=entity.health < entity.maxHealth * 0.3} ~onTimer:200
+    - RandomTeleport @Self{cond=nearbyPlayers.count > 5} ~onTimer:180
+    # 死亡時の大爆発
+    - AreaExplosion @Self ~onDeath
+  Drops:
+    - item: DRAGON_EGG
+      amount: "1"
+      chance: "0.5"
+    - item: DIAMOND_BLOCK
+      amount: "nearbyPlayers.count"
+      chance: "1.0"
+    - item: NETHERITE_INGOT
+      amount: "nearbyPlayers.count * 2"
+      chance: "1.0"

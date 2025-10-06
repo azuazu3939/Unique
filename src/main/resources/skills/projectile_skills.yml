@@ -1,0 +1,57 @@
+# ==========================================
+# Projectile Skills - 発射物スキル定義
+# ==========================================
+# インライン形式のスキル定義
+# Mob側で「スキル名 @ターゲッター ~トリガー」として使用
+
+# 基本ファイアボール
+BasicFireball:
+  - >
+    projectile{type=FIREBALL;speed=2.0;gravity=false;maxDistance=40.0;hitRadius=1.5;
+    onHit=[damage{amount=20},particle{type=FLAME;count=30}]}
+
+# 強力ファイアボール
+PowerfulFireball:
+  - >
+    projectile{type=FIREBALL;speed=2.5;gravity=false;maxDistance=50.0;hitRadius=2.0;homing=0.2;
+    onHit=[damage{amount=30},explosion{amount=15;radius=4.0;kb=1.5;fire=true},
+    sound{type=ENTITY_GENERIC_EXPLODE;volume=1.0;pitch=0.8}]}
+
+# 氷の矢
+FrostArrow:
+  - >
+    projectile{type=ARROW;speed=3.5;gravity=true;maxDistance=60.0;hitRadius=1.0;pierce=false;
+    onHit=[damage{amount=15},freeze{duration=100;amplifier=2},particle{type=SNOWFLAKE;count=20},
+    sound{type=BLOCK_GLASS_BREAK;volume=0.8;pitch=1.2}]}
+
+# ホーミングミサイル
+HomingMissile:
+  - >
+    projectile{type=DRAGON_FIREBALL;speed=2.8;gravity=false;maxDistance=45.0;hitRadius=2.5;homing=0.4;pierce=false;
+    onHit=[damage{amount=35},explosion{amount=25;radius=6.0;kb=2.0;fire=true},
+    particle{type=EXPLOSION;count=50}]}
+
+# マルチショット
+MultiShot:
+  - >
+    projectile{type=ARROW;speed=4.0;gravity=false;maxDistance=50.0;hitRadius=1.2;pierce=true;
+    onHit=[damage{amount=12},particle{type=CRIT;count=10}]}
+
+# 雷の矢
+ThunderArrow:
+  - >
+    projectile{type=ARROW;speed=4.0;gravity=false;maxDistance=55.0;hitRadius=1.5;pierce=false;
+    onHit=[damage{amount=18},lightning{damage=20;fire=true},particle{type=ELECTRIC_SPARK;count=30}]}
+
+# 爆発矢
+ExplosiveArrow:
+  - >
+    projectile{type=ARROW;speed=3.0;gravity=true;maxDistance=50.0;hitRadius=1.0;pierce=false;
+    onHit=[damage{amount=10},explosion{amount=20;radius=5.0;kb=1.8;fire=false},
+    particle{type=EXPLOSION;count=40}]}
+
+# 毒の矢
+PoisonArrow:
+  - >
+    projectile{type=ARROW;speed=3.5;gravity=true;maxDistance=60.0;hitRadius=1.0;pierce=false;
+    onHit=[damage{amount=12},potion{type=POISON;duration=200;amplifier=2},particle{type=SLIME;count=20}]}

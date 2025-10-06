@@ -1,0 +1,52 @@
+# ==========================================
+# Visual Effects - 視覚エフェクト定義
+# ==========================================
+# 見た目のみのエフェクト（ゲーム効果なし）
+
+# 炎のパーティクルエフェクト
+FlameVisualEffect:
+  - particle{type=FLAME;count=50;speed=0.2;audience=@RadiusPlayers{r=50}}
+  - particle{type=LAVA;count=20;speed=0.1;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_FIRE_AMBIENT;volume=1.0;pitch=1.0;audience=@RadiusPlayers{r=30}}
+
+# 氷のパーティクルエフェクト
+FrostVisualEffect:
+  - particle{type=SNOWFLAKE;count=50;speed=0.1;audience=@RadiusPlayers{r=50}}
+  - particle{type=CLOUD;count=30;speed=0.05;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_SNOW_BREAK;volume=1.0;pitch=1.2;audience=@RadiusPlayers{r=30}}
+
+# 雷のパーティクルエフェクト
+ThunderVisualEffect:
+  - particle{type=ELECTRIC_SPARK;count=60;speed=0.15;audience=@RadiusPlayers{r=50}}
+  - particle{type=FLASH;count=10;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_LIGHTNING_BOLT_THUNDER;volume=1.0;pitch=1.0;audience=@RadiusPlayers{r=40}}
+
+# 魔法のパーティクルエフェクト
+MagicVisualEffect:
+  - particle{type=ENCHANT;count=40;speed=0.2;audience=@RadiusPlayers{r=50}}
+  - particle{type=PORTAL;count=30;speed=0.1;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_ENCHANTMENT_TABLE_USE;volume=1.0;pitch=1.2;audience=@RadiusPlayers{r=30}}
+
+# 爆発のパーティクルエフェクト
+ExplosionVisualEffect:
+  - particle{type=EXPLOSION;count=30;audience=@RadiusPlayers{r=50}}
+  - particle{type=SMOKE;count=50;speed=0.2;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_GENERIC_EXPLODE;volume=1.0;pitch=0.9;audience=@RadiusPlayers{r=40}}
+
+# 聖なる光エフェクト
+HolyLightEffect:
+  - particle{type=END_ROD;count=40;speed=0.1;audience=@RadiusPlayers{r=50}}
+  - particle{type=GLOW;count=30;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_BEACON_ACTIVATE;volume=1.0;pitch=1.5;audience=@RadiusPlayers{r=30}}
+
+# 暗黒エフェクト
+DarkEffect:
+  - particle{type=SQUID_INK;count=50;speed=0.1;audience=@RadiusPlayers{r=50}}
+  - particle{type=SMOKE;count=40;speed=0.15;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_WITHER_AMBIENT;volume=0.8;pitch=0.8;audience=@RadiusPlayers{r=30}}
+
+# 自然エフェクト
+NatureEffect:
+  - particle{type=HAPPY_VILLAGER;count=30;audience=@RadiusPlayers{r=50}}
+  - particle{type=CHERRY_LEAVES;count=40;speed=0.1;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_GRASS_BREAK;volume=0.8;pitch=1.2;audience=@RadiusPlayers{r=30}}

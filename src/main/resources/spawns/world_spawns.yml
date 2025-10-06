@@ -1,0 +1,63 @@
+# ==========================================
+# World Spawns - ワールドスポーン定義
+# ==========================================
+
+# オーバーワールドの雑魚Mob
+OverworldCommonSpawns:
+  mob: StrongZombie
+  worlds:
+    - world
+  conditions:
+    - type: Time
+      value: NIGHT
+    - type: LightLevel
+      max: 7
+  spawnRate: 0.05
+  maxNearbyMobs: 3
+  spawnRadius: 32
+
+# ネザーの強敵
+NetherEliteSpawns:
+  mob: FlameFighter
+  worlds:
+    - world_nether
+  conditions:
+    - type: World
+      value: world_nether
+  spawnRate: 0.03
+  maxNearbyMobs: 2
+  spawnRadius: 40
+
+# ボススポーン（手動）
+FlameDragonBossSpawn:
+  mob: FlameDragon
+  enabled: false
+  manual: true
+  description: "炎龍ボス - 手動スポーン用"
+
+# 時限スポーン（夜間のみ）
+NightOnlySpawn:
+  mob: ThunderSpirit
+  worlds:
+    - world
+  conditions:
+    - type: Time
+      value: NIGHT
+    - type: MoonPhase
+      value: FULL_MOON
+  spawnRate: 0.02
+  maxNearbyMobs: 1
+  spawnRadius: 50
+
+# 地域限定スポーン
+BiomeSpecificSpawn:
+  mob: FrostArcher
+  worlds:
+    - world
+  biomes:
+    - SNOWY_PLAINS
+    - ICE_SPIKES
+    - FROZEN_PEAKS
+  spawnRate: 0.04
+  maxNearbyMobs: 2
+  spawnRadius: 35

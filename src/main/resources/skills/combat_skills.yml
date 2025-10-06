@@ -1,0 +1,78 @@
+# ==========================================
+# Combat Skills - 戦闘スキル定義
+# ==========================================
+# インライン形式のスキル定義
+# Mob側で「スキル名 @ターゲッター ~トリガー」として使用
+
+# 近接攻撃強化
+MeleeEnhance:
+  - damage{amount=25}
+  - particle{type=SWEEP_ATTACK;count=15}
+  - sound{type=ENTITY_PLAYER_ATTACK_STRONG;volume=1.0;pitch=0.9}
+
+# 範囲爆発
+AreaExplosion:
+  - explosion{amount=30;radius=8.0;kb=2.0;fire=false;breakBlocks=false}
+  - particle{type=EXPLOSION;count=50}
+  - sound{type=ENTITY_GENERIC_EXPLODE;volume=1.5;pitch=1.0}
+
+# 雷撃
+ThunderStrike:
+  - lightning{damage=40;fire=true}
+  - particle{type=ELECTRIC_SPARK;count=30}
+  - sound{type=ENTITY_LIGHTNING_BOLT_THUNDER;volume=1.0;pitch=1.0}
+
+# 自己回復
+SelfHeal:
+  - heal{amount=20}
+  - particle{type=HEART;count=15}
+  - sound{type=ENTITY_PLAYER_LEVELUP;volume=0.5;pitch=1.5}
+
+# シールド展開
+DeployShield:
+  - shield{amount=50;duration=200}
+  - particle{type=BARRIER;count=40}
+  - sound{type=BLOCK_BEACON_ACTIVATE;volume=1.0;pitch=1.0}
+
+# テレポート
+RandomTeleport:
+  - teleport{mode=RANDOM;range=15.0}
+  - particle{type=PORTAL;count=50}
+  - sound{type=ENTITY_ENDERMAN_TELEPORT;volume=1.0;pitch=1.0}
+
+# ノックバック
+Knockback:
+  - push{strength=2.0;radius=8.0}
+  - particle{type=EXPLOSION;count=20}
+  - sound{type=ENTITY_IRON_GOLEM_ATTACK;volume=1.0;pitch=0.8}
+
+# 引き寄せ
+Pull:
+  - pull{strength=1.5;radius=10.0}
+  - particle{type=ENCHANT;count=30}
+  - sound{type=BLOCK_BEACON_AMBIENT;volume=0.8;pitch=1.2}
+
+# 大ダメージ
+HeavyDamage:
+  - damage{amount=50}
+  - particle{type=CRIT;count=25}
+  - sound{type=ENTITY_PLAYER_ATTACK_CRIT;volume=1.2;pitch=0.8}
+
+# 凍結
+FreezingAttack:
+  - freeze{duration=150;amplifier=3}
+  - particle{type=SNOWFLAKE;count=40}
+  - sound{type=BLOCK_GLASS_BREAK;volume=1.0;pitch=1.0}
+
+# 盲目
+BlindingFlash:
+  - blind{duration=100;amplifier=2}
+  - particle{type=FLASH;count=30}
+  - sound{type=ENTITY_LIGHTNING_BOLT_IMPACT;volume=0.8;pitch=1.5}
+
+# 大回復
+GreatHeal:
+  - heal{amount=50}
+  - particle{type=HEART;count=30}
+  - particle{type=TOTEM_OF_UNDYING;count=20}
+  - sound{type=ITEM_TOTEM_USE;volume=1.0;pitch=1.0}

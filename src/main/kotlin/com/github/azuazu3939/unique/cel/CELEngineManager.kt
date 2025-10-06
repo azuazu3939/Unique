@@ -24,31 +24,51 @@ class CELEngineManager(
     /**
      * CELコンパイラ
      * 変数宣言を含む環境を設定
+     * 遅延初期化でClassLoaderを適切に設定
      */
-    private val compiler: CelCompiler = CelCompilerFactory.standardCelCompilerBuilder()
-        .addVar("entity", SimpleType.DYN)
-        .addVar("player", SimpleType.DYN)
-        .addVar("world", SimpleType.DYN)
-        .addVar("damage", SimpleType.DYN)
-        .addVar("attacker", SimpleType.DYN)
-        .addVar("victim", SimpleType.DYN)
-        .addVar("target", SimpleType.DYN)
-        .addVar("item", SimpleType.DYN)
-        .addVar("location", SimpleType.DYN)
-        .addVar("math", SimpleType.DYN)
-        .addVar("string", SimpleType.DYN)
-        .addVar("biome", SimpleType.DYN)
-        .addVar("cooldown", SimpleType.DYN)
-        .addVar("event", SimpleType.DYN)
-        .addVar("skill", SimpleType.DYN)
-        .addVar("spawner", SimpleType.DYN)
-        .build()
+    private val compiler: CelCompiler by lazy {
+        val originalClassLoader = Thread.currentThread().contextClassLoader
+        Thread.currentThread().contextClassLoader = this::class.java.classLoader
+
+        try {
+            CelCompilerFactory.standardCelCompilerBuilder()
+                .addVar("entity", SimpleType.DYN)
+                .addVar("player", SimpleType.DYN)
+                .addVar("world", SimpleType.DYN)
+                .addVar("damage", SimpleType.DYN)
+                .addVar("attacker", SimpleType.DYN)
+                .addVar("victim", SimpleType.DYN)
+                .addVar("target", SimpleType.DYN)
+                .addVar("item", SimpleType.DYN)
+                .addVar("location", SimpleType.DYN)
+                .addVar("math", SimpleType.DYN)
+                .addVar("string", SimpleType.DYN)
+                .addVar("biome", SimpleType.DYN)
+                .addVar("cooldown", SimpleType.DYN)
+                .addVar("event", SimpleType.DYN)
+                .addVar("skill", SimpleType.DYN)
+                .addVar("spawner", SimpleType.DYN)
+                .build()
+        } finally {
+            Thread.currentThread().contextClassLoader = originalClassLoader
+        }
+    }
 
     /**
      * CELランタイム
+     * 遅延初期化でClassLoaderを適切に設定
      */
-    private val runtime: CelRuntime = CelRuntimeFactory.standardCelRuntimeBuilder()
-        .build()
+    private val runtime: CelRuntime by lazy {
+        val originalClassLoader = Thread.currentThread().contextClassLoader
+        Thread.currentThread().contextClassLoader = this::class.java.classLoader
+
+        try {
+            CelRuntimeFactory.standardCelRuntimeBuilder()
+                .build()
+        } finally {
+            Thread.currentThread().contextClassLoader = originalClassLoader
+        }
+    }
 
     /**
      * コンパイル済みASTキャッシュ
@@ -109,6 +129,10 @@ class CELEngineManager(
 
         val startTime = System.nanoTime()
 
+        // ClassLoaderを明示的に設定（Hopliteと同様の対処）
+        val originalClassLoader = Thread.currentThread().contextClassLoader
+        Thread.currentThread().contextClassLoader = this::class.java.classLoader
+
         try {
             val ast = compiler.compile(expression).ast
             val duration = (System.nanoTime() - startTime) / 1_000_000L
@@ -126,6 +150,20 @@ class CELEngineManager(
             DebugLogger.error("CEL compilation error: ${e.message}")
             DebugLogger.debug("Expression: '$expression'")
             throw e
+        } catch (e: ExceptionInInitializerError) {
+            incrementStat("errors")
+            DebugLogger.error("CEL initialization error: ${e.message}")
+            DebugLogger.error("Caused by: ${e.cause?.message}")
+            e.cause?.printStackTrace()
+            throw e
+        } catch (e: Exception) {
+            incrementStat("errors")
+            DebugLogger.error("Unexpected CEL error: ${e.javaClass.name} - ${e.message}")
+            e.printStackTrace()
+            throw e
+        } finally {
+            // ClassLoaderを元に戻す
+            Thread.currentThread().contextClassLoader = originalClassLoader
         }
     }
 

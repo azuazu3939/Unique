@@ -3,10 +3,9 @@ package com.github.azuazu3939.unique.config
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.sksamuel.hoplite.ConfigLoaderBuilder
-import com.sksamuel.hoplite.ConfigSource
+import com.sksamuel.hoplite.ExperimentalHoplite
 import com.sksamuel.hoplite.PropertySource
 import java.io.File
-import kotlin.reflect.KClass
 
 /**
  * 設定管理クラス
@@ -56,7 +55,7 @@ class ConfigManager(private val plugin: Unique) {
         }
 
         try {
-            mainConfig = loadSingleFile(configFile, MainConfig::class)
+            mainConfig = loadSingleFile<MainConfig>(configFile)
 
             // DebugLoggerに設定を適用
             DebugLogger.setDebugMode(mainConfig.debug.enabled)
@@ -78,18 +77,29 @@ class ConfigManager(private val plugin: Unique) {
      * 単一ファイルを読み込み（Hoplite使用）
      *
      * @param file YAMLファイル
-     * @param clazz 読み込む型
      * @return 設定オブジェクト
      */
-    inline fun <reified T : Any> loadSingleFile(file: File, clazz: KClass<T>): T {
+    @OptIn(ExperimentalHoplite::class)
+    inline fun <reified T : Any> loadSingleFile(file: File): T {
         DebugLogger.verbose("Loading file: ${file.name}")
 
         val startTime = System.nanoTime()
 
-        val config = ConfigLoaderBuilder.default()
-            .addSource(PropertySource.file(file))
-            .build()
-            .loadConfigOrThrow(clazz, listOf(ConfigSource.PathSource(file.toPath())), clazz.simpleName)
+        // ClassLoaderを明示的に設定
+        val originalClassLoader = Thread.currentThread().contextClassLoader
+        Thread.currentThread().contextClassLoader = this::class.java.classLoader
+
+        val config = try {
+            ConfigLoaderBuilder.default()
+                .addSource(PropertySource.file(file))
+                .withExplicitSealedTypes()
+                .build()
+                .loadConfigOrThrow<T>()
+        } finally {
+            // ClassLoaderを元に戻す
+            Thread.currentThread().contextClassLoader = originalClassLoader
+        }
+
         val duration = (System.nanoTime() - startTime) / 1_000_000L
         DebugLogger.timing("Load ${file.name}", duration)
 
@@ -102,7 +112,7 @@ class ConfigManager(private val plugin: Unique) {
      * @param directory ディレクトリ
      * @return ファイル名 -> 設定オブジェクトのマップ
      */
-    inline fun <reified T> loadDirectory(directory: File): Map<String, T> {
+    inline fun <reified T : Any> loadDirectory(directory: File): Map<String, T> {
         if (!directory.exists() || !directory.isDirectory) {
             DebugLogger.debug("Directory does not exist: ${directory.name}")
             return emptyMap()
@@ -117,7 +127,7 @@ class ConfigManager(private val plugin: Unique) {
 
         for (file in files) {
             try {
-                val config: T = loadSingleFile(file, Any::class) as T
+                val config: T = loadSingleFile<T>(file)
                 val name = file.nameWithoutExtension
                 configs[name] = config
                 DebugLogger.verbose("  ✓ Loaded ${file.name}")
@@ -138,6 +148,7 @@ class ConfigManager(private val plugin: Unique) {
      * @param clazz 読み込む型
      * @return マージされた設定
      */
+    @OptIn(ExperimentalHoplite::class)
     fun <T> loadWithDefaults(defaultFile: File, customFile: File, clazz: Class<T>): T {
         val sources = mutableListOf<PropertySource>()
 
@@ -153,6 +164,7 @@ class ConfigManager(private val plugin: Unique) {
 
         return ConfigLoaderBuilder.default()
             .addSource(sources.first())
+            .withExplicitSealedTypes()
             .build()
             .loadConfigOrThrow(defaultFile.path)
     }

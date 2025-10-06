@@ -6,12 +6,37 @@ import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.condition.Condition
 import com.github.azuazu3939.unique.entity.PacketEntity
 import com.github.azuazu3939.unique.util.DebugLogger
+import com.github.azuazu3939.unique.util.maxHealth
 import org.bukkit.Location
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
 import kotlin.math.*
+
+/**
+ * エンティティタイプフィルター
+ */
+enum class EntityTypeFilter {
+    PLAYER,      // プレイヤーのみ
+    PACKET_MOB,  // PacketMobのみ
+    LIVING,      // LivingEntityのみ（デフォルト）
+    ENTITY       // 全てのEntity
+}
+
+/**
+ * ターゲットソートモード
+ */
+enum class TargetSortMode {
+    NONE,            // ソートなし
+    NEAREST,         // 距離が近い順
+    FARTHEST,        // 距離が遠い順
+    LOWEST_HEALTH,   // HP低い順
+    HIGHEST_HEALTH,  // HP高い順
+    THREAT,          // ヘイト値高い順
+    RANDOM,          // ランダム
+    CUSTOM           // CEL式でカスタムソート（sortExpressionが必要）
+}
 
 /**
  * ターゲッター基底クラス
@@ -21,7 +46,8 @@ import kotlin.math.*
  */
 abstract class Targeter(
     val id: String,
-    val filter: String? = null  // CEL式でのフィルター
+    val filter: String? = null,  // CEL式でのフィルター
+    val entityType: EntityTypeFilter = EntityTypeFilter.LIVING  // エンティティタイプフィルター
 ) {
 
     /**
@@ -39,6 +65,216 @@ abstract class Targeter(
      * @return ターゲットリスト
      */
     abstract fun getTargets(source: PacketEntity): List<Entity>
+
+    /**
+     * エンティティタイプでフィルタリング
+     */
+    protected fun filterByEntityType(entities: Collection<Entity>): List<Entity> {
+        return when (entityType) {
+            EntityTypeFilter.PLAYER -> entities.filterIsInstance<Player>()
+            EntityTypeFilter.PACKET_MOB -> {
+                // PacketMobは実体を持たないため、通常のエンティティフィルタリングでは取得できない
+                // PacketMob専用の処理が必要な場合は別途実装
+                emptyList()
+            }
+            EntityTypeFilter.LIVING -> {
+                // LivingEntityのみ
+                entities.filterIsInstance<LivingEntity>()
+            }
+            EntityTypeFilter.ENTITY -> entities.toList()
+        }
+    }
+
+    /**
+     * ターゲットをソートして制限
+     *
+     * @param source ソースエンティティ
+     * @param targets ターゲットリスト
+     * @param sortMode ソートモード
+     * @param sortExpression カスタムソート用のCEL式（sortMode=CUSTOMの場合に使用）
+     * @param offset スキップする件数（デフォルト: 0）
+     * @param limit 取得する最大件数（nullの場合は制限なし）
+     * @return ソート・制限されたターゲットリスト
+     */
+    protected fun sortAndLimitTargets(
+        source: Entity,
+        targets: List<Entity>,
+        sortMode: TargetSortMode,
+        sortExpression: String? = null,
+        offset: Int = 0,
+        limit: Int? = null
+    ): List<Entity> {
+        if (targets.isEmpty()) return targets
+
+        // ソート
+        val sorted = when (sortMode) {
+            TargetSortMode.NONE -> targets
+            TargetSortMode.NEAREST -> targets.sortedBy {
+                it.location.distanceSquared(source.location)
+            }
+            TargetSortMode.FARTHEST -> targets.sortedByDescending {
+                it.location.distanceSquared(source.location)
+            }
+            TargetSortMode.LOWEST_HEALTH -> targets.filterIsInstance<LivingEntity>()
+                .sortedBy { it.health }
+            TargetSortMode.HIGHEST_HEALTH -> targets.filterIsInstance<LivingEntity>()
+                .sortedByDescending { it.health }
+            TargetSortMode.THREAT -> targets.sortedByDescending {
+                ThreatTargeter.getThreat(source, it)
+            }
+            TargetSortMode.RANDOM -> targets.shuffled()
+            TargetSortMode.CUSTOM -> {
+                if (sortExpression == null) {
+                    DebugLogger.error("CUSTOM sort mode requires sortExpression parameter")
+                    targets
+                } else {
+                    sortByCustomExpression(source, targets, sortExpression)
+                }
+            }
+        }
+
+        // オフセットと制限を適用
+        return applyOffsetAndLimit(sorted, offset, limit)
+    }
+
+    /**
+     * CEL式を使用してターゲットをソート
+     */
+    private fun sortByCustomExpression(source: Entity, targets: List<Entity>, expression: String): List<Entity> {
+        val evaluator = Unique.instance.celEvaluator
+
+        return try {
+            targets.sortedBy { target ->
+                try {
+                    val context = CELVariableProvider.buildTargetContext(source, target)
+                    val result = evaluator.evaluate(expression, context)
+
+                    // 数値に変換
+                    when (result) {
+                        is Number -> result.toDouble()
+                        is Boolean -> if (result) 1.0 else 0.0
+                        is String -> result.toDoubleOrNull() ?: 0.0
+                        else -> 0.0
+                    }
+                } catch (e: Exception) {
+                    DebugLogger.error("Failed to evaluate sort expression for target: $expression", e)
+                    0.0
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to sort targets by expression: $expression", e)
+            targets
+        }
+    }
+
+    /**
+     * オフセットと制限を適用
+     */
+    private fun applyOffsetAndLimit(targets: List<Entity>, offset: Int, limit: Int?): List<Entity> {
+        val validOffset = offset.coerceAtLeast(0)
+
+        // オフセット適用
+        val afterOffset = if (validOffset > 0) {
+            targets.drop(validOffset)
+        } else {
+            targets
+        }
+
+        // 制限適用
+        return if (limit != null && limit > 0) {
+            afterOffset.take(limit)
+        } else {
+            afterOffset
+        }
+    }
+
+    /**
+     * ターゲットをソートして制限（PacketEntityソース）
+     *
+     * @param source ソースPacketEntity
+     * @param targets ターゲットリスト
+     * @param sortMode ソートモード
+     * @param sortExpression カスタムソート用のCEL式（sortMode=CUSTOMの場合に使用）
+     * @param offset スキップする件数（デフォルト: 0）
+     * @param limit 取得する最大件数（nullの場合は制限なし）
+     * @return ソート・制限されたターゲットリスト
+     */
+    protected fun sortAndLimitTargets(
+        source: PacketEntity,
+        targets: List<Entity>,
+        sortMode: TargetSortMode,
+        sortExpression: String? = null,
+        offset: Int = 0,
+        limit: Int? = null
+    ): List<Entity> {
+        if (targets.isEmpty()) return targets
+
+        // ソート
+        val sorted = when (sortMode) {
+            TargetSortMode.NONE -> targets
+            TargetSortMode.NEAREST -> targets.sortedBy {
+                it.location.distanceSquared(source.location)
+            }
+            TargetSortMode.FARTHEST -> targets.sortedByDescending {
+                it.location.distanceSquared(source.location)
+            }
+            TargetSortMode.LOWEST_HEALTH -> targets.filterIsInstance<LivingEntity>()
+                .sortedBy { it.health }
+            TargetSortMode.HIGHEST_HEALTH -> targets.filterIsInstance<LivingEntity>()
+                .sortedByDescending { it.health }
+            TargetSortMode.THREAT -> targets.sortedByDescending {
+                // PacketEntity用のthreat取得ロジック
+                if (it.hasMetadata("${ThreatTargeter.THREAT_METADATA_KEY}_packetentity_${source.entityId}")) {
+                    it.getMetadata("${ThreatTargeter.THREAT_METADATA_KEY}_packetentity_${source.entityId}")
+                        .firstOrNull()?.asDouble() ?: 0.0
+                } else {
+                    0.0
+                }
+            }
+            TargetSortMode.RANDOM -> targets.shuffled()
+            TargetSortMode.CUSTOM -> {
+                if (sortExpression == null) {
+                    DebugLogger.error("CUSTOM sort mode requires sortExpression parameter")
+                    targets
+                } else {
+                    sortByCustomExpressionFromPacket(source, targets, sortExpression)
+                }
+            }
+        }
+
+        // オフセットと制限を適用
+        return applyOffsetAndLimit(sorted, offset, limit)
+    }
+
+    /**
+     * CEL式を使用してターゲットをソート（PacketEntityソース）
+     */
+    private fun sortByCustomExpressionFromPacket(source: PacketEntity, targets: List<Entity>, expression: String): List<Entity> {
+        val evaluator = Unique.instance.celEvaluator
+
+        return try {
+            targets.sortedBy { target ->
+                try {
+                    val context = CELVariableProvider.buildPacketEntityTargetContext(source, target)
+                    val result = evaluator.evaluate(expression, context)
+
+                    // 数値に変換
+                    when (result) {
+                        is Number -> result.toDouble()
+                        is Boolean -> if (result) 1.0 else 0.0
+                        is String -> result.toDoubleOrNull() ?: 0.0
+                        else -> 0.0
+                    }
+                } catch (e: Exception) {
+                    DebugLogger.error("Failed to evaluate sort expression for target (PacketEntity): $expression", e)
+                    0.0
+                }
+            }
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to sort targets by expression (PacketEntity): $expression", e)
+            targets
+        }
+    }
 
     /**
      * フィルターでフィルタリング（CEL式）
@@ -178,7 +414,11 @@ class NearestPlayerTargeter(
 class RadiusPlayersTargeter(
     id: String = "radius_players",
     private val range: Double = 16.0,
-    filter: String? = null
+    filter: String? = null,
+    private val sortMode: TargetSortMode = TargetSortMode.NONE,
+    private val sortExpression: String? = null,
+    private val offset: Int = 0,
+    private val limit: Int? = null
 ) : Targeter(id, filter) {
 
     override fun getTargets(source: Entity): List<Entity> {
@@ -189,10 +429,17 @@ class RadiusPlayersTargeter(
             .filterIsInstance<Player>()
             .filter { it.isValid && !it.isDead }
 
-        val filtered = filterByFilter(source, targets)
+        // CEL式でフィルタリング
+        val celFiltered = filterByFilter(source, targets)
 
-        DebugLogger.targeter("RadiusPlayers(range=$range)", filtered.size)
-        return filtered
+        // ソートと制限
+        val result = sortAndLimitTargets(source, celFiltered, sortMode, sortExpression, offset, limit)
+
+        DebugLogger.targeter(
+            "RadiusPlayers(range=$range, sort=$sortMode, offset=$offset, limit=$limit)",
+            result.size
+        )
+        return result
     }
 
     override fun getTargets(source: PacketEntity): List<Entity> {
@@ -203,13 +450,27 @@ class RadiusPlayersTargeter(
             .filterIsInstance<Player>()
             .filter { it.isValid && !it.isDead }
 
-        val filtered = filterByFilter(source, targets)
+        // CEL式でフィルタリング
+        val celFiltered = filterByFilter(source, targets)
 
-        DebugLogger.targeter("RadiusPlayers(range=$range) from PacketEntity", filtered.size)
-        return filtered
+        // ソートと制限
+        val result = sortAndLimitTargets(source, celFiltered, sortMode, sortExpression, offset, limit)
+
+        DebugLogger.targeter(
+            "RadiusPlayers(range=$range, sort=$sortMode, offset=$offset, limit=$limit) from PacketEntity",
+            result.size
+        )
+        return result
     }
 
-    override fun getDescription(): String = "All players within $range blocks"
+    override fun getDescription(): String {
+        val parts = mutableListOf("Players within $range blocks")
+        if (sortMode != TargetSortMode.NONE) parts.add("sort: $sortMode")
+        if (sortExpression != null) parts.add("sortExpr: $sortExpression")
+        if (offset > 0) parts.add("offset: $offset")
+        if (limit != null) parts.add("limit: $limit")
+        return parts.joinToString(", ")
+    }
 }
 
 /**
@@ -218,38 +479,71 @@ class RadiusPlayersTargeter(
 class RadiusEntitiesTargeter(
     id: String = "radius_entities",
     private val range: Double = 16.0,
-    filter: String? = null
-) : Targeter(id, filter) {
+    filter: String? = null,
+    entityType: EntityTypeFilter = EntityTypeFilter.LIVING,
+    private val sortMode: TargetSortMode = TargetSortMode.NONE,
+    private val sortExpression: String? = null,
+    private val offset: Int = 0,
+    private val limit: Int? = null
+) : Targeter(id, filter, entityType) {
 
     override fun getTargets(source: Entity): List<Entity> {
         val world = source.world
         val location = source.location
 
-        val targets = world.getNearbyEntities(location, range, range, range)
-            .filterIsInstance<LivingEntity>()
+        // 全てのエンティティを取得
+        val allEntities = world.getNearbyEntities(location, range, range, range)
             .filter { it != source && it.isValid && !it.isDead }
 
-        val filtered = filterByFilter(source, targets)
+        // エンティティタイプでフィルタリング
+        val typeFiltered = filterByEntityType(allEntities)
 
-        DebugLogger.targeter("RadiusEntities(range=$range)", filtered.size)
-        return filtered
+        // CEL式でフィルタリング
+        val celFiltered = filterByFilter(source, typeFiltered)
+
+        // ソートと制限
+        val result = sortAndLimitTargets(source, celFiltered, sortMode, sortExpression, offset, limit)
+
+        DebugLogger.targeter(
+            "RadiusEntities(range=$range, type=$entityType, sort=$sortMode, offset=$offset, limit=$limit)",
+            result.size
+        )
+        return result
     }
 
     override fun getTargets(source: PacketEntity): List<Entity> {
         val world = source.location.world ?: return emptyList()
         val location = source.location
 
-        val targets = world.getNearbyEntities(location, range, range, range)
-            .filterIsInstance<LivingEntity>()
+        // 全てのエンティティを取得
+        val allEntities = world.getNearbyEntities(location, range, range, range)
             .filter { it.isValid && !it.isDead }
 
-        val filtered = filterByFilter(source, targets)
+        // エンティティタイプでフィルタリング
+        val typeFiltered = filterByEntityType(allEntities)
 
-        DebugLogger.targeter("RadiusEntities(range=$range) from PacketEntity", filtered.size)
-        return filtered
+        // CEL式でフィルタリング
+        val celFiltered = filterByFilter(source, typeFiltered)
+
+        // ソートと制限
+        val result = sortAndLimitTargets(source, celFiltered, sortMode, sortExpression, offset, limit)
+
+        DebugLogger.targeter(
+            "RadiusEntities(range=$range, type=$entityType, sort=$sortMode, offset=$offset, limit=$limit) from PacketEntity",
+            result.size
+        )
+        return result
     }
 
-    override fun getDescription(): String = "All entities within $range blocks"
+    override fun getDescription(): String {
+        val parts = mutableListOf("Entities within $range blocks")
+        parts.add("type: $entityType")
+        if (sortMode != TargetSortMode.NONE) parts.add("sort: $sortMode")
+        if (sortExpression != null) parts.add("sortExpr: $sortExpression")
+        if (offset > 0) parts.add("offset: $offset")
+        if (limit != null) parts.add("limit: $limit")
+        return parts.joinToString(", ")
+    }
 }
 
 /**
@@ -1054,5 +1348,467 @@ class ChainTargeter(
 
     override fun debugInfo(): String {
         return "ChainTargeter[initial=${initialTargeter.debugInfo()}, maxChains=$maxChains, chainRange=$chainRange, condition=${chainCondition ?: "none"}]"
+    }
+}
+
+/**
+ * LowestHealthTargeter - 最もHPが低いターゲットを選択
+ *
+ * ベースターゲッターから取得したターゲットの中から、
+ * 最もHPが低いエンティティを選択します。
+ * ヒーラーAIやフィニッシャー攻撃などに有用です。
+ *
+ * @param id ターゲッターID
+ * @param baseTargeter ベースとなるターゲッター（候補を取得）
+ * @param filter CEL式によるフィルター（オプション）
+ *
+ * 使用例:
+ * ```yaml
+ * targeter:
+ *   type: LowestHealth
+ *   baseTargeter:
+ *     type: RadiusPlayers
+ *     range: 20.0
+ * ```
+ */
+class LowestHealthTargeter(
+    id: String = "lowest_health",
+    private val baseTargeter: Targeter,
+    filter: String? = null
+) : Targeter(id, filter) {
+
+    override fun getTargets(source: Entity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("LowestHealth (no candidates)", 0)
+            return emptyList()
+        }
+
+        // LivingEntityのみを対象にし、最もHPが低いものを選択
+        val livingCandidates = candidates.filterIsInstance<LivingEntity>()
+
+        if (livingCandidates.isEmpty()) {
+            DebugLogger.targeter("LowestHealth (no living entities)", 0)
+            return emptyList()
+        }
+
+        val lowestHealth = livingCandidates.minByOrNull { it.health } ?: return emptyList()
+        val targets = listOf(lowestHealth as Entity)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter(
+            "LowestHealth (selected: ${lowestHealth.name}, HP: ${lowestHealth.health}/${lowestHealth.maxHealth()})",
+            filtered.size
+        )
+
+        return filtered
+    }
+
+    override fun getTargets(source: PacketEntity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("LowestHealth (PacketEntity, no candidates)", 0)
+            return emptyList()
+        }
+
+        val livingCandidates = candidates.filterIsInstance<LivingEntity>()
+
+        if (livingCandidates.isEmpty()) {
+            DebugLogger.targeter("LowestHealth (PacketEntity, no living entities)", 0)
+            return emptyList()
+        }
+
+        val lowestHealth = livingCandidates.minByOrNull { it.health } ?: return emptyList()
+        val targets = listOf(lowestHealth as Entity)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter(
+            "LowestHealth from PacketEntity (selected: ${lowestHealth.name}, HP: ${lowestHealth.health})",
+            filtered.size
+        )
+
+        return filtered
+    }
+
+    override fun getDescription(): String {
+        return "Lowest health from (${baseTargeter.getDescription()})"
+    }
+
+    override fun debugInfo(): String {
+        return "LowestHealthTargeter[base=${baseTargeter.debugInfo()}, filter=${filter ?: "none"}]"
+    }
+}
+
+/**
+ * HighestHealthTargeter - 最もHPが高いターゲットを選択
+ *
+ * ベースターゲッターから取得したターゲットの中から、
+ * 最もHPが高いエンティティを選択します。
+ * タンクキャラへの攻撃やボス優先攻撃などに有用です。
+ *
+ * @param id ターゲッターID
+ * @param baseTargeter ベースとなるターゲッター（候補を取得）
+ * @param filter CEL式によるフィルター（オプション）
+ *
+ * 使用例:
+ * ```yaml
+ * targeter:
+ *   type: HighestHealth
+ *   baseTargeter:
+ *     type: RadiusEntities
+ *     range: 15.0
+ * ```
+ */
+class HighestHealthTargeter(
+    id: String = "highest_health",
+    private val baseTargeter: Targeter,
+    filter: String? = null
+) : Targeter(id, filter) {
+
+    override fun getTargets(source: Entity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("HighestHealth (no candidates)", 0)
+            return emptyList()
+        }
+
+        // LivingEntityのみを対象にし、最もHPが高いものを選択
+        val livingCandidates = candidates.filterIsInstance<LivingEntity>()
+
+        if (livingCandidates.isEmpty()) {
+            DebugLogger.targeter("HighestHealth (no living entities)", 0)
+            return emptyList()
+        }
+
+        val highestHealth = livingCandidates.maxByOrNull { it.health } ?: return emptyList()
+        val targets = listOf(highestHealth as Entity)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter(
+            "HighestHealth (selected: ${highestHealth.name}, HP: ${highestHealth.health}/${highestHealth.maxHealth()})",
+            filtered.size
+        )
+
+        return filtered
+    }
+
+    override fun getTargets(source: PacketEntity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("HighestHealth (PacketEntity, no candidates)", 0)
+            return emptyList()
+        }
+
+        val livingCandidates = candidates.filterIsInstance<LivingEntity>()
+
+        if (livingCandidates.isEmpty()) {
+            DebugLogger.targeter("HighestHealth (PacketEntity, no living entities)", 0)
+            return emptyList()
+        }
+
+        val highestHealth = livingCandidates.maxByOrNull { it.health } ?: return emptyList()
+        val targets = listOf(highestHealth as Entity)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter(
+            "HighestHealth from PacketEntity (selected: ${highestHealth.name}, HP: ${highestHealth.health})",
+            filtered.size
+        )
+
+        return filtered
+    }
+
+    override fun getDescription(): String {
+        return "Highest health from (${baseTargeter.getDescription()})"
+    }
+
+    override fun debugInfo(): String {
+        return "HighestHealthTargeter[base=${baseTargeter.debugInfo()}, filter=${filter ?: "none"}]"
+    }
+}
+
+/**
+ * NearestTargeter - 最も近いエンティティを選択
+ *
+ * ベースターゲッターから取得したターゲットの中から、
+ * 最もソースに近いエンティティを選択します。
+ *
+ * @param id ターゲッターID
+ * @param baseTargeter ベースとなるターゲッター（候補を取得）
+ * @param filter CEL式によるフィルター（オプション）
+ */
+class NearestTargeter(
+    id: String = "nearest",
+    private val baseTargeter: Targeter,
+    filter: String? = null
+) : Targeter(id, filter) {
+
+    override fun getTargets(source: Entity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("Nearest (no candidates)", 0)
+            return emptyList()
+        }
+
+        val nearest = candidates.minByOrNull {
+            it.location.distanceSquared(source.location)
+        } ?: return emptyList()
+
+        val targets = listOf(nearest)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter("Nearest (selected: ${nearest.name})", filtered.size)
+        return filtered
+    }
+
+    override fun getTargets(source: PacketEntity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("Nearest (PacketEntity, no candidates)", 0)
+            return emptyList()
+        }
+
+        val nearest = candidates.minByOrNull {
+            it.location.distanceSquared(source.location)
+        } ?: return emptyList()
+
+        val targets = listOf(nearest)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter("Nearest from PacketEntity (selected: ${nearest.name})", filtered.size)
+        return filtered
+    }
+
+    override fun getDescription(): String {
+        return "Nearest from (${baseTargeter.getDescription()})"
+    }
+
+    override fun debugInfo(): String {
+        return "NearestTargeter[base=${baseTargeter.debugInfo()}, filter=${filter ?: "none"}]"
+    }
+}
+
+/**
+ * FarthestTargeter - 最も遠いエンティティを選択
+ *
+ * ベースターゲッターから取得したターゲットの中から、
+ * 最もソースから遠いエンティティを選択します。
+ *
+ * @param id ターゲッターID
+ * @param baseTargeter ベースとなるターゲッター（候補を取得）
+ * @param filter CEL式によるフィルター（オプション）
+ */
+class FarthestTargeter(
+    id: String = "farthest",
+    private val baseTargeter: Targeter,
+    filter: String? = null
+) : Targeter(id, filter) {
+
+    override fun getTargets(source: Entity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("Farthest (no candidates)", 0)
+            return emptyList()
+        }
+
+        val farthest = candidates.maxByOrNull {
+            it.location.distanceSquared(source.location)
+        } ?: return emptyList()
+
+        val targets = listOf(farthest)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter("Farthest (selected: ${farthest.name})", filtered.size)
+        return filtered
+    }
+
+    override fun getTargets(source: PacketEntity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("Farthest (PacketEntity, no candidates)", 0)
+            return emptyList()
+        }
+
+        val farthest = candidates.maxByOrNull {
+            it.location.distanceSquared(source.location)
+        } ?: return emptyList()
+
+        val targets = listOf(farthest)
+        val filtered = filterByFilter(source, targets)
+
+        DebugLogger.targeter("Farthest from PacketEntity (selected: ${farthest.name})", filtered.size)
+        return filtered
+    }
+
+    override fun getDescription(): String {
+        return "Farthest from (${baseTargeter.getDescription()})"
+    }
+
+    override fun debugInfo(): String {
+        return "FarthestTargeter[base=${baseTargeter.debugInfo()}, filter=${filter ?: "none"}]"
+    }
+}
+
+// ========================================
+// ThreatTargeter - 脅威度ベースのターゲッティング
+// ========================================
+
+/**
+ * ThreatTargeter - 脅威度（Threat/Aggro）に基づいてターゲットを選択
+ *
+ * 基本Targeterからターゲット候補を取得し、脅威度が最も高いものを選択します。
+ * 脅威度はEntity MetadataまたはPacketMobの内部状態に保存されます。
+ *
+ * 使用例:
+ * ```yaml
+ * targeter:
+ *   type: THREAT
+ *   baseTargeter:
+ *     type: RADIUSPLAYERS
+ *     range: 20.0
+ *   count: 3  # 上位3体を選択
+ * ```
+ *
+ * 脅威度の追加方法:
+ * ```kotlin
+ * // Damageを与えた時に脅威度を追加
+ * ThreatTargeter.addThreat(mob, player, 10.0)
+ * ```
+ */
+class ThreatTargeter(
+    id: String = "threat",
+    private val baseTargeter: Targeter,
+    private val count: Int = 1,
+    filter: String? = null
+) : Targeter(id, filter) {
+
+    companion object {
+        const val THREAT_METADATA_KEY = "unique_threat_value"
+        private const val THREAT_DECAY_INTERVAL = 100L  // 5秒ごとに減衰
+        private const val THREAT_DECAY_RATE = 0.95  // 5%減衰
+
+        /**
+         * 脅威度を追加
+         *
+         * @param source 脅威の発生源（Mob等）
+         * @param target 脅威を受けたエンティティ
+         * @param amount 脅威度の量
+         */
+        fun addThreat(source: Entity, target: Entity, amount: Double) {
+            val currentThreat = getThreat(source, target)
+            setThreat(source, target, currentThreat + amount)
+            DebugLogger.debug("Added threat: source=${source.name}, target=${target.name}, amount=$amount, total=${currentThreat + amount}")
+        }
+
+        /**
+         * 脅威度を設定
+         */
+        fun setThreat(source: Entity, target: Entity, amount: Double) {
+            target.setMetadata(
+                getThreatKey(source),
+                org.bukkit.metadata.FixedMetadataValue(
+                    org.bukkit.Bukkit.getPluginManager().getPlugin("Unique")!!,
+                    amount
+                )
+            )
+        }
+
+        /**
+         * 脅威度を取得
+         */
+        fun getThreat(source: Entity, target: Entity): Double {
+            val key = getThreatKey(source)
+            return if (target.hasMetadata(key)) {
+                target.getMetadata(key).firstOrNull()?.asDouble() ?: 0.0
+            } else {
+                0.0
+            }
+        }
+
+        /**
+         * 脅威度をクリア
+         */
+        fun clearThreat(source: Entity, target: Entity) {
+            target.removeMetadata(getThreatKey(source), org.bukkit.Bukkit.getPluginManager().getPlugin("Unique")!!)
+        }
+
+        /**
+         * すべての脅威度をクリア
+         */
+        fun clearAllThreat(source: Entity) {
+            // baseTargeterから取得した全ターゲットの脅威度をクリア
+            // 実装は呼び出し側で個別に行う
+        }
+
+        /**
+         * 脅威度のメタデータキーを生成
+         */
+        private fun getThreatKey(source: Entity): String {
+            return "${THREAT_METADATA_KEY}_${source.uniqueId}"
+        }
+    }
+
+    override fun getTargets(source: Entity): List<Entity> {
+        val candidates = baseTargeter.getTargets(source)
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("Threat (no candidates)", 0)
+            return emptyList()
+        }
+
+        // 脅威度でソート（降順）
+        val sorted = candidates.sortedByDescending { getThreat(source, it) }
+
+        // 上位count個を返す
+        val selected = sorted.take(count.coerceAtLeast(1))
+
+        // フィルター適用
+        val filtered = filterByFilter(source, selected)
+
+        DebugLogger.targeter("Threat (selected top $count by threat)", filtered.size)
+        return filtered
+    }
+
+    override fun getTargets(source: PacketEntity): List<Entity> {
+        // PacketEntityの場合はEntityに変換してから取得
+        // PacketMobの場合は内部にthreatMapを持つことを想定
+        val candidates = baseTargeter.getTargets(source)
+        if (candidates.isEmpty()) {
+            DebugLogger.targeter("Threat from PacketEntity (no candidates)", 0)
+            return emptyList()
+        }
+
+        // PacketEntity用の脅威度取得は、将来的にPacketMobに実装
+        // 現時点ではメタデータベースのフォールバック
+        val sorted = candidates.sortedByDescending { target ->
+            // PacketEntityのUUIDをキーとして使用
+            if (target.hasMetadata("${THREAT_METADATA_KEY}_packetentity_${source.entityId}")) {
+                target.getMetadata("${THREAT_METADATA_KEY}_packetentity_${source.entityId}")
+                    .firstOrNull()?.asDouble() ?: 0.0
+            } else {
+                0.0
+            }
+        }
+
+        val selected = sorted.take(count.coerceAtLeast(1))
+        val filtered = filterByFilter(source, selected)
+
+        DebugLogger.targeter("Threat from PacketEntity (selected top $count by threat)", filtered.size)
+        return filtered
+    }
+
+    override fun getDescription(): String {
+        return "Threat-based (top $count) from (${baseTargeter.getDescription()})"
+    }
+
+    override fun debugInfo(): String {
+        return "ThreatTargeter[base=${baseTargeter.debugInfo()}, count=$count, filter=${filter ?: "none"}]"
     }
 }

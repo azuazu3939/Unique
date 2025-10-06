@@ -1,0 +1,259 @@
+# ==========================================
+# カスタムリソースキーの使用例
+# ==========================================
+# リソースキーの柔軟な解決機能のデモンストレーション
+#
+# 解決ルール:
+# 1. "custom:key" で検索
+# 2. 見つからなければ "minecraft:key"
+# 3. それでもなければ "KEY" (大文字変換)
+# 4. 最終的にデフォルト値
+
+# ==========================================
+# 1. 音（Sound）のカスタムキー
+# ==========================================
+
+# 従来の形式（そのまま動作）
+TraditionalSoundMob:
+  Type: ZOMBIE
+  Display: "&a従来型サウンドMob"
+  Health: "100"
+
+  Skills:
+    # 従来の形式（大文字のEnum名）
+    - sound{type=ENTITY_ENDER_DRAGON_GROWL;volume=1.0;pitch=1.0} @Self ~onSpawn
+    - sound{type=ENTITY_BLAZE_SHOOT;volume=0.8} @Self ~onTimer:60
+    - sound{type=BLOCK_NOTE_BLOCK_PLING;volume=1.0;pitch=2.0} @Self ~onDamaged
+
+# カスタムキー形式（将来のリソースパック対応）
+CustomSoundMob:
+  Type: WITHER
+  Display: "&5&lカスタム音Mob"
+  Health: "300"
+
+  Skills:
+    # カスタム名前空間（custom:key形式）
+    # → "custom:boss_roar" で検索 → なければ "minecraft:boss_roar" → なければデフォルト
+    - sound{type=custom:boss_roar;volume=1.5} @Self ~onSpawn
+    - sound{type=custom:epic_attack;volume=1.0} @Self ~onAttack
+    - sound{type=custom:death_scream;volume=2.0} @Self ~onDeath
+
+# minecraft:プレフィックス明示形式
+MinecraftPrefixMob:
+  Type: SKELETON
+  Display: "&7明示プレフィックスMob"
+  Health: "80"
+
+  Skills:
+    # minecraft: を明示的に指定
+    - sound{type=minecraft:entity_skeleton_ambient;volume=0.5} @Self ~onTimer:100
+    - sound{type=minecraft:entity_arrow_shoot;volume=0.8} @Self ~onAttack
+
+# ==========================================
+# 2. パーティクル（Particle）のカスタムキー
+# ==========================================
+
+# 従来の形式
+TraditionalParticleMob:
+  Type: BLAZE
+  Display: "&c従来型パーティクルMob"
+  Health: "120"
+
+  Skills:
+    # 従来の形式
+    - particle{type=FLAME;count=20} @Self ~onTimer:10
+    - particle{type=SMOKE;count=10} @Self ~onTimer:20
+    - particle{type=DRAGON_BREATH;count=30} @Self ~onAttack
+
+# カスタムパーティクル
+CustomParticleMob:
+  Type: EVOKER
+  Display: "&d&lカスタムパーティクルMob"
+  Health: "200"
+
+  Skills:
+    # カスタム名前空間
+    - particle{type=custom:magic_sparkle;count=50} @Self ~onTimer:20
+    - particle{type=custom:dark_aura;count=30} @Self ~onTimer:40
+    - particle{type=custom:holy_light;count=100} @Self ~onSpawn
+
+# ==========================================
+# 3. アイテム・ブロック（Material）のカスタムキー
+# ==========================================
+
+# アイテムディスプレイ
+CustomItemDisplay:
+  Type: ITEM
+  Display: "カスタムアイテム"
+  Item: custom:legendary_sword  # → なければ minecraft:legendary_sword → なければデフォルト
+
+  Skills:
+    - particle{type=ENCHANT;count=10} @Self ~onTimer:20
+
+# ブロックディスプレイ
+CustomBlockDisplay:
+  Type: BLOCK
+  Display: "カスタムブロック"
+  Block: custom:magic_crystal   # → なければ minecraft:magic_crystal → なければ STONE
+
+  Skills:
+    - particle{type=END_ROD;count=5} @Self ~onTimer:30
+
+# ==========================================
+# 4. バイオーム依存スキル（Biome）
+# ==========================================
+
+BiomeDependentMob:
+  Type: ZOMBIE
+  Display: "&2バイオーム依存Mob"
+  Health: "100"
+
+  Skills:
+    # バイオームに応じた異なるスキル
+    # 注: バイオーム判定はCEL式で行う（この例は概念的なもの）
+    - damage{amount=30} @NP{r=10;cond=environment.biome == 'custom:dark_forest'} ~onTimer:60
+    - damage{amount=20} @NP{r=10;cond=environment.biome == 'minecraft:plains'} ~onTimer:60
+
+# ==========================================
+# 5. エンチャント（Enchantment）
+# ==========================================
+
+EnchantedMob:
+  Type: IRON_GOLEM
+  Display: "&bエンチャントMob"
+  Health: "400"
+
+  Skills:
+    # エンチャント効果を付与（概念的な例）
+    # 注: 実際の実装はエフェクトシステム次第
+    - message{text="&aSharpness enchant applied!"} @Self ~onSpawn
+
+# ==========================================
+# 6. 全機能を組み合わせた例
+# ==========================================
+
+UltimateCustomMob:
+  Type: ENDER_DRAGON
+  Display: "&5&l&k||&r &d&l究極カスタムMob &5&k||"
+  Health: "1000"
+  Damage: "50"
+  Armor: "30"
+
+  # 共通のダメージ計算式を使用（config.ymlで設定）
+  # DamageFormulaを指定しない → config.damage.defaultFormulaを使用
+
+  Options:
+    AlwaysShowName: true
+    PreventDespawn: true
+    ImmuneToFire: true
+
+  Skills:
+    # カスタム音
+    - sound{type=custom:ultimate_boss_roar;volume=2.0;pitch=0.8} @Self ~onSpawn
+    - sound{type=custom:wing_flap;volume=1.5} @Self ~onTimer:40
+
+    # カスタムパーティクル
+    - particle{type=custom:divine_aura;count=100} @Self ~onTimer:20
+    - particle{type=custom:dark_energy;count=50} @Self ~onAttack
+
+    # 通常のスキル（従来形式）
+    - damage{amount=70} @AP{r=30;sort=CUSTOM;sortExpression="target.armor";limit=5} ~onTimer:80
+    - lightning{damage=60} @AP{r=20} ~onTimer:120
+
+    # 死亡時のカスタム演出
+    - sound{type=custom:boss_death;volume=3.0} @Self ~onDeath
+    - particle{type=custom:explosion_divine;count=200} @Self ~onDeath
+
+  Drops:
+    # カスタムアイテム（将来的にリソースパック対応）
+    - item: custom:legendary_artifact
+      amount: "1"
+      chance: "1.0"
+    - item: NETHER_STAR
+      amount: "3"
+      chance: "1.0"
+
+# ==========================================
+# 7. デフォルトダメージ計算式の例
+# ==========================================
+
+# config.ymlで設定:
+# damage:
+#   defaultFormula: "damage * (1 - armor / 100)"
+
+# Mob側で指定なし → 共通式を使用
+DefaultFormulaMob:
+  Type: ZOMBIE
+  Display: "&e共通式Mob"
+  Health: "100"
+  Armor: "10"
+  # DamageFormula を指定しない
+  # → config.damage.defaultFormula を使用
+
+  Skills:
+    - damage{amount=20} @NP{r=10} ~onAttack
+
+# Mob側で上書き → 個別式を使用
+CustomFormulaMob:
+  Type: IRON_GOLEM
+  Display: "&6カスタム式Mob"
+  Health: "400"
+  Armor: "20"
+  # 個別に指定 → この式が優先される
+  DamageFormula: "max(damage * 0.5, damage * (1 - armor / 30))"
+
+  Skills:
+    - damage{amount=30} @NP{r=10} ~onAttack
+
+# 両方なし → 組み込みデフォルト
+FallbackMob:
+  Type: SKELETON
+  Display: "&7組み込みデフォルトMob"
+  Health: "80"
+  Armor: "5"
+  # DamageFormula なし
+  # config.damage.defaultFormula も null
+  # → 組み込みのMinecraft標準式を使用
+
+  Skills:
+    - projectile{type=ARROW;damage=15} @NP{r=30} ~onTimer:60
+
+# ==========================================
+# 使用方法
+# ==========================================
+#
+# 1. config.ymlでカスタムキー機能を有効化:
+#    resources:
+#      enableCustomKeys: true
+#      customNamespace: "custom"
+#
+# 2. config.ymlでデフォルトダメージ式を設定（オプション）:
+#    damage:
+#      defaultFormula: "damage * (1 - armor / 100)"
+#
+# 3. Mobをスポーン:
+#    /unique spawn CustomSoundMob
+#    /unique spawn UltimateCustomMob
+#
+# 4. 将来的なリソースパック対応:
+#    - custom:boss_roar などのカスタムキーが解決されるようになります
+#    - 現時点では minecraft: にフォールバックします
+#
+# ==========================================
+# ポイント
+# ==========================================
+#
+# ✅ カスタムリソースキー
+#    - "custom:key" 形式で将来の拡張に対応
+#    - 見つからなければ minecraft: にフォールバック
+#    - 従来の形式も引き続き使用可能
+#
+# ✅ デフォルトダメージ計算式
+#    - config.ymlで全Mob共通の式を設定可能
+#    - Mob個別の式があればそちらが優先
+#    - どちらもなければ組み込みデフォルト
+#
+# ✅ 柔軟性と互換性
+#    - 既存のYMLはそのまま動作
+#    - 新機能はオプトイン
+#    - 段階的な移行が可能

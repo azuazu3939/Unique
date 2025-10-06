@@ -3,8 +3,10 @@ package com.github.azuazu3939.unique.entity
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.shynixn.mccoroutine.folia.launch
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.bukkit.Location
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
@@ -76,11 +78,27 @@ class PacketEntityManager(private val plugin: Unique) {
     /**
      * エンティティを登録
      */
-    fun registerEntity(entity: PacketEntity) {
+    suspend fun registerEntity(entity: PacketEntity) {
         entities[entity.uuid] = entity
         entityIdToUuid[entity.entityId] = entity.uuid
 
         DebugLogger.debug("Registered entity: ${entity.entityId} (${entity.entityType})")
+
+        // 登録時に近くのプレイヤーにスポーンパケットを送信
+        withContext(plugin.regionDispatcher(entity.location)) {
+            val nearbyPlayers = entity.location.world?.players?.filter { player ->
+                player.location.distance(entity.location) <= 64.0  // 描画範囲
+            } ?: emptyList()
+
+            for (player in nearbyPlayers) {
+                try {
+                    entity.spawn(player)
+                    DebugLogger.verbose("Spawned entity ${entity.entityId} for player ${player.name}")
+                } catch (e: Exception) {
+                    DebugLogger.error("Failed to spawn entity for player ${player.name}", e)
+                }
+            }
+        }
     }
 
     /**
@@ -216,7 +234,10 @@ class PacketEntityManager(private val plugin: Unique) {
         val entityList = entities.values.toList()
         for (entity in entityList) {
             try {
-                entity.tick()
+                // 各エンティティを適切なregionディスパッチャーで処理
+                withContext(plugin.regionDispatcher(entity.location)) {
+                    entity.tick()
+                }
             } catch (e: Exception) {
                 DebugLogger.error("Error updating entity ${entity.entityId}", e)
             }
@@ -228,7 +249,14 @@ class PacketEntityManager(private val plugin: Unique) {
         }
 
         for (entity in toRemove) {
-            unregisterEntity(entity.uuid)
+            try {
+                // エンティティの削除も適切なregionディスパッチャーで処理
+                withContext(plugin.regionDispatcher(entity.location)) {
+                    unregisterEntity(entity.uuid)
+                }
+            } catch (e: Exception) {
+                DebugLogger.error("Error removing entity ${entity.entityId}", e)
+            }
         }
 
         val duration = (System.nanoTime() - startTime) / 1_000_000L

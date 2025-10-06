@@ -1,0 +1,93 @@
+# ==========================================
+# Custom Triggers - カスタムトリガー定義
+# ==========================================
+# 将来的にトリガーをYAMLで定義できるようにする例
+# 現在は参照用として配置
+
+# 低体力時トリガー
+OnLowHealth:
+  type: OnDamaged
+  condition: "entity.health < entity.maxHealth * 0.3"
+  cooldown: "5s"
+  description: "HP30%以下でダメージを受けた時"
+
+# 高ダメージ時トリガー
+OnHighDamage:
+  type: OnDamaged
+  condition: "damage.amount > entity.maxHealth * 0.1"
+  cooldown: "3s"
+  description: "最大HP10%以上のダメージを受けた時"
+
+# 複数プレイヤー検知トリガー
+OnManyPlayersNearby:
+  type: OnTimer
+  interval: "100"
+  condition: "nearbyPlayers.count >= 3"
+  description: "周囲に3人以上のプレイヤーがいる時（5秒毎）"
+
+# 夜間トリガー
+OnNight:
+  type: OnTimer
+  interval: "200"
+  condition: "world.isNight"
+  description: "夜間に定期的に発動（10秒毎）"
+
+# 満月トリガー
+OnFullMoon:
+  type: OnTimer
+  interval: "100"
+  condition: "environment.moonPhase == 0"
+  description: "満月時に定期的に発動（5秒毎）"
+
+# プレイヤーキル時トリガー
+OnPlayerKill:
+  type: OnDamaged
+  condition: "target.type == 'PLAYER' && target.health <= 0"
+  description: "プレイヤーを倒した時"
+
+# 遠距離攻撃時トリガー
+OnLongRangeAttack:
+  type: OnAttack
+  condition: "distance.horizontal(entity.location, target.location) > 15.0"
+  description: "15ブロック以上離れた相手を攻撃した時"
+
+# 近接攻撃時トリガー
+OnMeleeAttack:
+  type: OnAttack
+  condition: "distance.horizontal(entity.location, target.location) < 3.0"
+  description: "3ブロック以内の相手を攻撃した時"
+
+# HP50%突破時トリガー
+OnHealthThreshold50:
+  type: OnDamaged
+  condition: "entity.health <= entity.maxHealth * 0.5 && entity.health + damage.amount > entity.maxHealth * 0.5"
+  cooldown: "999999s"
+  description: "HP50%を下回った瞬間（一度のみ）"
+
+# HP25%突破時トリガー
+OnHealthThreshold25:
+  type: OnDamaged
+  condition: "entity.health <= entity.maxHealth * 0.25 && entity.health + damage.amount > entity.maxHealth * 0.25"
+  cooldown: "999999s"
+  description: "HP25%を下回った瞬間（一度のみ）"
+
+# 雷雨時トリガー
+OnThunderstorm:
+  type: OnTimer
+  interval: "150"
+  condition: "world.isThundering"
+  description: "雷雨時に定期的に発動（7.5秒毎）"
+
+# ネザー環境トリガー
+OnInNether:
+  type: OnTimer
+  interval: "100"
+  condition: "world.name.contains('nether')"
+  description: "ネザーにいる時に定期的に発動（5秒毎）"
+
+# エンド環境トリガー
+OnInEnd:
+  type: OnTimer
+  interval: "100"
+  condition: "world.name.contains('end')"
+  description: "エンドにいる時に定期的に発動（5秒毎）"

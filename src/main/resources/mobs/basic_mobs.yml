@@ -1,0 +1,94 @@
+# ==========================================
+# Basic Mobs - 基本的なカスタムMob
+# ==========================================
+# 超コンパクト構文: スキル定義 @ターゲッター ~トリガー
+# スキル詳細は skills/ フォルダーを参照
+
+# 強化ゾンビ
+StrongZombie:
+  Type: ZOMBIE
+  Display: "&c強化ゾンビ"
+  Health: "60"
+  Damage: "15"
+  AI:
+    MovementSpeed: 0.28
+    FollowRange: 20.0
+  Skills:
+    # 攻撃時に強化ダメージ
+    - MeleeEnhance @TL ~onAttack
+    # ダメージ時にノックバック
+    - Knockback @Self ~onDamaged
+
+# 炎の戦士
+FlameFighter:
+  Type: BLAZE
+  Display: "&c&l炎の戦士"
+  Health: "100"
+  Damage: "18"
+  Armor: "8"
+  AI:
+    MovementSpeed: 0.25
+    FollowRange: 30.0
+  Skills:
+    # 3秒ごとにファイアボール
+    - BasicFireball @NP{r=30} ~onTimer:60
+    # スポーン時に炎のオーラ
+    - FlameAura @Self ~onSpawn
+    # ダメージ時に範囲爆発
+    - AreaExplosion @Self ~onDamaged
+
+# 氷の射手
+FrostArcher:
+  Type: STRAY
+  Display: "&b氷の射手"
+  Health: "80"
+  Damage: "12"
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 35.0
+  Skills:
+    # 攻撃時に氷の矢
+    - FrostArrow @NP{r=35} ~onAttack
+    # 5秒ごとに氷結オーラ
+    - FrostAura @Self ~onTimer:100
+    # HP30%以下で回復
+    - SelfHeal @Self{cond=entity.health < entity.maxHealth * 0.3} ~onDamaged
+
+# 雷の精霊
+ThunderSpirit:
+  Type: PHANTOM
+  Display: "&e&l雷の精霊"
+  Health: "90"
+  Damage: "20"
+  AI:
+    MovementSpeed: 0.35
+    FollowRange: 40.0
+  Skills:
+    # 攻撃時に雷撃
+    - ThunderStrike @TL ~onAttack
+    # 6秒ごとに雷のビーム
+    - ThunderBeam @NP{r=30} ~onTimer:120
+    # HP50%以下でテレポート
+    - RandomTeleport @Self{cond=entity.health < entity.maxHealth * 0.5} ~onDamaged
+
+# タンク型ゴーレム
+TankGolem:
+  Type: IRON_GOLEM
+  Display: "&7&l鉄のタンク"
+  Health: "200"
+  Damage: "25"
+  Armor: "15"
+  ArmorToughness: "8"
+  AI:
+    MovementSpeed: 0.2
+    FollowRange: 25.0
+    KnockbackResistance: 0.8
+  Skills:
+    # 攻撃時に強力な一撃
+    - MeleeEnhance @TL ~onAttack
+    # 10秒ごとにシールド
+    - DeployShield @Self ~onTimer:200
+    # 周囲の敵を引き寄せ
+    - Pull @Self ~onTimer:300
+    # 死亡時に大爆発
+    - AreaExplosion @Self ~onDeath

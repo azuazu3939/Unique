@@ -1,6 +1,5 @@
 package com.github.azuazu3939.unique.cel
 
-import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.entity.PacketEntity
 import com.github.azuazu3939.unique.util.DebugLogger
 import org.bukkit.entity.Entity
@@ -388,15 +387,5 @@ class CELEvaluator(private val engine: CELEngineManager) {
         DebugLogger.info("Entity: ${entity.type.name}")
         CELVariableProvider.printContext(context)
         DebugLogger.separator()
-    }
-
-    companion object {
-        /**
-         * プラグインのCELEvaluatorインスタンスを取得
-         */
-        fun getInstance(): CELEvaluator {
-            // 後でUnique.ktに追加される予定
-            return Unique.instance.celEvaluator
-        }
     }
 }

@@ -1,7 +1,11 @@
 package com.github.azuazu3939.unique.cel
 
 import com.github.azuazu3939.unique.entity.PacketEntity
+import com.github.azuazu3939.unique.entity.PacketMob
 import com.github.azuazu3939.unique.util.biomeName
+import com.github.azuazu3939.unique.util.canHoldVariables
+import io.papermc.paper.registry.RegistryAccess
+import io.papermc.paper.registry.RegistryKey
 import org.bukkit.Location
 import org.bukkit.attribute.Attribute
 import org.bukkit.entity.Entity
@@ -48,6 +52,12 @@ object CELVariableProvider {
         // 文字列関数
         context["string"] = buildStringFunctions()
 
+        // 型変換関数（cast形式 - 互換性のため）
+        context["cast"] = buildCastFunctions()
+
+        // グローバル型変換関数（推奨）
+        context.putAll(buildGlobalCastFunctions())
+
         return context
     }
 
@@ -80,6 +90,10 @@ object CELVariableProvider {
         context["random"] = buildRandomFunctions()
         context["distance"] = buildDistanceFunctions()
         context["string"] = buildStringFunctions()
+        context["cast"] = buildCastFunctions()
+
+        // グローバル型変換関数（推奨）
+        context.putAll(buildGlobalCastFunctions())
 
         return context
     }
@@ -140,6 +154,12 @@ object CELVariableProvider {
         info["isDead"] = entity.isDead
         info["age"] = entity.ticksLived
 
+        // 変数格納可能性（PlayerとPacketMobのみ可能）
+        info["canHoldVariables"] = entity.canHoldVariables()
+
+        // ダメージを受けられるか（LivingEntityのみ）
+        info["canTakeDamage"] = entity is LivingEntity
+
         // 位置情報
         info["location"] = buildLocationInfo(entity.location)
 
@@ -147,6 +167,17 @@ object CELVariableProvider {
         if (entity is LivingEntity) {
             info["health"] = entity.health
             info["maxHealth"] = entity.getAttribute(Attribute.MAX_HEALTH)?.value ?: 20.0
+
+            // アトリビュート情報（直接アクセス用）
+            info["armor"] = entity.getAttribute(Attribute.ARMOR)?.value ?: 0.0
+            info["armorToughness"] = entity.getAttribute(Attribute.ARMOR_TOUGHNESS)?.value ?: 0.0
+            info["attackDamage"] = entity.getAttribute(Attribute.ATTACK_DAMAGE)?.value ?: 1.0
+            info["attackSpeed"] = entity.getAttribute(Attribute.ATTACK_SPEED)?.value ?: 4.0
+            info["knockbackResistance"] = entity.getAttribute(Attribute.KNOCKBACK_RESISTANCE)?.value ?: 0.0
+            info["movementSpeed"] = entity.getAttribute(Attribute.MOVEMENT_SPEED)?.value ?: 0.7
+
+            // 全アトリビュートへのアクセス
+            info["attributes"] = buildAttributesMap(entity)
         }
 
         // Player固有の情報
@@ -168,9 +199,43 @@ object CELVariableProvider {
      * PacketEntity情報を構築
      */
     internal fun buildPacketEntityInfo(packetEntity: PacketEntity): Map<String, Any> {
-        return mapOf(
+        val info = mutableMapOf(
             "entityId" to packetEntity.entityId,
-            "location" to buildLocationInfo(packetEntity.location)
+            "location" to buildLocationInfo(packetEntity.location),
+            "canHoldVariables" to packetEntity.canHoldVariables(),
+            "canTakeDamage" to packetEntity.canTakeDamage()
+        )
+
+        // PacketMobの場合は追加情報を含める
+        if (packetEntity is PacketMob) {
+            info["health"] = packetEntity.health
+            info["maxHealth"] = packetEntity.maxHealth
+            info["armor"] = packetEntity.armor
+            info["armorToughness"] = packetEntity.armorToughness
+            info["attackDamage"] = packetEntity.damage
+            info["movementSpeed"] = packetEntity.movementSpeed
+            info["followRange"] = packetEntity.followRange
+            info["attackRange"] = packetEntity.attackRange
+
+            // PacketMob用のアトリビュートマップ
+            info["attributes"] = buildPacketMobAttributesMap(packetEntity)
+        }
+
+        return info
+    }
+
+    /**
+     * PacketMobのアトリビュートマップを構築
+     */
+    private fun buildPacketMobAttributesMap(mob: PacketMob): Map<String, Double> {
+        return mapOf(
+            "armor" to mob.armor,
+            "armor_toughness" to mob.armorToughness,
+            "attack_damage" to mob.damage,
+            "movement_speed" to mob.movementSpeed,
+            "follow_range" to mob.followRange,
+            "attack_range" to mob.attackRange,
+            "max_health" to mob.maxHealth
         )
     }
 
@@ -404,6 +469,268 @@ object CELVariableProvider {
     }
 
     /**
+     * 型変換関数を構築
+     */
+    private fun buildCastFunctions(): Map<String, Any> {
+        return mapOf(
+            // 数値変換
+            "toInt" to { value: Any ->
+                when (value) {
+                    is Number -> value.toInt()
+                    is String -> value.toIntOrNull() ?: 0
+                    is Boolean -> if (value) 1 else 0
+                    else -> 0
+                }
+            },
+            "toLong" to { value: Any ->
+                when (value) {
+                    is Number -> value.toLong()
+                    is String -> value.toLongOrNull() ?: 0L
+                    is Boolean -> if (value) 1L else 0L
+                    else -> 0L
+                }
+            },
+            "toDouble" to { value: Any ->
+                when (value) {
+                    is Number -> value.toDouble()
+                    is String -> value.toDoubleOrNull() ?: 0.0
+                    is Boolean -> if (value) 1.0 else 0.0
+                    else -> 0.0
+                }
+            },
+            "toFloat" to { value: Any ->
+                when (value) {
+                    is Number -> value.toFloat()
+                    is String -> value.toFloatOrNull() ?: 0.0f
+                    is Boolean -> if (value) 1.0f else 0.0f
+                    else -> 0.0f
+                }
+            },
+
+            // 真偽値変換
+            "toBoolean" to { value: Any ->
+                when (value) {
+                    is Boolean -> value
+                    is Number -> value.toDouble() != 0.0
+                    is String -> value.toBoolean()
+                    else -> false
+                }
+            },
+
+            // 文字列変換
+            "toString" to { value: Any -> value.toString() },
+
+            // 安全な変換（失敗時にデフォルト値を返す）
+            "toIntOr" to { value: Any, default: Int ->
+                when (value) {
+                    is Number -> value.toInt()
+                    is String -> value.toIntOrNull() ?: default
+                    else -> default
+                }
+            },
+            "toDoubleOr" to { value: Any, default: Double ->
+                when (value) {
+                    is Number -> value.toDouble()
+                    is String -> value.toDoubleOrNull() ?: default
+                    else -> default
+                }
+            },
+
+            // 範囲制限付き変換
+            "toIntClamped" to { value: Any, min: Int, max: Int ->
+                val intValue = when (value) {
+                    is Number -> value.toInt()
+                    is String -> value.toIntOrNull() ?: min
+                    else -> min
+                }
+                intValue.coerceIn(min, max)
+            },
+            "toDoubleClamped" to { value: Any, min: Double, max: Double ->
+                val doubleValue = when (value) {
+                    is Number -> value.toDouble()
+                    is String -> value.toDoubleOrNull() ?: min
+                    else -> min
+                }
+                doubleValue.coerceIn(min, max)
+            }
+        )
+    }
+
+    /**
+     * グローバル型変換関数を構築（推奨形式）
+     * cast.toInt(value) ではなく toInt(value) で使用可能
+     */
+    private fun buildGlobalCastFunctions(): Map<String, Any> {
+        return mapOf(
+            // 数値変換
+            "toInt" to { value: Any ->
+                when (value) {
+                    is Number -> value.toInt()
+                    is String -> value.toIntOrNull() ?: 0
+                    is Boolean -> if (value) 1 else 0
+                    else -> 0
+                }
+            },
+            "toLong" to { value: Any ->
+                when (value) {
+                    is Number -> value.toLong()
+                    is String -> value.toLongOrNull() ?: 0L
+                    is Boolean -> if (value) 1L else 0L
+                    else -> 0L
+                }
+            },
+            "toDouble" to { value: Any ->
+                when (value) {
+                    is Number -> value.toDouble()
+                    is String -> value.toDoubleOrNull() ?: 0.0
+                    is Boolean -> if (value) 1.0 else 0.0
+                    else -> 0.0
+                }
+            },
+            "toFloat" to { value: Any ->
+                when (value) {
+                    is Number -> value.toFloat()
+                    is String -> value.toFloatOrNull() ?: 0.0f
+                    is Boolean -> if (value) 1.0f else 0.0f
+                    else -> 0.0f
+                }
+            },
+
+            // 真偽値変換
+            "toBoolean" to { value: Any ->
+                when (value) {
+                    is Boolean -> value
+                    is Number -> value.toDouble() != 0.0
+                    is String -> value.toBoolean()
+                    else -> false
+                }
+            },
+
+            // 文字列変換
+            "toString" to { value: Any ->
+                value.toString()
+            },
+
+            // 安全な変換（デフォルト値付き）
+            "toIntOr" to { value: Any, default: Int ->
+                when (value) {
+                    is Number -> value.toInt()
+                    is String -> value.toIntOrNull() ?: default
+                    else -> default
+                }
+            },
+            "toDoubleOr" to { value: Any, default: Double ->
+                when (value) {
+                    is Number -> value.toDouble()
+                    is String -> value.toDoubleOrNull() ?: default
+                    else -> default
+                }
+            },
+
+            // 範囲制限付き変換
+            "toIntClamped" to { value: Any, min: Int, max: Int ->
+                val intValue = when (value) {
+                    is Number -> value.toInt()
+                    is String -> value.toIntOrNull() ?: min
+                    else -> min
+                }
+                intValue.coerceIn(min, max)
+            },
+            "toDoubleClamped" to { value: Any, min: Double, max: Double ->
+                val doubleValue = when (value) {
+                    is Number -> value.toDouble()
+                    is String -> value.toDoubleOrNull() ?: min
+                    else -> min
+                }
+                doubleValue.coerceIn(min, max)
+            },
+
+            // コレクション変換
+            "toList" to { value: Any ->
+                when (value) {
+                    is List<*> -> value
+                    is String -> {
+                        // "[]" または "[1, 2, 3]" 形式をパース
+                        if (value.startsWith("[") && value.endsWith("]")) {
+                            val content = value.substring(1, value.length - 1).trim()
+                            if (content.isEmpty()) {
+                                emptyList<Any>()
+                            } else {
+                                content.split(",").map { it.trim() }
+                            }
+                        } else {
+                            // カンマ区切り文字列
+                            value.split(",").map { it.trim() }
+                        }
+                    }
+                    is Array<*> -> value.toList()
+                    else -> listOf(value)
+                }
+            },
+            "toMap" to { value: Any ->
+                when (value) {
+                    is Map<*, *> -> value
+                    is String -> {
+                        // "{}" または "{key: value, ...}" 形式をパース
+                        if (value.startsWith("{") && value.endsWith("}")) {
+                            val content = value.substring(1, value.length - 1).trim()
+                            if (content.isEmpty()) {
+                                emptyMap<String, Any>()
+                            } else {
+                                // 簡易的なマップパーサー
+                                content.split(",").associate {
+                                    val parts = it.split(":")
+                                    if (parts.size == 2) {
+                                        parts[0].trim() to parts[1].trim()
+                                    } else {
+                                        it.trim() to ""
+                                    }
+                                }
+                            }
+                        } else {
+                            mapOf("value" to value)
+                        }
+                    }
+                    else -> mapOf("value" to value)
+                }
+            }
+        )
+    }
+
+    /**
+     * 全アトリビュートのマップを構築
+     */
+    private fun buildAttributesMap(entity: LivingEntity): Map<String, Double> {
+        val attributes = mutableMapOf<String, Double>()
+
+        // Paperレジストリから全てのAttributeを取得
+        val registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.ATTRIBUTE)
+
+        registry.forEach { attribute ->
+            entity.getAttribute(attribute)?.let { instance ->
+                // レジストリキーから名前を取得し、"generic."または"generic_"を除去して小文字に変換
+                val key = registry.getKey(attribute)
+                val fullName = key?.value()?.lowercase() ?: attribute.key.value()
+
+                // "generic." または "generic_" を除去
+                val name = fullName.removePrefix("generic.").removePrefix("generic_")
+
+                // . 形式で追加
+                attributes[name] = instance.value
+
+                // _ 形式でも追加（プラグイン間の互換性のため）
+                if (name.contains(".")) {
+                    attributes[name.replace(".", "_")] = instance.value
+                } else if (name.contains("_")) {
+                    attributes[name.replace("_", ".")] = instance.value
+                }
+            }
+        }
+
+        return attributes
+    }
+
+    /**
      * フルコンテキストを構築（後方互換）
      */
     fun buildFullContext(baseContext: Map<String, Any>): Map<String, Any> {
@@ -422,6 +749,12 @@ object CELVariableProvider {
         if (!context.containsKey("string")) {
             context["string"] = buildStringFunctions()
         }
+        if (!context.containsKey("cast")) {
+            context["cast"] = buildCastFunctions()
+        }
+
+        // グローバル型変換関数を追加
+        context.putAll(buildGlobalCastFunctions())
 
         return context
     }

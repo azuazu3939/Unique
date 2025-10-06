@@ -124,8 +124,8 @@ abstract class PacketEntity(
             kill()
         }
 
-        // ダメージアニメーション
-        playAnimation(EntityAnimation.DAMAGE)
+        // NOTE: ダメージアニメーションはサブクラスで制御
+        // サブクラス（PacketMob等）で条件付きでplayAnimation(DAMAGE)を呼ぶ
         updateMetadata()
     }
 
@@ -216,6 +216,13 @@ abstract class PacketEntity(
     }
 
     /**
+     * ダメージを受けられるかどうか
+     * PacketMob: true
+     * PacketDisplay: false
+     */
+    open fun canTakeDamage(): Boolean = true
+
+    /**
      * 更新処理（1tick毎に呼ばれる）
      */
     open suspend fun tick() {
@@ -252,5 +259,6 @@ enum class EntityAnimation {
     LEAVE_BED,
     SWING_OFF_HAND,
     CRITICAL_HIT,
-    MAGIC_CRITICAL_HIT
+    MAGIC_CRITICAL_HIT,
+    ATTACK  // エンティティタイプ固有の攻撃アニメーション
 }

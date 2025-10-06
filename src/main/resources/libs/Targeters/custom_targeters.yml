@@ -1,0 +1,541 @@
+# ==========================================
+# Custom Targeters - カスタムターゲッター定義
+# ==========================================
+# エンティティタイプ別ターゲッターとエイリアス定義
+# 将来的にターゲッターをYAMLで定義できるようにする例
+# 現在は参照用として配置
+
+# ==========================================
+# エイリアス定義（2-5文字）
+# ==========================================
+aliases:
+  # Nearest系エイリアス（最も近い）
+  NP: NearestPlayer        # Nearest Player
+  NL: NearestLiving        # Nearest Living
+  NE: NearestEntity        # Nearest Entity
+  NPM: NearestPacketMob    # Nearest PacketMob
+
+  # All系エイリアス（範囲内全て）
+  AP: AllPlayers           # All Players
+  AL: AllLiving            # All Living
+  AE: AllEntities          # All Entities
+  APM: AllPacketMobs       # All PacketMobs
+
+  # Radius系エイリアス（範囲指定版）
+  RP: RadiusPlayers        # Radius Players
+  RL: RadiusLiving         # Radius Living
+  RE: RadiusEntity         # Radius Entity
+  RPM: RadiusPacketMobs    # Radius PacketMobs
+
+  # その他
+  Self: SelfTargeter       # 自分自身
+  Los: LineOfSight         # 視線先
+  Atk: AttackerTargeter    # 攻撃者
+
+# ==========================================
+# エンティティタイプ別ターゲッター
+# ==========================================
+
+# === 最も近いターゲット（Nearest） ===
+
+# 最も近いプレイヤー
+NearestPlayer:
+  type: NearestPlayer
+  range: 16.0
+  description: "最も近いプレイヤーをターゲット"
+
+# 最も近いLivingEntity
+NearestLiving:
+  type: RadiusEntities
+  range: 16.0
+  entityType: LIVING
+  count: 1
+  sort: NEAREST
+  description: "最も近いLivingEntityをターゲット"
+
+# 最も近いEntity（非生物含む）
+NearestEntity:
+  type: RadiusEntities
+  range: 16.0
+  entityType: ENTITY
+  count: 1
+  sort: NEAREST
+  description: "最も近いEntity（非生物含む）をターゲット"
+
+# 最も近いPacketMob
+NearestPacketMob:
+  type: RadiusEntities
+  range: 16.0
+  entityType: PACKET_MOB
+  count: 1
+  sort: NEAREST
+  description: "最も近いPacketMobをターゲット"
+
+# === 範囲内の全ターゲット（All） ===
+
+# 範囲内の全プレイヤー
+AllPlayers:
+  type: RadiusPlayers
+  range: 16.0
+  description: "範囲内の全プレイヤーをターゲット"
+
+# 範囲内の全LivingEntity
+AllLiving:
+  type: RadiusEntities
+  range: 16.0
+  entityType: LIVING
+  description: "範囲内の全LivingEntityをターゲット"
+
+# 範囲内の全Entity
+AllEntities:
+  type: RadiusEntities
+  range: 16.0
+  entityType: ENTITY
+  description: "範囲内の全Entityをターゲット"
+
+# 範囲内の全PacketMob
+AllPacketMobs:
+  type: RadiusEntities
+  range: 16.0
+  entityType: PACKET_MOB
+  description: "範囲内の全PacketMobをターゲット"
+
+# === 範囲指定版（カスタマイズ可能） ===
+
+# プレイヤー（範囲指定）
+RadiusPlayers:
+  type: RadiusPlayers
+  range: "{range | 16.0}"
+  description: "範囲指定可能なプレイヤーターゲッター"
+
+# LivingEntity（範囲指定）
+RadiusLiving:
+  type: RadiusEntities
+  range: "{range | 16.0}"
+  entityType: LIVING
+  description: "範囲指定可能なLivingEntityターゲッター"
+
+# Entity（範囲指定）
+RadiusEntity:
+  type: RadiusEntities
+  range: "{range | 16.0}"
+  entityType: ENTITY
+  description: "範囲指定可能なEntityターゲッター"
+
+# PacketMob（範囲指定）
+RadiusPacketMobs:
+  type: RadiusEntities
+  range: "{range | 16.0}"
+  entityType: PACKET_MOB
+  description: "範囲指定可能なPacketMobターゲッター"
+
+# ==========================================
+# 使用例
+# ==========================================
+#
+# Skills:
+#   # エイリアスを使用したシンプルな記述
+#   - damage{amount=10} @NP                    # 最も近いプレイヤーにダメージ
+#   - heal{amount=5} @AL{r=10}                 # 10ブロック以内の全LivingEntityを回復
+#   - effect{type=SLOW} @AE{r=15}              # 15ブロック以内の全Entityにスロー
+#   - buff{type=SPEED} @APM{r=20}              # 20ブロック以内の全PacketMobにバフ
+#
+#   # ソート・制限機能を使用
+#   - damage{amount=15} @AP{r=20;sort=NEAREST;limit=3}       # 最も近い3名のプレイヤー
+#   - damage{amount=20} @AL{r=30;sort=HIGHEST_HEALTH;limit=10}  # HP高い10名のLiving
+#   - damage{amount=25} @AL{r=25;sort=LOWEST_ARMOR;limit=5}  # 防御力低い5名
+#   - heal{amount=10} @AP{r=15;sort=LOWEST_HEALTH;limit=3}   # HP低い3名のプレイヤーを回復
+#   - buff @AL{r=20;sort=THREAT;limit=5}                     # ヘイト値上位5名にバフ
+#
+#   # 条件付きターゲッティング
+#   - damage{amount=20} @NL{r=20;cond=LowHP}   # HP低いLivingEntityを狙う
+#   - heal{amount=10} @AP{r=30;cond=HighTPS}   # TPS高い時のみ全プレイヤーを回復
+#
+# ==========================================
+# エンティティタイプフィルターの説明
+# ==========================================
+#
+# PLAYER:
+#   - プレイヤーのみを対象
+#   - 変数格納可能
+#   - 最も一般的なターゲット
+#
+# LIVING:
+#   - LivingEntity（生物）のみを対象
+#   - プレイヤー、モブ、PacketMob等を含む
+#   - デフォルト設定
+#   - HP、ポーション効果等が使用可能
+#
+# ENTITY:
+#   - 全てのEntityを対象
+#   - 非生物（ArmorStand、ボート等）も含む
+#   - 明示的に指定が必要
+#
+# PACKET_MOB:
+#   - PacketMobのみを対象
+#   - カスタムモブシステムで作成されたエンティティ
+#   - 変数格納可能
+
+# ==========================================
+# 条件付きターゲッター例
+# ==========================================
+
+# 低体力プレイヤー
+LowHealthPlayers:
+  type: RadiusPlayers
+  range: 30.0
+  count: 5
+  condition: "target.health < target.maxHealth * 0.5"
+  description: "HP50%以下のプレイヤーをターゲット"
+
+# 高レベルプレイヤー
+HighLevelPlayers:
+  type: RadiusPlayers
+  range: 35.0
+  count: 3
+  condition: "target.level >= 20"
+  description: "レベル20以上のプレイヤーをターゲット"
+
+# 近距離プレイヤー
+CloseRangePlayers:
+  type: RadiusPlayers
+  range: 10.0
+  count: 10
+  condition: "distance.horizontal(entity.location, target.location) < 10.0"
+  description: "10ブロック以内のプレイヤーをターゲット"
+
+# 遠距離プレイヤー
+LongRangePlayers:
+  type: RadiusPlayers
+  range: 50.0
+  count: 5
+  condition: "distance.horizontal(entity.location, target.location) > 20.0"
+  description: "20ブロック以上離れたプレイヤーをターゲット"
+
+# ランダムプレイヤー
+RandomNearbyPlayers:
+  type: Random
+  baseTargeter:
+    type: RadiusPlayers
+    range: 30.0
+  count: 1
+  description: "範囲内のランダムなプレイヤー1人"
+
+# 円形エリア
+CircleArea:
+  type: Area
+  shape: CIRCLE
+  radius: "15.0"
+  targetPlayers: true
+  targetMobs: false
+  description: "半径15ブロックの円形エリア"
+
+# 円錐エリア
+ConeArea:
+  type: Area
+  shape: CONE
+  radius: "20.0"
+  angle: "45.0"
+  direction: "FORWARD"
+  targetPlayers: true
+  targetMobs: true
+  description: "前方45度、20ブロックの円錐エリア"
+
+# ドーナツ型エリア
+DonutArea:
+  type: Area
+  shape: DONUT
+  radius: "15.0"
+  innerRadius: "5.0"
+  targetPlayers: true
+  targetMobs: false
+  description: "内径5、外径15のドーナツ型エリア"
+
+# 連鎖ターゲット
+ChainTargets:
+  type: Chain
+  initialTargeter:
+    type: NearestPlayer
+    range: 25.0
+  maxChains: "5"
+  chainRange: "8.0"
+  chainCondition: "target.health > 0"
+  description: "最大5連鎖、8ブロック範囲で連鎖"
+
+# ==========================================
+# エンティティタイプフィルター使用例
+# ==========================================
+
+# 低HP LivingEntity優先
+LowHealthLiving:
+  type: RadiusEntities
+  range: 20.0
+  entityType: LIVING
+  filter: "target.health < target.maxHealth * 0.3"
+  count: 3
+  sort: LOWEST_HEALTH
+  description: "HP30%以下のLivingEntityを最大3体、HP低い順"
+
+# プレイヤーのみ高レベル
+HighLevelPlayersOnly:
+  type: RadiusPlayers
+  range: 30.0
+  filter: "target.level >= 20"
+  description: "レベル20以上のプレイヤーのみ"
+
+# 全Entity（非生物含む）
+AllEntitiesInRange:
+  type: RadiusEntities
+  range: 15.0
+  entityType: ENTITY
+  description: "範囲内の全Entity（ArmorStand等も含む）"
+
+# PacketMob専用バフ
+PacketMobBuffTargets:
+  type: RadiusEntities
+  range: 25.0
+  entityType: PACKET_MOB
+  filter: "target.canHoldVariables"
+  description: "変数格納可能なPacketMobのみ"
+
+# LivingEntity 変数格納可能
+VariableCapableLiving:
+  type: RadiusEntities
+  range: 20.0
+  entityType: LIVING
+  filter: "target.canHoldVariables"
+  description: "変数格納可能なLivingEntity"
+
+# 夜間のみアクティブなLiving
+NightActiveLiving:
+  type: RadiusEntities
+  range: 30.0
+  entityType: LIVING
+  filter: "world.isNight"
+  description: "夜間のみターゲット可能"
+
+# TPS条件付きPlayer
+HighTPSPlayers:
+  type: RadiusPlayers
+  range: 25.0
+  filter: "current.tps > 18.0"
+  description: "TPS18以上の時のみプレイヤーをターゲット"
+
+# 複数条件組み合わせ
+ComplexConditionLiving:
+  type: RadiusEntities
+  range: 20.0
+  entityType: LIVING
+  filter: "target.health < target.maxHealth * 0.5 && nearbyPlayers.count >= 2"
+  description: "HP50%以下、かつプレイヤー2人以上近くにいる"
+
+# ==========================================
+# ソート・制限機能の使用例
+# ==========================================
+
+# 最も近い3名のプレイヤー
+NearestThreePlayers:
+  type: RadiusPlayers
+  range: 20.0
+  sortMode: NEAREST
+  limit: 3
+  description: "最も近い3名のプレイヤーを選択"
+
+# HP高い10名のプレイヤー
+TopTenHealthPlayers:
+  type: RadiusPlayers
+  range: 30.0
+  sortMode: HIGHEST_HEALTH
+  limit: 10
+  description: "HP高い順に10名のプレイヤーを選択"
+
+# HP低い5名のLivingEntity
+LowestFiveHealth:
+  type: RadiusEntities
+  range: 25.0
+  entityType: LIVING
+  sortMode: LOWEST_HEALTH
+  limit: 5
+  description: "HP低い順に5体のLivingEntityを選択"
+
+# ==========================================
+# CEL式によるカスタムソート（拡張性高い！）
+# ==========================================
+
+# 防御力低い5体（CEL式使用）
+LowestArmorCustom:
+  type: RadiusEntities
+  range: 25.0
+  entityType: LIVING
+  sortMode: CUSTOM
+  sortExpression: "target.armor"
+  limit: 5
+  description: "防御力が最も低い5体を選択（CEL式でソート）"
+
+# 防御力高い3体（CEL式で降順）
+HighestArmorCustom:
+  type: RadiusEntities
+  range: 20.0
+  entityType: LIVING
+  sortMode: CUSTOM
+  sortExpression: "-target.armor"  # マイナスで降順
+  limit: 3
+  description: "防御力が最も高い3体を選択"
+
+# HP割合が低い順
+LowestHealthPercentage:
+  type: RadiusEntities
+  range: 20.0
+  entityType: LIVING
+  sortMode: CUSTOM
+  sortExpression: "target.health / target.maxHealth"
+  limit: 5
+  description: "HP割合が低い順に5体を選択"
+
+# 攻撃力が高い順
+HighestAttackDamage:
+  type: RadiusEntities
+  range: 25.0
+  entityType: LIVING
+  sortMode: CUSTOM
+  sortExpression: "-target.attackDamage"
+  limit: 3
+  description: "攻撃力が最も高い3体を選択"
+
+# 移動速度が速い順
+FastestTargets:
+  type: RadiusEntities
+  range: 30.0
+  entityType: LIVING
+  sortMode: CUSTOM
+  sortExpression: "-target.movementSpeed"
+  limit: 5
+  description: "移動速度が最も速い5体を選択"
+
+# 複雑な計算式（防御力とHPの合計）
+TankiestTargets:
+  type: RadiusEntities
+  range: 25.0
+  entityType: LIVING
+  sortMode: CUSTOM
+  sortExpression: "-(target.armor + target.health)"
+  limit: 3
+  description: "最もタンク性能が高い3体（防御力+HPで評価）"
+
+# ヘイト値上位3名
+TopThreeThreat:
+  type: RadiusPlayers
+  range: 30.0
+  sortMode: THREAT
+  limit: 3
+  description: "ヘイト値（脅威度）が最も高い3名を選択"
+
+# ランダム5名のプレイヤー
+RandomFivePlayers:
+  type: RadiusPlayers
+  range: 20.0
+  sortMode: RANDOM
+  limit: 5
+  description: "ランダムに5名のプレイヤーを選択"
+
+# 最も遠い3体のLiving
+FarthestThreeLiving:
+  type: RadiusEntities
+  range: 40.0
+  entityType: LIVING
+  sortMode: FARTHEST
+  limit: 3
+  description: "最も遠い3体のLivingEntityを選択"
+
+# ==========================================
+# オフセット機能の使用例（N番目を飛ばす）
+# ==========================================
+
+# 2番目と3番目に近いプレイヤー
+SecondAndThirdNearest:
+  type: RadiusPlayers
+  range: 20.0
+  sortMode: NEAREST
+  offset: 1  # 1番目をスキップ
+  limit: 2   # 2件取得（2番目と3番目）
+  description: "2番目と3番目に近いプレイヤー"
+
+# HP低い順で2位～4位
+HealthRank2To4:
+  type: RadiusEntities
+  range: 25.0
+  entityType: LIVING
+  sortMode: LOWEST_HEALTH
+  offset: 1  # 1位をスキップ
+  limit: 3   # 2～4位を取得
+  description: "HP低い順で2位～4位の3体"
+
+# 最も近いプレイヤーを除く全員
+AllExceptNearest:
+  type: RadiusPlayers
+  range: 20.0
+  sortMode: NEAREST
+  offset: 1  # 最も近い1名をスキップ
+  description: "最も近いプレイヤー以外の全員"
+
+# 防御力高い順で2位～6位（1位を除く）
+ArmorRank2To6:
+  type: RadiusEntities
+  range: 30.0
+  entityType: LIVING
+  sortMode: CUSTOM
+  sortExpression: "-target.armor"
+  offset: 1  # 1位をスキップ
+  limit: 5   # 2～6位を取得
+  description: "防御力高い順で2位～6位"
+
+# 条件付き + ソート + 制限
+LowHealthNearestThree:
+  type: RadiusEntities
+  range: 20.0
+  entityType: LIVING
+  filter: "target.health < target.maxHealth * 0.5"
+  sortMode: NEAREST
+  limit: 3
+  description: "HP50%以下で、最も近い3体を選択"
+
+# ==========================================
+# 実践的な使用例
+# ==========================================
+
+# ボススキル：防御力低い敵を狙う貫通攻撃
+BossPiercingAttack:
+  Skills:
+    - damage{amount=50;ignoreInvulnerability=true} @AL{r=20;sort=LOWEST_ARMOR;limit=5}
+  description: "防御力が低い5体に貫通ダメージ"
+
+# ヒーラースキル：HP低い味方を優先回復
+HealerPriority:
+  Skills:
+    - heal{amount=20} @AP{r=15;sort=LOWEST_HEALTH;limit=3}
+  description: "HP低い3名のプレイヤーを回復"
+
+# AOEスキル：最も近い10体に範囲ダメージ
+AOENearbyTargets:
+  Skills:
+    - damage{amount=15} @AL{r=12;sort=NEAREST;limit=10}
+    - particle{type=EXPLOSION_LARGE;count=20}
+  description: "近くの10体に範囲ダメージ"
+
+# タンク優先攻撃：防御力高い敵を攻撃
+TankBuster:
+  Skills:
+    - damage{amount=40} @AL{r=15;sort=HIGHEST_ARMOR;limit=1}
+  description: "最も防御力が高い敵に大ダメージ"
+
+# マルチターゲットスキル：ランダムに選択
+MultiTargetRandom:
+  Skills:
+    - foreach{
+        targeter: @AP{r=20;sort=RANDOM;limit=5},
+        effects: [
+          damage{amount=10},
+          particle{type=CRIT;count=5}
+        ]
+      }
+  description: "ランダムに選んだ5名に連続攻撃"

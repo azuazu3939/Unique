@@ -1,0 +1,305 @@
+# ==========================================
+# Mobオプションとディスプレイエンティティの例
+# ==========================================
+# 新機能のデモンストレーション：
+# 1. Mobオプション設定（MythicMobs互換）
+# 2. Display Entity（ホログラム・装飾）
+# 3. canTakeDamageコンディション
+
+# ==========================================
+# 1. Mobオプション設定の例
+# ==========================================
+
+# 無敵のボス
+InvincibleBoss:
+  Type: WITHER
+  Display: "&4&l無敵のボス"
+  Health: "500"
+  Damage: "30"
+
+  Options:
+    Invincible: true              # 無敵（ダメージを受けない）
+    AlwaysShowName: true          # 常に名前を表示
+    PreventDespawn: true          # デスポーン防止
+    Persistent: true              # 永続化
+
+  Skills:
+    - damage{amount=40} @AP{r=15} ~onTimer:60
+    - lightning{damage=50} @AP{r=20} ~onTimer:100
+
+# ダメージを受けない装飾Mob
+DecorationMob:
+  Type: ARMOR_STAND
+  Display: "&e装飾スタンド"
+
+  Options:
+    CanTakeDamage: false         # ダメージを受けない
+    Collidable: false            # 衝突判定なし
+    Silent: true                 # 音を出さない
+    AlwaysShowName: true         # 常に名前を表示
+
+  Skills:
+    - particle{type=END_ROD;count=10} @Self ~onTimer:20
+
+# 火炎・爆発免疫のタンク
+ImmuneTank:
+  Type: IRON_GOLEM
+  Display: "&6&l免疫タンク"
+  Health: "400"
+  Armor: "25"
+
+  Options:
+    ImmuneToFire: true           # 火炎免疫
+    ImmuneToExplosions: true     # 爆発免疫
+    ImmuneToFall: true           # 落下ダメージ免疫
+    KnockbackResistance: 1.0     # ノックバック完全耐性
+
+  Skills:
+    - damage{amount=35} @NP{r=10} ~onAttack
+
+# アイテムを拾わないMob
+NoPickupMob:
+  Type: ZOMBIE
+  Display: "&7拾わないゾンビ"
+  Health: "100"
+
+  Options:
+    PreventItemPickup: true      # アイテム拾得防止
+    PreventOtherDrops: true      # 通常ドロップ防止（カスタムドロップのみ）
+
+  Drops:
+    - item: DIAMOND
+      amount: "1"
+      chance: "1.0"
+
+# スポーン無敵時間付きMob
+SpawnProtectedMob:
+  Type: SKELETON
+  Display: "&b保護されたスケルトン"
+  Health: "80"
+
+  Options:
+    SpawnInvulnerableTicks: 100  # スポーン後5秒間無敵（100tick）
+
+  Skills:
+    - projectile{type=ARROW;damage=15} @NP{r=30} ~onTimer:60
+
+# デスポーン距離カスタム
+LongRangeMob:
+  Type: BLAZE
+  Display: "&c遠距離ブレイズ"
+  Health: "120"
+
+  Options:
+    DespawnDistance: 256.0       # 256ブロック以上離れるとデスポーン
+    PreventDespawn: false        # 通常のデスポーン有効
+
+  Skills:
+    - projectile{type=FIREBALL;damage=20} @AP{r=50} ~onTimer:80
+
+# 物理無効・すり抜けMob（ゴースト）
+GhostMob:
+  Type: VEX
+  Display: "&f&lゴースト"
+  Health: "60"
+
+  Options:
+    NoClip: true                 # ブロックをすり抜ける
+    NoPhysics: true              # 物理演算無効
+    ImmuneToFall: true           # 落下ダメージ免疫
+    Silent: true                 # サイレント
+
+  Appearance:
+    Invisible: true              # 不可視
+
+  Skills:
+    - damage{amount=20} @NP{r=5} ~onTimer:40
+
+# ==========================================
+# 2. Display Entity（ホログラム・装飾）の例
+# ==========================================
+
+# テキストディスプレイ（ホログラム）
+HologramText:
+  Type: TEXT
+  Display: "ホログラム"
+  Text: "&6&l★ ボスエリア ★"
+  BackgroundColor: "#40000000"   # ARGB形式（透明度40%の黒）
+  TextOpacity: -1                # デフォルト不透明度
+  Scale: 2.0                     # 2倍サイズ
+  ViewRange: 64.0                # 64ブロックから見える
+  BillboardMode: CENTER          # 常にプレイヤーを向く
+
+  Skills:
+    # ホログラムもスキルを持てる
+    - particle{type=END_ROD;count=5} @Self ~onTimer:20
+
+# アイテムディスプレイ（浮遊アイテム）
+FloatingItem:
+  Type: ITEM
+  Display: "浮遊ダイヤモンド"
+  Item: DIAMOND                  # 表示するアイテム
+  Scale: 3.0                     # 3倍サイズ
+  ViewRange: 32.0
+  BillboardMode: VERTICAL        # 垂直軸のみ回転
+
+  Skills:
+    # 回転アニメーション
+    - particle{type=FIREWORK;count=3} @Self ~onTimer:10
+
+# ブロックディスプレイ（装飾ブロック）
+DecorativeBlock:
+  Type: BLOCK
+  Display: "装飾ブロック"
+  Block: DIAMOND_BLOCK           # 表示するブロック
+  Scale: 1.5
+  ShadowRadius: 0.5              # 影の半径
+  ShadowStrength: 1.0            # 影の強度
+  BillboardMode: FIXED           # 固定（回転しない）
+
+  Skills:
+    - particle{type=VILLAGER_HAPPY;count=10} @Self ~onTimer:40
+
+# 回転するテキスト看板
+RotatingSign:
+  Type: TEXT
+  Display: "回転看板"
+  Text: "&c&l← ボス戦 →"
+  BackgroundColor: "#80FF0000"   # 半透明の赤
+  Scale: 1.5
+  ViewRange: 48.0
+  BillboardMode: HORIZONTAL      # 水平軸のみ回転
+
+# 巨大アイテム展示
+GiantItemDisplay:
+  Type: ITEM
+  Display: "巨大剣"
+  Item: NETHERITE_SWORD
+  Scale: 5.0                     # 5倍サイズ
+  ViewRange: 100.0
+  BillboardMode: FIXED           # 固定配置
+
+  Skills:
+    - particle{type=ENCHANT;count=20} @Self ~onTimer:20
+    - particle{type=CRIT;count=5} @Self ~onTimer:30
+
+# ==========================================
+# 3. canTakeDamageコンディションの使用例
+# ==========================================
+
+# ダメージを受けられる敵を優先するMob
+DamageableTargeter:
+  Type: SKELETON
+  Display: "&e戦術スケルトン"
+  Health: "100"
+
+  Skills:
+    # ダメージを受けられる敵のみを狙う
+    - damage{amount=30} @AL{r=20;cond=target.canTakeDamage} ~onTimer:60
+
+    # ダメージを受けられない敵（Display等）には別スキル
+    - particle{type=SMOKE;count=20} @AL{r=20;cond=!target.canTakeDamage} ~onTimer:60
+
+# 複合条件の例
+AdvancedTargeting:
+  Type: WITHER
+  Display: "&5&l高度な戦術ボス"
+  Health: "500"
+
+  Skills:
+    # ダメージを受けられて、かつHP50%以下の敵を優先
+    - heal{amount=40} @AL{r=25;cond=target.canTakeDamage && target.health < target.maxHealth * 0.5} ~onTimer:100
+
+    # ダメージを受けられて、変数を保持できる敵（PacketMob/Player）
+    - damage{amount=60} @AL{r=30;cond=target.canTakeDamage && target.canHoldVariables} ~onTimer:80
+
+# ==========================================
+# 4. 全機能を組み合わせた例
+# ==========================================
+
+# ホログラム付きボス
+BossWithHologram:
+  Type: ENDER_DRAGON
+  Display: "&5&l&k||&r &d&l究極ドラゴン &5&k||"
+  Health: "800"
+  Damage: "50"
+  Armor: "30"
+  DamageFormula: "damage * (1 - min(20, armor) / 25)"
+
+  Options:
+    AlwaysShowName: true
+    PreventDespawn: true
+    Persistent: true
+    ImmuneToFire: true
+    ImmuneToExplosions: true
+    SpawnInvulnerableTicks: 100
+
+  Skills:
+    # ダメージを受けられる敵を優先攻撃
+    - damage{amount=70} @AL{r=30;sort=CUSTOM;sortExpression="target.armor";cond=target.canTakeDamage;limit=5} ~onTimer:60
+
+    # 無敵の敵は無視
+    - particle{type=BARRIER;count=10} @AL{r=20;cond=!target.canTakeDamage} ~onTimer:100
+
+  Drops:
+    - item: NETHER_STAR
+      amount: "3"
+      chance: "1.0"
+
+# 装飾専用の浮遊城
+FloatingCastle:
+  Type: BLOCK
+  Display: "浮遊城の核"
+  Block: END_PORTAL_FRAME
+  Scale: 4.0
+  ViewRange: 128.0
+  BillboardMode: CENTER
+  ShadowRadius: 2.0
+  ShadowStrength: 0.5
+
+  Skills:
+    - particle{type=DRAGON_BREATH;count=50} @Self ~onTimer:10
+    - particle{type=END_ROD;count=20} @Self ~onTimer:20
+    - sound{type=BLOCK_PORTAL_AMBIENT;volume=0.5} @Self ~onTimer:40
+
+# ==========================================
+# 使用方法
+# ==========================================
+#
+# 1. Mobをスポーン：
+#    /unique spawn InvincibleBoss
+#    /unique spawn HologramText
+#
+# 2. コンディションでの使用：
+#    - target.canTakeDamage でダメージ判定
+#    - !target.canTakeDamage で装飾判定
+#
+# 3. Options設定：
+#    - Invincible: 完全無敵
+#    - CanTakeDamage: false でダメージ無効
+#    - ImmuneToFire/Fall/Explosions: 特定ダメージ免疫
+#    - NoClip/NoPhysics: 物理無効
+#
+# 4. Display Entity：
+#    - Type: TEXT/ITEM/BLOCK
+#    - BillboardMode: 回転モード
+#    - Scale: サイズ調整
+#    - ViewRange: 表示距離
+#
+# ==========================================
+# ポイント
+# ==========================================
+#
+# ✅ Optionsで詳細な動作制御
+#    - MythicMobs互換のオプション多数
+#    - 無敵、免疫、デスポーン制御など
+#
+# ✅ Display Entityで装飾
+#    - ホログラム、看板、浮遊アイテム
+#    - ダメージを受けない（canTakeDamage=false）
+#    - スキルも使用可能
+#
+# ✅ canTakeDamageコンディション
+#    - ダメージを受けられるか判定
+#    - Display/装飾Mobを除外できる
+#    - 戦術的なターゲティングに有用

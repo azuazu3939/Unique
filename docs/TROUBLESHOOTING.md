@@ -1,559 +1,697 @@
-# トラブルシューティングガイド
+# トラブルシューティング
 
-Uniqueプラグインで発生する可能性のある問題と解決方法をまとめています。
+Uniqueプラグインで発生する可能性のある問題と解決方法をまとめたガイドです。
 
----
+## 目次
 
-## 🔍 目次
-
-1. [Mobがスポーンしない](#mobがスポーンしない)
-2. [スキルが発動しない](#スキルが発動しない)
-3. [CEL式でエラーが出る](#cel式でエラーが出る)
-4. [YAMLパースエラー](#yamlパースエラー)
-5. [パフォーマンス問題](#パフォーマンス問題)
-6. [コマンドが動作しない](#コマンドが動作しない)
-7. [ドロップが正しくない](#ドロップが正しくない)
+- [プラグインが起動しない](#プラグインが起動しない)
+- [Mobがスポーンしない](#mobがスポーンしない)
+- [スキルが発動しない](#スキルが発動しない)
+- [エラーメッセージ別の対処法](#エラーメッセージ別の対処法)
+- [パフォーマンスの問題](#パフォーマンスの問題)
+- [CEL式のエラー](#cel式のエラー)
+- [よくある質問](#よくある質問)
 
 ---
 
-## 🧟 Mobがスポーンしない
+## プラグインが起動しない
 
-### 症状
-- `/unique spawn MobName` でMobがスポーンしない
-- 自動スポーンが機能しない
+### 問題: プラグインがロードされない
 
-### 解決方法
+#### 原因1: Javaバージョンが古い
 
-#### 1. Mob定義の確認
-
-**チェックポイント**:
-```bash
-/unique reload
+**症状:**
+```
+Unsupported class file major version
 ```
 
-ログで以下を確認：
-```
-[Unique] Loaded X mob definitions
-```
-
-**問題**: `Loaded 0 mob definitions`
-- **原因**: YAMLファイルが正しく読み込まれていない
-- **解決策**:
-  - `plugins/Unique/mobs/` フォルダーにファイルが存在するか確認
-  - ファイル拡張子が `.yml` または `.yaml` か確認
-  - YAMLの構文エラーがないか確認（インデント、コロンなど）
-
-#### 2. YAML構文の確認
-
-**よくある間違い**:
-
-❌ **NG**: インデントが不正
-```yaml
-CustomZombie:
-Type: ZOMBIE  # インデントが足りない
-  Health: 100
-```
-
-✅ **OK**: 正しいインデント
-```yaml
-CustomZombie:
-  Type: ZOMBIE  # 2スペースインデント
-  Health: 100
-```
-
-❌ **NG**: コロンの後にスペースがない
-```yaml
-CustomZombie:
-  Type:ZOMBIE  # コロンの後にスペースが必要
-```
-
-✅ **OK**: コロンの後にスペース
-```yaml
-CustomZombie:
-  Type: ZOMBIE
-```
-
-#### 3. Mob名の確認
-
-**問題**: `Mob not found: MobName`
-- **原因**: Mob名が間違っている、または定義されていない
-- **解決策**:
-  - YAMLファイルのトップレベルキー名を確認
-  - 大文字小文字が一致しているか確認
-
-**例**:
-```yaml
-# mobs/my_mob.yml
-CustomZombie:  # ← この名前を使用
-  Type: ZOMBIE
-```
+**解決方法:**
+- Java 21以上をインストール
+- サーバーの起動スクリプトで正しいJavaを指定
 
 ```bash
-/unique spawn CustomZombie  # ← 正しい
-/unique spawn customzombie  # ← 間違い（大文字小文字が一致しない）
+# 正しい例
+/usr/lib/jvm/java-21-openjdk/bin/java -jar server.jar
 ```
 
-#### 4. EntityTypeの確認
+#### 原因2: Paper/Foliaバージョンが古い
 
-**問題**: `Invalid entity type: XXXX`
-- **原因**: 存在しないEntityTypeを指定している
-- **解決策**:
-  - 正しいEntityType名を使用（全て大文字）
-  - [Bukkitドキュメント](https://hub.spigotmc.org/javadocs/spigot/org/bukkit/entity/EntityType.html)で確認
-
-**有効な例**:
-```yaml
-Type: ZOMBIE          # ✅
-Type: WITHER_SKELETON # ✅
-Type: ENDER_DRAGON    # ✅
+**症状:**
+```
+This plugin requires Paper 1.21.8 or higher
 ```
 
-**無効な例**:
+**解決方法:**
+- Paper 1.21.8以上にアップデート
+- [Paper公式サイト](https://papermc.io/)から最新版をダウンロード
+
+#### 原因3: 依存プラグインが不足
+
+**症状:**
+```
+Missing dependency: PacketEvents
+```
+
+**解決方法:**
+- PacketEventsプラグインをインストール
+- [PacketEvents公式](https://github.com/retrooper/packetevents)からダウンロード
+
+### 問題: 設定ファイルが生成されない
+
+**解決方法:**
+
+1. プラグインフォルダを手動作成：
+```bash
+mkdir -p plugins/Unique/mobs
+mkdir -p plugins/Unique/skills
+mkdir -p plugins/Unique/effects
+mkdir -p plugins/Unique/spawns
+```
+
+2. サーバーを再起動
+
+---
+
+## Mobがスポーンしない
+
+### 問題: `/unique spawn` コマンドが動作しない
+
+#### 原因1: Mob IDが間違っている
+
+**症状:**
+```
+Mob 'XYZ' not found
+```
+
+**解決方法:**
+- 正しいMob IDを確認：`/unique list`
+- 大文字小文字が一致しているか確認
+- YAMLファイルが正しくロードされているか確認
+
+#### 原因2: YAMLの構文エラー
+
+**症状:**
+```
+Failed to load mob definition: XYZ
+YAML parse error
+```
+
+**解決方法:**
+
+1. インデント（字下げ）を確認
+   - **必ず半角スペース2つ**を使用
+   - タブは使用不可
+
 ```yaml
-Type: zombie          # ❌ 小文字
-Type: Zombie          # ❌ キャメルケース
-Type: CUSTOM_ZOMBIE   # ❌ 存在しないタイプ
+# ✅ 正しい（スペース2つ）
+MobName:
+  type: ZOMBIE
+  health: '50'
+
+# ❌ 間違い（タブ）
+MobName:
+	type: ZOMBIE
+```
+
+2. 引用符を確認
+   - CEL式や数値は `'...'` で囲む
+   - 文字列も `'...'` を推奨
+
+```yaml
+# ✅ 正しい
+health: '50'
+damage: '10 + (nearbyPlayers.count * 2)'
+
+# ❌ 間違い
+health: 50
+damage: 10 + (nearbyPlayers.count * 2)
+```
+
+3. オンラインYAMLバリデーターで確認
+   - [YAML Lint](http://www.yamllint.com/)
+
+#### 原因3: エンティティタイプが無効
+
+**症状:**
+```
+Invalid entity type: XYZ
+```
+
+**解決方法:**
+- 有効なエンティティタイプを使用
+
+```yaml
+# ✅ 有効なタイプ
+type: ZOMBIE
+type: SKELETON
+type: BLAZE
+type: WITHER
+
+# ❌ 無効なタイプ
+type: ZOMBIE_CUSTOM  # 存在しない
+type: zombie         # 小文字は不可
 ```
 
 ---
 
-## ⚔️ スキルが発動しない
+## スキルが発動しない
 
-### 症状
-- OnTimerスキルが実行されない
-- OnDamagedスキルが発動しない
+### 問題: onTimerスキルが発動しない
 
-### 解決方法
+#### 原因1: intervalの単位を間違えている
 
-#### 1. intervalの確認（OnTimer）
+**症状:**
+- スキルが全く発動しない
+- 発動が異常に遅い/早い
 
-**問題**: スキルがまったく発動しない
-- **原因**: `interval` が大きすぎる
-- **解決策**: intervalの単位は **tick**（20tick = 1秒）
+**解決方法:**
 
-**例**:
 ```yaml
-OnTimer:
-  - name: FireballAttack
-    interval: 100  # 5秒ごと（20tick × 5 = 100）
+# ❌ 間違い: 秒数を指定
+onTimer:
+  - name: attack
+    interval: 5  # 0.25秒ごと（早すぎる）
+
+# ✅ 正しい: tick数を指定（20tick = 1秒）
+onTimer:
+  - name: attack
+    interval: 100  # 5秒ごと（100 tick = 5秒）
 ```
 
-**デバッグ**:
-```yaml
-OnTimer:
-  - name: TestSkill
-    interval: 20  # 1秒ごとに変更してテスト
-```
+#### 原因2: ターゲットが見つからない
 
-#### 2. ターゲッターの範囲確認
+**症状:**
+- スキルが発動するはずなのに何も起こらない
 
-**問題**: ターゲットが見つからない
-- **原因**: `range` が小さすぎる、またはプレイヤーが範囲外
-- **解決策**: rangeを広げてテスト
+**解決方法:**
 
-**例**:
+1. **範囲を拡大**
 ```yaml
 targeter:
-  type: NearestPlayer
-  range: 5  # 5ブロックは狭い
+  type: nearestplayer
+  range: 30.0  # 範囲を広げる
 ```
 
-**デバッグ**:
+2. **デバッグモードで確認**
+```
+/unique debug
+```
+
+3. **ターゲッターを変更**
 ```yaml
+# シンプルなターゲッターで試す
 targeter:
-  type: NearestPlayer
-  range: 50  # 範囲を広げてテスト
+  type: radiusplayers
+  range: 50.0
 ```
 
-#### 3. 条件式の確認
+#### 原因3: 条件式が false
 
-**問題**: `condition` が常にfalse
-- **原因**: CEL式が間違っている
-- **解決策**: conditionをシンプルにしてテスト
+**症状:**
+- 条件付きスキルが発動しない
 
-**例**:
+**解決方法:**
+
+1. **条件式を削除してテスト**
 ```yaml
-# 問題のある条件
-condition: "entity.health < entity.maxHealth * 0.5"
+# 条件を一時的に削除
+# condition: 'entity.health < 50'
 ```
 
-**デバッグ**:
+2. **条件式を確認**
 ```yaml
-# 条件を削除してテスト
-# condition: "true"  # または条件を削除
+# ✅ 正しい
+condition: 'entity.health < entity.maxHealth * 0.5'
+
+# ❌ 間違い
+condition: 'entity.hp < 50'  # 変数名が間違い
 ```
 
-#### 4. スキル定義の確認
+### 問題: ProjectileSkillが発射されない
 
-**問題**: `Skill not found: SkillName`
-- **原因**: スキルが定義されていない、またはファイルが読み込まれていない
-- **解決策**:
-  - `plugins/Unique/skills/` フォルダーにファイルが存在するか確認
-  - `/unique reload` を実行
-  - ログで `Loaded X skill definitions` を確認
+#### 原因: 無効な発射体タイプ
+
+**解決方法:**
+
+```yaml
+# ✅ 有効な発射体タイプ
+projectileType: ARROW
+projectileType: FIREBALL
+projectileType: SNOWBALL
+projectileType: WITHER_SKULL
+
+# ❌ 無効
+projectileType: CUSTOM_ARROW  # 存在しない
+```
+
+### 問題: BeamSkill/AuraSkillが動作しない
+
+#### 原因: Phase 2機能が未実装
+
+**解決方法:**
+- プラグインバージョンを確認
+- Phase 2以降であることを確認
+
+```
+/unique version
+```
 
 ---
 
-## 🧮 CEL式でエラーが出る
+## エラーメッセージ別の対処法
 
-### 症状
-- `Failed to evaluate CEL expression: XXX`
-- Mobのステータスが期待と異なる
+### `NullPointerException`
 
-### 解決方法
+**原因:**
+- 必須フィールドが不足
+- 無効な参照
 
-#### 1. 文字列の引用符
+**解決方法:**
 
-❌ **NG**: 引用符を忘れる
+1. **必須フィールドを確認**
 ```yaml
-condition: "target.gameMode == SURVIVAL"
+# 必須フィールド
+MobName:
+  type: ZOMBIE      # 必須
+  display: 'Name'   # 必須
+  health: '50'      # 必須
 ```
 
-✅ **OK**: 文字列は引用符で囲む
+2. **targeterを確認**
 ```yaml
-condition: "target.gameMode == 'SURVIVAL'"
+# ✅ 正しい
+targeter:
+  type: nearestplayer
+  range: 15.0
+
+# ❌ targeterがない（エラー）
+skills:
+  - skill: attack
+    type: basic
+    # targeter: がない！
 ```
 
-#### 2. 整数除算
+### `ClassCastException`
 
-❌ **NG**: 整数除算になる可能性
+**原因:**
+- 型の不一致
+- 誤った値
+
+**解決方法:**
+
 ```yaml
-amount: "nearbyPlayers.count / 2"
+# ✅ 正しい型
+health: '50'           # String（CEL対応）
+interval: 100          # Int
+glowing: true          # Boolean
+
+# ❌ 間違った型
+health: true           # Boolean（NG）
+interval: '100'        # String（NG）
+glowing: 'true'        # String（NG）
 ```
 
-✅ **OK**: 浮動小数点で計算
+### `Failed to evaluate CEL expression`
+
+**原因:**
+- CEL式の構文エラー
+- 存在しない変数
+
+**解決方法:**
+
+1. **変数名を確認**
 ```yaml
-amount: "nearbyPlayers.count / 2.0"
+# ✅ 正しい変数名
+'entity.health'
+'target.distance'
+'world.time'
+'nearbyPlayers.count'
+
+# ❌ 存在しない変数
+'entity.hp'
+'target.dist'
+'player.count'
+```
+
+2. **構文を確認**
+```yaml
+# ✅ 正しい構文
+'10 + (entity.health * 0.1)'
+'entity.health < entity.maxHealth * 0.5'
+'world.time > 13000 ? 20 : 10'
+
+# ❌ 間違った構文
+'10 + entity.health * 0.1'  # 括弧がない
+'entity.health < 50%'        # %は使えない
+'if world.time > 13000 then 20 else 10'  # ifは使えない
+```
+
+3. **[完全リファレンス](REFERENCE.md#cel式リファレンス)を参照**
+
+### `Async operation in sync context`
+
+**原因:**
+- 同期処理が必要な操作を非同期で実行
+
+**解決方法:**
+
+```yaml
+# ブロック操作、テレポートは sync: true を推奨
+skills:
+  - skill: teleport_skill
+    type: basic
+    effects:
+      - type: teleport
+      - type: setblock
+    meta:
+      sync: true  # これを追加
+```
+
+---
+
+## パフォーマンスの問題
+
+### 問題: サーバーがラグい
+
+#### 原因1: BeamSkill/AuraSkillが重い
+
+**解決方法:**
+
+1. **間隔を長くする**
+```yaml
+# ❌ 重い
+onTimer:
+  - name: laser
+    interval: 20  # 1秒ごと（重い）
+    skills:
+      - type: beam
+        beamDuration: '5000'  # 5秒（長すぎる）
+
+# ✅ 軽い
+onTimer:
+  - name: laser
+    interval: 200  # 10秒ごと
+    skills:
+      - type: beam
+        beamDuration: '2000'  # 2秒
+        beamTickInterval: '100'  # 更新間隔を長く
+```
+
+2. **ターゲット数を制限**
+```yaml
+targeter:
+  type: radiusplayers
+  range: 15.0  # 範囲を狭く
+
 # または
-amount: "math.floor(nearbyPlayers.count / 2.0)"
+skills:
+  - type: aura
+    auraMaxTargets: 10  # 最大ターゲット数を制限
 ```
 
-#### 3. 存在しない変数
+#### 原因2: 発射体が多すぎる
 
-❌ **NG**: コンテキストにない変数を参照
+**解決方法:**
+
+1. **発射間隔を長くする**
 ```yaml
-# Mob定義のHealthで target を参照
-Health: "target.maxHealth * 2"  # targetは存在しない
+onTimer:
+  - interval: 100  # 短すぎると重い
 ```
 
-✅ **OK**: 利用可能な変数を使用
+2. **パーティクル密度を下げる**
 ```yaml
-# Mob定義では nearbyPlayers などを使用
-Health: "100 + (nearbyPlayers.count * 50)"
+skills:
+  - type: projectile
+    particle: FLAME
+    particleDensity: 0.3  # 密度を下げる（デフォルト: 0.5）
 ```
 
-**利用可能な変数**:
-- **Mob定義（Health, Damage）**: `nearbyPlayers.*`, `world.*`, `environment.*`
-- **Effect（amount, duration, amplifier）**: `entity.*`, `target.*`, `source.*`, `world.*`, `nearbyPlayers.*`
-- **Drop（amount, chance）**: `entity.*`, `killer.*`, `world.*`, `nearbyPlayers.*`, `environment.*`
+#### 原因3: 範囲検索が重い
 
-#### 4. 構文エラー
+**解決方法:**
 
-❌ **NG**: 括弧が不一致
+1. **範囲を必要最小限に**
 ```yaml
-amount: "math.max(1, nearbyPlayers.count * 2"  # 閉じ括弧がない
+# ❌ 重い
+targeter:
+  type: radiusentities
+  range: 100.0  # 広すぎる
+
+# ✅ 軽い
+targeter:
+  type: radiusentities
+  range: 20.0  # 必要最小限
 ```
 
-✅ **OK**: 括弧を正しく閉じる
+2. **フィルターを活用**
 ```yaml
-amount: "math.max(1, nearbyPlayers.count * 2)"
-```
-
-#### 5. デバッグ方法
-
-**手順**:
-1. CEL式を単純化してテスト
-2. 固定値に置き換えてテスト
-3. ログでエラーメッセージを確認
-
-**例**:
-```yaml
-# 元の式
-Health: "100 + (nearbyPlayers.count * 50) + (nearbyPlayers.avgLevel * 10)"
-
-# ステップ1: 単純化
-Health: "100 + (nearbyPlayers.count * 50)"
-
-# ステップ2: さらに単純化
-Health: "100"
-
-# ステップ3: 動作したら徐々に元に戻す
+targeter:
+  type: radiusplayers
+  range: 30.0
+  filter: 'target.distance < 15'  # さらに絞る
 ```
 
 ---
 
-## 📄 YAMLパースエラー
+## CEL式のエラー
 
-### 症状
-- `Failed to load mob file: XXX`
-- `YAML parse error`
+### 問題: CEL式が評価されない
 
-### 解決方法
+#### よくある間違い
 
-#### 1. インデントの確認
-
-**YAMLはインデントが命**:
-- **スペース2個** でインデント（タブは使用不可）
-- 同じレベルは同じインデント
-
-❌ **NG**: タブを使用
 ```yaml
-CustomZombie:
-	Type: ZOMBIE  # タブは使用不可
+# ❌ 間違い1: 引用符がない
+health: 100 + (nearbyPlayers.count * 10)
+
+# ✅ 正しい
+health: '100 + (nearbyPlayers.count * 10)'
+
+# ❌ 間違い2: 変数名が間違い
+condition: 'entity.hp < 50'
+
+# ✅ 正しい
+condition: 'entity.health < 50'
+
+# ❌ 間違い3: 演算子が間違い
+condition: 'entity.health == 100'  # 数値の等価比較は避ける
+
+# ✅ 正しい
+condition: 'entity.health < 100'
 ```
 
-✅ **OK**: スペース2個
-```yaml
-CustomZombie:
-  Type: ZOMBIE
+### 問題: 期待した値にならない
+
+**デバッグ方法:**
+
+1. **デバッグモード有効化**
+```
+/unique debug
 ```
 
-#### 2. コロンとスペース
-
-❌ **NG**: コロンの後にスペースがない
+2. **単純な式でテスト**
 ```yaml
-CustomZombie:
-  Type:ZOMBIE
+# まず固定値でテスト
+health: '100'
+
+# 動作したら変数を追加
+health: '100 + nearbyPlayers.count'
+
+# さらに複雑に
+health: '100 + (nearbyPlayers.count * 10)'
 ```
 
-✅ **OK**: コロンの後にスペース
+3. **messageエフェクトで確認**
 ```yaml
-CustomZombie:
-  Type: ZOMBIE
+effects:
+  - type: message
+    message: 'Health: {entity.health}'
 ```
-
-#### 3. 引用符の使用
-
-**特殊文字を含む場合は引用符**:
-
-❌ **NG**: 引用符なし
-```yaml
-Display: &cカスタムゾンビ  # &が問題
-```
-
-✅ **OK**: 引用符で囲む
-```yaml
-Display: '&cカスタムゾンビ'
-```
-
-#### 4. リストの記法
-
-❌ **NG**: ハイフンの後にスペースがない
-```yaml
-Skills:
-  OnTimer:
-    -name: FireballAttack
-```
-
-✅ **OK**: ハイフンの後にスペース
-```yaml
-Skills:
-  OnTimer:
-    - name: FireballAttack
-```
-
-#### 5. YAMLバリデーター
-
-オンラインツールでYAMLを検証：
-- [YAML Lint](http://www.yamllint.com/)
-- [YAML Validator](https://jsonformatter.org/yaml-validator)
 
 ---
 
-## ⚡ パフォーマンス問題
+## よくある質問
 
-### 症状
-- サーバーがラグい
-- TPSが低下
+### Q: Mobが強すぎる/弱すぎる
 
-### 解決方法
-
-#### 1. スポーン数を制限
-
-**問題**: Mobが多すぎる
-- **解決策**: `maxNearby` を減らす
+**A:** 数値を調整してください。
 
 ```yaml
-ZombieSpawn:
-  mob: "CustomZombie"
-  spawnRate: 200
-  maxNearby: 5  # 最大5体に制限
+# 弱い場合
+health: '200'  # 体力を増やす
+damage: '20'   # 攻撃力を上げる
+armor: '15'    # 防御力を上げる
+
+# 強い場合
+health: '30'   # 体力を減らす
+damage: '5'    # 攻撃力を下げる
 ```
 
-#### 2. スキルの間隔を調整
+### Q: スキルの発動タイミングを変えたい
 
-**問題**: スキルが頻繁に実行されすぎ
-- **解決策**: `interval` を長くする
+**A:** `interval` を調整してください。
 
 ```yaml
-OnTimer:
-  - name: HeavySkill
-    interval: 200  # 100 → 200に変更（5秒 → 10秒）
+# 早くする
+interval: 40  # 2秒（20tick = 1秒）
+
+# 遅くする
+interval: 300  # 15秒
 ```
 
-#### 3. パーティクルを減らす
+### Q: エフェクトが見えない
 
-**問題**: パーティクルが多すぎる
-- **解決策**: `count` を減らす
+**A:** パーティクル数を増やしてください。
 
 ```yaml
 effects:
-  - type: Particle
+  - type: particle
     particle: FLAME
-    count: 10  # 100 → 10に変更
+    particleCount: 50  # 数を増やす
+    particleSpeed: 0.2
 ```
 
-#### 4. CEL式のキャッシュ
+### Q: Mobがすぐ消える
 
-**問題**: 同じCEL式が何度も評価される
-- **解決策**: プラグインは自動的にキャッシュしますが、複雑すぎるCEL式は避ける
+**A:** デスポーン設定を確認してください。
+
+```yaml
+# config.yml で設定
+despawn:
+  enabled: false  # デスポーン無効化
+```
+
+### Q: 複数のMobを同時にスポーンしたい
+
+**A:** コマンドで数を指定してください。
+
+```
+/unique spawn MobName 10
+```
+
+### Q: 特定の場所に自動スポーンさせたい
+
+**A:** spawnsファイルを使用してください。
+
+```yaml
+# spawns/my_spawn.yml
+spawn1:
+  mobId: BossMob
+  location:
+    world: world
+    x: 100
+    y: 64
+    z: 200
+  interval: 6000  # 5分ごと（tick）
+  maxMobs: 1
+```
+
+### Q: プレイヤー数に応じて強さを変えたい
+
+**A:** CEL式を使用してください。
+
+```yaml
+StrongZombie:
+  type: ZOMBIE
+  health: '100 + (nearbyPlayers.count * 20)'
+  damage: '10 + (nearbyPlayers.count * 2)'
+```
+
+### Q: 夜だけ強くしたい
+
+**A:** CEL式で時間判定してください。
+
+```yaml
+NightHunter:
+  type: ZOMBIE
+  damage: 'world.time > 13000 ? 20 : 10'
+```
+
+### Q: 体力が減ると行動が変わるボスを作りたい
+
+**A:** BranchSkillを使用してください。
+
+```yaml
+skills:
+  onTimer:
+    - name: adaptive
+      targeter:
+        type: nearestplayer
+        range: 20.0
+      skills:
+        - skill: phase_skill
+          type: branch
+          branches:
+            - condition: 'entity.health > entity.maxHealth * 0.5'
+              skills: [...]  # フェーズ1
+            - condition: 'true'
+              skills: [...]  # フェーズ2
+```
 
 ---
 
-## 📦 コマンドが動作しない
+## サポート
 
-### 症状
-- `/unique` コマンドが認識されない
-- `Unknown command`
+### 問題が解決しない場合
 
-### 解決方法
+1. **ログを確認**
+   - `logs/latest.log` を確認
+   - エラーメッセージをコピー
 
-#### 1. プラグインが有効か確認
-
-```bash
-/plugins
+2. **デバッグモード有効化**
+```
+/unique debug
 ```
 
-`Unique` が **緑色** で表示されるか確認。
+3. **最小構成でテスト**
+   - 最もシンプルなMob定義で試す
+   - 1つずつ機能を追加
 
-**赤色の場合**:
-- サーバーログでエラーを確認
-- プラグインの依存関係を確認（Paper 1.21.8以上、Java 21以上）
+4. **GitHub Issuesで報告**
+   - [Issues](https://github.com/azuazu3939/unique/issues)
+   - エラーログを添付
+   - 再現手順を記載
 
-#### 2. 権限の確認
+### 報告テンプレート
 
-**必要な権限**:
+```
+## 環境
+- Minecraft: 1.21.8
+- Paper: Build #XXX
+- Java: 21
+- Unique: Phase 2
+
+## 問題
+[何が起こるか]
+
+## 期待する動作
+[どうなってほしいか]
+
+## 再現手順
+1. ...
+2. ...
+3. ...
+
+## エラーログ
+```
+[ログをここに貼り付け]
+```
+
+## 設定ファイル
 ```yaml
-unique.admin  # すべてのコマンドを使用可能
+[問題のあるYAMLをここに貼り付け]
 ```
-
-**OP権限を付与**:
-```bash
-/op <プレイヤー名>
-```
-
-#### 3. コマンド一覧
-
-```bash
-/unique reload           # プラグインリロード
-/unique spawn <MobName>  # Mobスポーン
-/unique list             # Mob一覧表示（実装予定）
 ```
 
 ---
 
-## 💎 ドロップが正しくない
+## 関連ドキュメント
 
-### 症状
-- Mobを倒してもアイテムがドロップしない
-- ドロップ数が期待と異なる
-
-### 解決方法
-
-#### 1. チャンスの確認
-
-**問題**: `chance` が低すぎる
-- **解決策**: chanceを1.0にしてテスト
-
-```yaml
-drops:
-  - item: DIAMOND
-    amount: "1"
-    chance: "1.0"  # 100%でドロップ
-```
-
-#### 2. 条件の確認
-
-**問題**: `condition` が満たされていない
-- **解決策**: conditionを削除してテスト
-
-```yaml
-drops:
-  - item: DIAMOND
-    amount: "1"
-    chance: "1.0"
-    # condition: "killer.gameMode == 'SURVIVAL'"  # 一時的に削除
-```
-
-#### 3. amountのCEL式
-
-**問題**: amountのCEL式が0を返す
-- **解決策**: 固定値でテスト
-
-```yaml
-# 問題のある式
-amount: "math.max(1, nearbyPlayers.maxLevel / 10)"  # レベルが低いと0
-
-# デバッグ
-amount: "5"  # 固定値でテスト
-```
-
-#### 4. アイテム名の確認
-
-**問題**: 存在しないアイテム名
-- **解決策**: 正しいMaterial名を使用
-
-```yaml
-item: DIAMOND  # ✅ 正しい
-# item: DIAMONDS  # ❌ 間違い
-```
-
-**Material一覧**: [Bukkit Material](https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html)
+- [クイックスタート](QUICKSTART.md)
+- [完全ガイド](GUIDE.md)
+- [完全リファレンス](REFERENCE.md)
+- [変更履歴](CHANGELOG.md)
 
 ---
 
-## 🆘 それでも解決しない場合
-
-### ログの確認
-
-1. **サーバーログを確認**:
-   ```bash
-   tail -f logs/latest.log
-   ```
-
-2. **エラーメッセージを探す**:
-   - `[Unique] ERROR: ...`
-   - `Failed to ...`
-   - `Exception: ...`
-
-### デバッグモードの有効化
-
-`plugins/Unique/config.yml`:
-```yaml
-debug:
-  enabled: true  # デバッグログを有効化
-  logCEL: true   # CEL評価をログ出力
-```
-
-### サポート
-
-**GitHubでIssueを作成**:
-- リポジトリ: https://github.com/azuazu3939/Unique
-- 以下の情報を含めてください:
-  - サーバーバージョン（Paper/Folia, バージョン）
-  - Uniqueバージョン
-  - エラーメッセージ（ログ）
-  - 問題を再現するYAML設定
-
----
-
-## 📚 関連ドキュメント
-
-- **[初めてのMob作成](TUTORIAL_GETTING_STARTED.md)** - 基本的な使い方
-- **[CELクイックスタート](CEL_QUICK_START.md)** - CEL式の基本
-- **[Effect一覧](REFERENCE_EFFECTS.md)** - Effectリファレンス
-- **[Mob定義リファレンス](REFERENCE_MOB_DEFINITION.md)** - Mob定義の詳細
-
----
-
-問題が解決しましたか？Uniqueを使って、素晴らしいカスタムMobを作成しましょう！
+**最終更新**: 2025-10-06

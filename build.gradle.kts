@@ -13,6 +13,7 @@ repositories {
     maven("https://jitpack.io")
     maven("https://maven.evokegames.gg/snapshots")
     maven("https://repo.codemc.io/repository/maven-releases/")
+    maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
 dependencies {
@@ -25,6 +26,7 @@ dependencies {
     implementation("com.sksamuel.hoplite:hoplite-yaml:2.9.0")
     compileOnly("com.github.retrooper:packetevents-spigot:2.9.5")
     implementation("dev.cel:cel:0.11.0")
+    implementation("com.google.protobuf:protobuf-java:4.29.3") // CELが要求するバージョンを明示的に指定
 
     paperweight.foliaDevBundle("1.21.8-R0.1-SNAPSHOT")
 }
@@ -58,11 +60,22 @@ tasks {
     shadowJar {
         archiveBaseName.set(project.name)
         archiveClassifier.set("")
+
         relocate("com.github.shynixn", "com.github.azuazu3939.lib.com.github.shynixn")
-        relocate("org.jetbrains", "com.github.azuazu3939.lib.org.jetbrains")
         relocate("me.tofaa.entitylib", "com.github.azuazu3939.lib.me.tofaa.entitylib")
-        relocate("dev.cel", "com.github.azuazu3939.lib.dev.cel")
-        relocate("com.sksamuel", "com.github.azuazu3939.lib.com.sksamuel")
+
+        // Kotlinのコルーチンのみrelocate（stdlib-jdk8は除外）
+        relocate("kotlinx.coroutines", "com.github.azuazu3939.lib.kotlinx.coroutines")
+
+        // Protobufをrelocate（Folia/Paperのバージョンと競合回避）
+        relocate("com.google.protobuf", "com.github.azuazu3939.lib.com.google.protobuf")
+
+        // 以下はrelocateしない:
+        // - org.jetbrains (Kotlin標準ライブラリ)
+        // - dev.cel (CEL - 内部でProtobufを使用するが、Protobuf自体をrelocate)
+        // - com.sksamuel.hoplite (Hoplite - ServiceLoader使用)
+
+        mergeServiceFiles()
     }
 }
 

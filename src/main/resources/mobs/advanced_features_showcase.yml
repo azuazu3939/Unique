@@ -1,0 +1,317 @@
+# ==========================================
+# 高度な機能のショーケース
+# ==========================================
+# 新機能のデモンストレーション：
+# 1. CEL式カスタムソート（sortExpression）
+# 2. オフセット機能（offset）でランク指定ターゲティング
+# 3. PacketMobダメージ計算式（damageFormula）
+
+# ==========================================
+# 1. CEL式カスタムソートの例
+# ==========================================
+
+# 防御力が最も低い敵を優先的に狙うアサシン
+AssassinMob:
+  Type: SKELETON
+  Display: "&8&lアサシン"
+  Health: "180"
+  Damage: "22"
+
+  Skills:
+    # 防御力が低い順に3体にダメージ（弱い敵を優先）
+    - damage{amount=35} @AL{r=20;sort=CUSTOM;sortExpression="target.armor";limit=3} ~onTimer:60
+
+    # HP割合が低い順に狙撃（瀕死の敵を優先）
+    - damage{amount=50} @AP{r=30;sort=CUSTOM;sortExpression="target.health / target.maxHealth";limit=2} ~onAttack
+
+    # 攻撃力が低い順にデバフ（脅威度の低い敵を弱体化）
+    - potion{type=WEAKNESS;duration=100;amplifier=1} @AL{r=15;sort=CUSTOM;sortExpression="target.attackDamage";limit=5} ~onTimer:100
+
+# タンクキラー - 防御が高い敵を優先的に狙う
+TankKillerMob:
+  Type: RAVAGER
+  Display: "&c&lタンクキラー"
+  Health: "300"
+  Damage: "30"
+  Armor: "10"
+
+  Skills:
+    # 防御力が高い順にダメージ（降順は-を使用）
+    - damage{amount=60} @AL{r=25;sort=CUSTOM;sortExpression="-target.armor";limit=3} ~onAttack
+
+    # 最もタンク性能が高い敵にデバフ（防御力+HP合計）
+    - potion{type=WITHER;duration=120;amplifier=2} @AL{r=20;sort=CUSTOM;sortExpression="-(target.armor + target.health)";limit=1} ~onTimer:140
+
+    # 移動速度が遅い敵を狙う（重装備を想定）
+    - damage{amount=45} @AL{r=30;sort=CUSTOM;sortExpression="target.movementSpeed";limit=4} ~onTimer:80
+
+# 戦術的ボス - 複雑なソート条件
+TacticalBoss:
+  Type: WITHER
+  Display: "&5&l戦術指揮官"
+  Health: "500"
+  Damage: "35"
+
+  Skills:
+    # HP残量の実数値が低い順（HP割合ではなく絶対値）
+    - heal{amount=30} @AL{r=25;sort=CUSTOM;sortExpression="target.health";limit=3} ~onTimer:100
+
+    # 総合戦闘力が高い順に攻撃（攻撃力 + HP + 防御力）
+    - damage{amount=70} @AL{r=30;sort=CUSTOM;sortExpression="-(target.attackDamage + target.health + target.armor)";limit=2} ~onTimer:120
+
+    # ノックバック耐性が低い順に吹き飛ばし
+    - push{strength=3.5} @AL{r=15;sort=CUSTOM;sortExpression="target.knockbackResistance";limit=5} ~onTimer:80
+
+# ==========================================
+# 2. オフセット機能の例
+# ==========================================
+
+# スナイパー - 2～4番目に近い敵を狙う（最も近い敵は避ける）
+SniperMob:
+  Type: SKELETON
+  Display: "&e&lスナイパー"
+  Health: "150"
+  Damage: "28"
+
+  Skills:
+    # 2～4番目に近いプレイヤーに狙撃（offset=1で1番目をスキップ）
+    - damage{amount=55} @AP{r=40;sort=NEAREST;offset=1;limit=3} ~onTimer:80
+
+    # HP2～4番目に低いプレイヤーを回復（最も瀕死は他に任せる）
+    - heal{amount=40} @AP{r=30;sort=LOWEST_HEALTH;offset=1;limit=3} ~onTimer:120
+
+    # 5～7番目に遠い敵を攻撃（遠すぎず近すぎない中距離）
+    - projectile{type=ARROW;speed=3.0;damage=25} @AP{r=50;sort=FARTHEST;offset=4;limit=3} ~onTimer:60
+
+# 支援型ボス - ランク指定バフ
+SupportBoss:
+  Type: EVOKER
+  Display: "&b&l支援術師"
+  Health: "280"
+  Damage: "18"
+
+  Skills:
+    # HP1位は無視して2～5位にバフ（最も強い味方は既に安全）
+    - potion{type=STRENGTH;duration=200;amplifier=1} @AL{r=25;sort=HIGHEST_HEALTH;offset=1;limit=4} ~onTimer:160
+
+    # 攻撃力1位を除いた2～4位に攻撃バフ（トップはバフ不要）
+    - potion{type=SPEED;duration=150;amplifier=2} @AL{r=20;sort=CUSTOM;sortExpression="-target.attackDamage";offset=1;limit=3} ~onTimer:140
+
+    # 最も近い3体を除いた遠距離の味方を回復
+    - heal{amount=25} @AL{r=35;sort=NEAREST;offset=3;limit=5} ~onTimer:100
+
+# エリート暗殺者 - 中堅層を優先
+EliteAssassin:
+  Type: WITHER_SKELETON
+  Display: "&4&lエリート暗殺者"
+  Health: "250"
+  Damage: "40"
+
+  Skills:
+    # HP上位3名を除いた4～8位を狙う（強すぎず弱すぎない中堅）
+    - damage{amount=65} @AP{r=25;sort=HIGHEST_HEALTH;offset=3;limit=5} ~onAttack
+
+    # 防御力上位2名を除いた3～6位に防御無視ダメージ
+    - damage{amount=80} @AL{r=20;sort=CUSTOM;sortExpression="-target.armor";offset=2;limit=4} ~onTimer:100
+
+    # 最も近い敵を無視して2番目に近い敵に急襲
+    - teleport{mode=TO_TARGET} @NP{r=30;sort=NEAREST;offset=1;limit=1} ~onTimer:180
+    - damage{amount=100} @NP{r=5;sort=NEAREST;limit=1} ~onTimer:182
+
+# ==========================================
+# 3. ダメージ計算式の例
+# ==========================================
+
+# 標準的な防御力計算（Minecraft標準式）
+StandardTankMob:
+  Type: IRON_GOLEM
+  Display: "&7&l重装兵"
+  Health: "400"
+  Damage: "25"
+  Armor: "20"
+  ArmorToughness: "8"
+
+  # Minecraft標準のダメージ計算式
+  DamageFormula: "damage * (1 - min(20, armor) / 25)"
+
+  Skills:
+    - damage{amount=30} @NP{r=10} ~onAttack
+
+# パーセント軽減型（シンプル）
+SimpleDefenderMob:
+  Type: ZOMBIE
+  Display: "&a&l防衛兵"
+  Health: "300"
+  Damage: "18"
+  Armor: "15"
+
+  # シンプルなパーセント軽減（防御力15 = 15%軽減）
+  DamageFormula: "damage * (1 - armor / 100)"
+
+  Skills:
+    - damage{amount=22} @NP{r=8} ~onAttack
+
+# 防御強度を考慮した複雑な計算
+FortifiedBoss:
+  Type: RAVAGER
+  Display: "&6&l要塞化ボス"
+  Health: "600"
+  Damage: "35"
+  Armor: "25"
+  ArmorToughness: "12"
+
+  # 防御強度も考慮した計算式
+  DamageFormula: "damage * (1 - (min(20, armor) + armorToughness / 10) / 25)"
+
+  Skills:
+    - damage{amount=45} @AP{r=15} ~onAttack
+    - shield{amount=100;duration=200} @Self{cond=entity.health < entity.maxHealth * 0.5} ~onDamaged
+
+# 固定値軽減型
+BarrierKnight:
+  Type: ZOMBIE
+  Display: "&b&l障壁騎士"
+  Health: "350"
+  Damage: "28"
+  Armor: "18"
+
+  # 固定値軽減（防御力 * 0.5 を差し引く）
+  DamageFormula: "max(1, damage - (armor * 0.5))"
+
+  Skills:
+    - damage{amount=32} @NP{r=10} ~onAttack
+    - potion{type=RESISTANCE;duration=100;amplifier=1} @Self{cond=entity.health < entity.maxHealth * 0.3} ~onDamaged
+
+# HP依存の軽減率（HP高いほど硬い）
+AdaptiveArmorBoss:
+  Type: IRON_GOLEM
+  Display: "&d&l適応装甲"
+  Health: "500"
+  Damage: "30"
+  Armor: "20"
+
+  # HP割合が高いほど軽減率が高い
+  DamageFormula: "damage * (1 - (armor / 25) * (health / maxHealth))"
+
+  Skills:
+    - damage{amount=40} @AP{r=12} ~onAttack
+    - heal{amount=50} @Self{cond=entity.health < entity.maxHealth * 0.4} ~onTimer:120
+
+# 最小ダメージ保証型（軽減しすぎないように）
+BalancedGuardian:
+  Type: WARDEN
+  Display: "&8&l均衡の守護者"
+  Health: "450"
+  Damage: "50"
+  Armor: "22"
+
+  # 最低でも元ダメージの30%は通す
+  DamageFormula: "max(damage * 0.3, damage * (1 - armor / 25))"
+
+  Skills:
+    - damage{amount=60} @NP{r=15} ~onAttack
+    - aura{radius=10;damage=15;duration=100;interval=20} @Self ~onTimer:200
+
+# ==========================================
+# 4. 全機能を組み合わせた究極の例
+# ==========================================
+
+UltimateStrategicBoss:
+  Type: ENDER_DRAGON
+  Display: "&5&l&k||&r &d&l戦術の覇者 &5&k||"
+  Health: "800 + (nearbyPlayers.count * 150)"
+  Damage: "45 + (nearbyPlayers.avgLevel * 0.8)"
+  Armor: "28"
+  ArmorToughness: "15"
+
+  # HP依存の複雑なダメージ計算
+  DamageFormula: "damage * (1 - ((min(20, armor) + armorToughness / 8) / 25) * (health / maxHealth * 0.8 + 0.2))"
+
+  AI:
+    MovementSpeed: 0.35
+    FollowRange: 60.0
+    KnockbackResistance: 1.0
+
+  Appearance:
+    CustomNameVisible: true
+    Glowing: true
+
+  Skills:
+    # フェーズ1（HP70%以上）：防御力が低い敵を集中攻撃
+    - damage{amount=55} @AL{r=25;sort=CUSTOM;sortExpression="target.armor";limit=5} ~onTimer:60
+      {cond=entity.health > entity.maxHealth * 0.7}
+
+    # フェーズ2（HP40-70%）：中堅層（HP2～5位）を優先攻撃
+    - damage{amount=70} @AP{r=30;sort=HIGHEST_HEALTH;offset=1;limit=4} ~onTimer:80
+      {cond=entity.health > entity.maxHealth * 0.4 && entity.health <= entity.maxHealth * 0.7}
+    - explosion{amount=40;radius=8;kb=2.0} @Self ~onTimer:120
+      {cond=entity.health > entity.maxHealth * 0.4 && entity.health <= entity.maxHealth * 0.7}
+
+    # フェーズ3（HP40%以下）：最も強い敵（総合戦闘力）に集中
+    - damage{amount=90} @AL{r=35;sort=CUSTOM;sortExpression="-(target.attackDamage + target.armor + target.health)";limit=3} ~onTimer:60
+      {cond=entity.health <= entity.maxHealth * 0.4}
+    - lightning{damage=60;fire=true} @AP{r=40;sort=CUSTOM;sortExpression="-(target.armor + target.health)";limit=2} ~onTimer:100
+      {cond=entity.health <= entity.maxHealth * 0.4}
+
+    # 常時スキル：2～4番目に近い敵に遠距離攻撃
+    - projectile{type=DRAGON_FIREBALL;speed=2.0;damage=50;hitRadius=3.0} @AP{r=50;sort=NEAREST;offset=1;limit=3} ~onTimer:100
+
+    # 回復スキル：最も近い味方は除いて2～4位に回復
+    - heal{amount=60} @AL{r=30;sort=NEAREST;offset=1;limit=3} ~onTimer:180
+
+    # デバフスキル：攻撃力が高い上位3名を弱体化
+    - potion{type=WEAKNESS;duration=200;amplifier=2} @AL{r=25;sort=CUSTOM;sortExpression="-target.attackDamage";limit=3} ~onTimer:160
+
+    # 緊急回復：HP30%以下で自己回復
+    - heal{amount=150} @Self ~onDamaged
+      {cond=entity.health < entity.maxHealth * 0.3}
+    - shield{amount=200;duration=300} @Self ~onDamaged
+      {cond=entity.health < entity.maxHealth * 0.3}
+
+    # 死亡時：全範囲に大ダメージ
+    - explosion{amount=120;radius=30;kb=4.0;fire=true} @Self ~onDeath
+    - lightning{damage=80;fire=true} @AP{r=40} ~onDeath
+
+  Drops:
+    - item: NETHER_STAR
+      amount: "2 + math.floor(nearbyPlayers.count / 3)"
+      chance: "1.0"
+    - item: NETHERITE_INGOT
+      amount: "3-6"
+      chance: "1.0"
+    - item: DRAGON_HEAD
+      amount: "1"
+      chance: "0.5"
+
+# ==========================================
+# 使用例とポイント
+# ==========================================
+#
+# ✅ CEL式カスタムソート
+#   - sortExpression で任意の属性や計算式でソート
+#   - 昇順: "target.armor"
+#   - 降順: "-target.armor" （マイナスを付ける）
+#   - 複雑な式: "target.health / target.maxHealth"
+#   - 複合: "-(target.armor + target.health)"
+#
+# ✅ オフセット機能
+#   - offset=N で先頭N個をスキップ
+#   - limit=M で M個取得
+#   - 例: offset=1;limit=2 → 2番目と3番目
+#   - 例: offset=3;limit=5 → 4～8番目
+#
+# ✅ ダメージ計算式
+#   - DamageFormula で自由な計算式
+#   - 利用可能な変数:
+#     * damage - 受けるダメージ
+#     * armor - 防御力
+#     * armorToughness - 防具強度
+#     * health - 現在HP
+#     * maxHealth - 最大HP
+#     * min(), max(), math.floor() などの関数
+#
+# ✅ 組み合わせ
+#   - 3つの機能を組み合わせて高度な戦術を実現
+#   - フェーズごとに異なるターゲティング戦略
+#   - HP依存の防御力変化
+#   - ランク指定の精密なターゲティング

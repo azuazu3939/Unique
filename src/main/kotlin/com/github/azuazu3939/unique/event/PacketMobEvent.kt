@@ -13,7 +13,7 @@ import org.bukkit.event.HandlerList
  */
 abstract class PacketMobEvent(
     val mob: PacketMob,
-    isAsync: Boolean = true
+    isAsync: Boolean = false
 ) : Event(isAsync) {
 
     companion object {
@@ -37,7 +37,7 @@ class PacketMobSpawnEvent(
     mob: PacketMob,
     val location: Location,
     val mobName: String
-) : PacketMobEvent(mob, isAsync = true), Cancellable {
+) : PacketMobEvent(mob), Cancellable {
 
     private var cancelled = false
 
@@ -69,7 +69,7 @@ class PacketMobDamageEvent(
     val damager: Entity?,
     var damage: Double,
     val cause: DamageCause = DamageCause.ENTITY_ATTACK
-) : PacketMobEvent(mob, isAsync = true), Cancellable {
+) : PacketMobEvent(mob), Cancellable {
 
     private var cancelled = false
 
@@ -111,7 +111,7 @@ class PacketMobDeathEvent(
     mob: PacketMob,
     val killer: Player?,
     val drops: MutableList<org.bukkit.inventory.ItemStack> = mutableListOf()
-) : PacketMobEvent(mob, isAsync = true) {
+) : PacketMobEvent(mob) {
 
     companion object {
         @JvmStatic
@@ -134,7 +134,7 @@ class PacketMobAttackEvent(
     mob: PacketMob,
     val target: Entity,
     var damage: Double
-) : PacketMobEvent(mob, isAsync = true), Cancellable {
+) : PacketMobEvent(mob), Cancellable {
 
     private var cancelled = false
 
@@ -166,7 +166,7 @@ class PacketMobTargetEvent(
     val oldTarget: Entity?,
     var newTarget: Entity?,
     val reason: TargetReason = TargetReason.CLOSEST_PLAYER
-) : PacketMobEvent(mob, isAsync = true), Cancellable {
+) : PacketMobEvent(mob), Cancellable {
 
     private var cancelled = false
 
@@ -207,7 +207,7 @@ class PacketMobSkillEvent(
     mob: PacketMob,
     val skillName: String,
     val trigger: SkillTriggerType
-) : PacketMobEvent(mob, isAsync = true), Cancellable {
+) : PacketMobEvent(mob), Cancellable {
 
     private var cancelled = false
 
@@ -248,7 +248,7 @@ class PacketMobSkillEvent(
 class PacketMobRemoveEvent(
     mob: PacketMob,
     val reason: RemoveReason = RemoveReason.DEATH
-) : PacketMobEvent(mob, isAsync = true) {
+) : PacketMobEvent(mob) {
 
     /**
      * 削除理由
@@ -258,6 +258,37 @@ class PacketMobRemoveEvent(
         DESPAWN,        // デスポーン
         UNLOAD,         // チャンクアンロード
         PLUGIN          // プラグイン指定
+    }
+
+    companion object {
+        @JvmStatic
+        private val handlers = HandlerList()
+
+        @JvmStatic
+        fun getHandlerList(): HandlerList = handlers
+    }
+
+    override fun getHandlers(): HandlerList = Companion.handlers
+}
+
+/**
+ * PacketMobプレイヤーキルイベント
+ *
+ * PacketMobがプレイヤーを殺した時に発火
+ * キャンセル可能（キラー設定を阻止）
+ */
+class PacketMobKillPlayerEvent(
+    mob: PacketMob,
+    val player: Player,
+    var setKiller: Boolean = true
+) : PacketMobEvent(mob), Cancellable {
+
+    private var cancelled = false
+
+    override fun isCancelled(): Boolean = cancelled
+
+    override fun setCancelled(cancel: Boolean) {
+        cancelled = cancel
     }
 
     companion object {

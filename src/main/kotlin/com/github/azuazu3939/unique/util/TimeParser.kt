@@ -2,7 +2,12 @@ package com.github.azuazu3939.unique.util
 
 import kotlin.collections.fold
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -17,11 +22,16 @@ object TimeParser {
      * 文字列を Duration に変換
      *
      * サポートする形式:
+     * - "100ns" / "100nanos" → 100ナノ秒
+     * - "100us" / "100μs" / "100micros" → 100マイクロ秒
      * - "500ms" / "500millis" → 500ミリ秒
      * - "1s" / "1sec" / "1second" → 1秒
+     * - "5m" / "5min" / "5minute" → 5分
+     * - "2h" / "2hour" → 2時間
+     * - "1d" / "1day" → 1日
+     * - "20t" / "20tick" / "20ticks" → 20tick（1tick = 50ms、MythicMobs互換）
      * - "1.5s" → 1.5秒
-     * - "20tick" / "20ticks" → 約1秒（20tick ≈ 1000ms）
-     * - "500" → 500ミリ秒（単位なしはデフォルトでms）
+     * - "30" → 30tick（単位なしはデフォルトでtick、MythicMobs互換）
      *
      * @param input 時間文字列
      * @return Duration オブジェクト
@@ -36,29 +46,59 @@ object TimeParser {
         }
 
         return when {
+            // ナノ秒
+            trimmed.endsWith("ns") || trimmed.endsWith("nanos") -> {
+                val value = extractNumber(trimmed, listOf("ns", "nanos"))
+                value.toLong().nanoseconds
+            }
+
+            // マイクロ秒
+            trimmed.endsWith("us") || trimmed.endsWith("μs") || trimmed.endsWith("micros") -> {
+                val value = extractNumber(trimmed, listOf("us", "μs", "micros"))
+                value.toLong().microseconds
+            }
+
             // ミリ秒
             trimmed.endsWith("ms") || trimmed.endsWith("millis") -> {
                 val value = extractNumber(trimmed, listOf("ms", "millis"))
                 value.milliseconds
             }
 
+            // 分
+            trimmed.endsWith("m") || trimmed.endsWith("min") || trimmed.endsWith("minute") -> {
+                val value = extractNumber(trimmed, listOf("minute", "min", "m"))
+                value.toInt().minutes
+            }
+
+            // 時間
+            trimmed.endsWith("h") || trimmed.endsWith("hour") -> {
+                val value = extractNumber(trimmed, listOf("hour", "h"))
+                value.toInt().hours
+            }
+
+            // 日
+            trimmed.endsWith("d") || trimmed.endsWith("day") -> {
+                val value = extractNumber(trimmed, listOf("day", "d"))
+                value.toInt().days
+            }
+
             // 秒
             trimmed.endsWith("s") || trimmed.endsWith("sec") || trimmed.endsWith("second") -> {
-                val value = extractNumber(trimmed, listOf("s", "sec", "second"))
+                val value = extractNumber(trimmed, listOf("second", "sec", "s"))
                 value.seconds
             }
 
-            // Tick（非推奨だが互換性のため対応）
-            trimmed.endsWith("tick") || trimmed.endsWith("ticks") -> {
-                val ticks = extractNumber(trimmed, listOf("tick", "ticks"))
+            // Tick（推奨）
+            trimmed.endsWith("t") || trimmed.endsWith("tick") || trimmed.endsWith("ticks") -> {
+                val ticks = extractNumber(trimmed, listOf("ticks", "tick", "t"))
                 ticksToMillis(ticks.toLong()).milliseconds
             }
 
-            // 単位なし → ミリ秒として扱う
+            // 単位なし → Tickとして扱う（MythicMobs互換）
             else -> {
                 val value = trimmed.toDoubleOrNull()
                     ?: throw IllegalArgumentException("Invalid time format: $input")
-                value.milliseconds
+                ticksToMillis(value.toLong()).milliseconds
             }
         }
     }

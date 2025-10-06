@@ -1,0 +1,166 @@
+# ==========================================
+# Complete Example - 完全な実装例
+# ==========================================
+# このファイルは、スキル定義からMob定義、スポーン定義まで
+# すべてを1ファイルで完結させた完全な例です
+#
+# 実際の使用では、各定義を適切なフォルダーに分けて配置してください：
+# - スキル定義 → skills/
+# - Mob定義 → mobs/
+# - スポーン定義 → spawns/
+
+# ============================================
+# スキル定義例（実際は skills/ に配置）
+# ============================================
+# インライン形式で定義、トリガーは含めない
+
+ExampleFireball:
+  - >
+    projectile{type=FIREBALL;speed=2.5;gravity=false;maxDistance=45.0;hitRadius=1.8;homing=0.25;
+    onHit=[damage{amount=25},explosion{amount=18;radius=4.5;kb=1.8;fire=true},
+    particle{type=FLAME;count=40},sound{type=ENTITY_GENERIC_EXPLODE;volume=1.0;pitch=0.9}]}
+
+ExampleHeal:
+  - heal{amount=30}
+  - particle{type=HEART;count=20}
+  - sound{type=ENTITY_PLAYER_LEVELUP;volume=0.8;pitch=1.5}
+
+ExampleShield:
+  - shield{amount=60;duration=250}
+  - particle{type=BARRIER;count=50}
+  - sound{type=BLOCK_BEACON_ACTIVATE;volume=1.0;pitch=1.0}
+
+ExampleThunder:
+  - lightning{damage=45;fire=true}
+  - particle{type=ELECTRIC_SPARK;count=40}
+  - sound{type=ENTITY_LIGHTNING_BOLT_THUNDER;volume=1.2;pitch=1.0}
+
+# ============================================
+# Mob定義例（実際は mobs/ に配置）
+# ============================================
+# 超コンパクト構文：スキル名 @ターゲッター ~トリガー
+
+ExampleBoss:
+  Type: WITHER_SKELETON
+  Display: "&c&l&k||&r &4&lサンプルボス &c&k||"
+  Health: "400 + (nearbyPlayers.count * 100)"
+  Damage: "28 + (nearbyPlayers.avgLevel * 0.6)"
+  Armor: "16"
+  ArmorToughness: "10"
+  
+  AI:
+    MovementSpeed: 0.28
+    FollowRange: 50.0
+    KnockbackResistance: 0.9
+    
+  Appearance:
+    CustomNameVisible: true
+    Glowing: true
+    
+  Skills:
+    # ファイアボール（2秒ごと）
+    - ExampleFireball @NP{r=50} ~onTimer:40
+    
+    # 攻撃時に追加ダメージ
+    - damage{amount=35} @TL ~onAttack
+    
+    # ダメージ時に爆発
+    - explosion{amount=25;radius=8.0;kb=2.0} @Self ~onDamaged
+    
+    # HP50%以下でシールド
+    - ExampleShield @Self{cond=entity.health < entity.maxHealth * 0.5} ~onDamaged
+    
+    # HP30%以下で回復
+    - ExampleHeal @Self{cond=entity.health < entity.maxHealth * 0.3} ~onTimer:200
+    
+    # 10秒ごとに雷撃
+    - ExampleThunder @RP{r=40;c=3} ~onTimer:200
+    
+    # 死亡時に大爆発
+    - explosion{amount=80;radius=15.0;kb=3.5;fire=true} @Self ~onDeath
+    
+  Drops:
+    - item: NETHER_STAR
+      amount: "1"
+      chance: "1.0"
+    - item: DIAMOND
+      amount: "5-10"
+      chance: "1.0"
+    - item: NETHERITE_SCRAP
+      amount: "3-6"
+      chance: "0.8"
+
+# ============================================
+# スポーン定義例（実際は spawns/ に配置）
+# ============================================
+
+ExampleBossSpawn:
+  mob: ExampleBoss
+  enabled: false
+  manual: true
+  description: "サンプルボス - 手動スポーン用"
+
+# ============================================
+# 使い方
+# ============================================
+#
+# 1. このファイルをコピーして各フォルダーに分割：
+#
+#    スキル定義を skills/ に：
+#    ---
+#    ExampleFireball:
+#      - projectile{type=FIREBALL;speed=2.5;...}
+#    ExampleHeal:
+#      - heal{amount=30}
+#      - particle{type=HEART;count=20}
+#    ---
+#
+#    Mob定義を mobs/ に：
+#    ---
+#    ExampleBoss:
+#      Type: WITHER_SKELETON
+#      Skills:
+#        - ExampleFireball @NP{r=50} ~onTimer:40
+#        - damage{amount=35} @TL ~onAttack
+#    ---
+#
+#    スポーン定義を spawns/ に：
+#    ---
+#    ExampleBossSpawn:
+#      mob: ExampleBoss
+#      enabled: false
+#    ---
+#
+# 2. プラグインをリロード：
+#    /unique reload
+#
+# 3. Mobをスポーン：
+#    /unique spawn ExampleBoss
+#
+# 4. カスタマイズ：
+#    - スキルパラメータを調整
+#    - 新しいスキルを作成
+#    - Mob側でスキルを組み合わせ
+#
+# ============================================
+# ポイント
+# ============================================
+#
+# ✅ スキル定義はトリガーを含めない
+#    - skills/ には純粋なスキル定義のみ
+#    - トリガー（~onTimer等）はMob側で指定
+#
+# ✅ インライン形式を活用
+#    - projectile{type=FIREBALL;...}
+#    - damage{amount=35}
+#    - explosion{amount=25;radius=8.0;...}
+#
+# ✅ 複数エフェクトを順次実行
+#    - スキル名:
+#      - エフェクト1
+#      - エフェクト2
+#      - エフェクト3
+#
+# ✅ CEL式で動的調整
+#    - Health: "400 + (nearbyPlayers.count * 100)"
+#    - cond=entity.health < entity.maxHealth * 0.3

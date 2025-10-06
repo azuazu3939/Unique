@@ -1,0 +1,192 @@
+# ==========================================
+# Unique Plugin - 高度な設定例
+# ==========================================
+# このファイルは高度な機能の設定例です。
+# 実際に使用する場合は config.yml にコピーしてください。
+
+# デバッグ設定
+debug:
+  enabled: true
+  verbose: false
+  logSkillExecution: true
+  logCelEvaluation: false
+  logTimings: false
+
+# パフォーマンス設定
+performance:
+  asyncByDefault: true
+  packetEntityUpdateInterval: 1
+  maxConcurrentSkills: 100
+  viewDistance: 50.0
+  autoSpawnOnJoin: true
+
+# スポーン設定
+spawn:
+  enabled: true
+  checkInterval: 20
+  maxTotalSpawns: 200
+
+# CEL設定
+cel:
+  cacheSize: 1000
+  evaluationTimeout: 100
+
+# ==========================================
+# ダメージ計算設定
+# ==========================================
+damage:
+  # デフォルトのダメージ計算式（CEL式）
+  # 個々のMobでdamageFormulaが指定されていない場合に使用される
+  #
+  # 例:
+  # - Minecraft標準式
+  #   defaultFormula: "damage * (1 - min(20, armor) / 25)"
+  #
+  # - パーセント軽減（シンプル）
+  #   defaultFormula: "damage * (1 - armor / 100)"
+  #
+  # - 固定値軽減
+  #   defaultFormula: "max(1, damage - armor * 0.5)"
+  #
+  # - HP依存の軽減率
+  #   defaultFormula: "damage * (1 - (armor / 25) * (health / maxHealth))"
+  #
+  # - 最低ダメージ保証型
+  #   defaultFormula: "max(damage * 0.3, damage * (1 - armor / 25))"
+  #
+  # null の場合は組み込みのデフォルト計算式を使用
+  defaultFormula: null
+
+  # デフォルト計算式の例:
+  # Minecraft標準式
+  # defaultFormula: "damage * (1 - min(20, armor) / 25)"
+
+  # パーセント軽減（防御力 = 軽減率%）
+  # defaultFormula: "damage * (1 - armor / 100)"
+
+  # 防御力と防具強度を考慮
+  # defaultFormula: "damage * (1 - (min(20, armor) + armorToughness / 10) / 25)"
+
+# ==========================================
+# リソースキー設定
+# ==========================================
+resources:
+  # カスタムリソースキーの名前空間
+  #
+  # 例: customNamespace = "myserver"
+  #     → "myserver:custom_sound" を探し、なければ "minecraft:custom_sound"
+  #
+  # デフォルト: "custom"
+  customNamespace: "custom"
+
+  # リソースが見つからない場合にエラーログを出力するか
+  #
+  # true: 見つからないリソースを警告
+  # false: サイレントにデフォルト値を使用
+  logMissingResources: false
+
+  # カスタムリソースキー機能を有効にするか
+  #
+  # true: "custom:key" 形式をサポート
+  # false: 従来の "SOUND_NAME" 形式のみ
+  enableCustomKeys: true
+
+# 実験的機能設定
+experimental:
+  enableNewFeatures: false
+
+# ==========================================
+# 設定例の説明
+# ==========================================
+#
+# 1. デフォルトダメージ計算式
+#
+#    すべてのPacketMobに適用されるデフォルトの計算式を設定できます。
+#    個々のMobで damageFormula を指定している場合はそちらが優先されます。
+#
+#    優先順位:
+#    1. Mob個別の damageFormula
+#    2. config.yml の damage.defaultFormula
+#    3. 組み込みのデフォルト計算（Minecraft標準式相当）
+#
+#    使用例:
+#    # すべてのMobで%軽減を使用
+#    damage:
+#      defaultFormula: "damage * (1 - armor / 100)"
+#
+#    # 特定のMobのみカスタム式
+#    SpecialBoss:
+#      Type: WITHER
+#      DamageFormula: "max(damage * 0.5, damage * (1 - armor / 30))"
+#      # ↑ このMobはこの式を使用
+#
+#    NormalMob:
+#      Type: ZOMBIE
+#      # ↑ damageFormulaなし → defaultFormulaを使用
+#
+# 2. カスタムリソースキー
+#
+#    カスタム名前空間を使ってリソースキーを柔軟に解決できます。
+#
+#    解決ルール:
+#    1. "custom:boss_roar" → "custom:boss_roar" で検索
+#    2. 見つからなければ → "minecraft:boss_roar" で検索
+#    3. それでも見つからなければ → デフォルト値
+#
+#    使用例:
+#    # カスタム音を使用（将来的にリソースパック対応）
+#    sound{type=custom:boss_roar}
+#
+#    # 見つからなければminecraft:boss_roarを探す
+#    # それでも見つからなければデフォルト音
+#
+#    # 従来の形式も引き続き使用可能
+#    sound{type=ENTITY_ENDER_DRAGON_GROWL}
+#
+# ==========================================
+# 実践例
+# ==========================================
+
+# 例1: サーバー全体で統一されたダメージ計算
+# すべてのMobが同じ計算式を使用
+damage:
+  defaultFormula: "damage * (1 - min(20, armor) / 25)"
+
+# 例2: 特定のMobのみカスタマイズ
+# ボスだけ特殊な計算式、他は共通
+damage:
+  defaultFormula: "damage * (1 - armor / 100)"
+
+# BossMob.yml:
+# CustomBoss:
+#   DamageFormula: "damage * (1 - (armor + armorToughness) / 50)"
+#   # ↑ ボスだけ防具強度も考慮
+
+# 例3: カスタムリソースキーで拡張性を確保
+resources:
+  customNamespace: "myserver"
+  enableCustomKeys: true
+
+# Mob定義で使用:
+# Skills:
+#   - sound{type=myserver:epic_boss_roar} @Self ~onSpawn
+#   - particle{type=myserver:custom_particle} @Self ~onTimer:20
+#
+# → 将来的にリソースパックでカスタム音/パーティクルを追加可能
+
+# ==========================================
+# 注意事項
+# ==========================================
+#
+# 1. defaultFormula の構文エラー
+#    - CEL式の構文が間違っている場合、すべてのMobでダメージ計算が失敗します
+#    - テスト用のMobで動作確認してから設定してください
+#
+# 2. パフォーマンスへの影響
+#    - 複雑なCEL式は評価コストが高くなります
+#    - シンプルな式を推奨します
+#
+# 3. カスタムリソースキー
+#    - 現時点ではカスタムリソースは検索されますが見つかりません
+#    - 将来的なリソースパック対応のための機能です
+#    - 通常は minecraft: プレフィックスを省略した形式で十分です

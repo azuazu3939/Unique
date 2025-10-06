@@ -1,6 +1,7 @@
 name: unique
 version: @version@
 main: com.github.azuazu3939.unique.Unique
+bootstrapper: com.github.azuazu3939.unique.Bootstrap
 api-version: '1.21'
 folia-supported: true
 load: STARTUP
@@ -11,13 +12,6 @@ dependencies:
   server:
     packetevents:
       load: BEFORE
-
-commands:
-  unique:
-    description: Main command for Unique plugin
-    aliases: [uq, uni]
-    usage: /unique <reload|list|spawn|debug>
-    permission: unique.command
 
 # Permissions
 permissions:

@@ -1,0 +1,171 @@
+# ==========================================
+# Unique Plugin - エイリアス定義
+# ==========================================
+# スキル、コンディション、ターゲッターの短縮名を定義します。
+# エイリアスを使用することで、Mob定義やスキル定義がより簡潔になります。
+
+aliases:
+  # ==========================================
+  # スキルのエイリアス
+  # ==========================================
+  skills:
+    # 発射物スキル
+    FB: BasicFireball
+    PFB: PowerfulFireball
+    Arrow: BasicArrowShot
+    PArrow: PowerfulArrowShot
+
+    # 近接スキル
+    Slash: MeleeSlash
+    PSlash: PowerfulSlash
+    KB: KnockbackStrike
+
+    # サポートスキル
+    Heal: SelfHealingEffect
+    PHeal: PowerfulHeal
+    Buff: StrengthBuff
+    Shield: ProtectionShield
+
+    # 範囲スキル
+    AOE: AreaOfEffectDamage
+    Explosion: ExplosionAttack
+    Nova: DamageNova
+
+    # オーラ・ビーム
+    Aura: FlameAura
+    Beam: LaserBeam
+    PBeam: PowerfulBeam
+
+  # ==========================================
+  # コンディションのエイリアス
+  # ==========================================
+  conditions:
+    # HP関連
+    LowHP: "entity.health < entity.maxHealth * 0.3"
+    MedHP: "entity.health > entity.maxHealth * 0.3 && entity.health < entity.maxHealth * 0.7"
+    HighHP: "entity.health > entity.maxHealth * 0.7"
+    HalfHP: "entity.health < entity.maxHealth * 0.5"
+
+    # ターゲットHP
+    TargetLowHP: "target.health < target.maxHealth * 0.3"
+    TargetHighHP: "target.health > target.maxHealth * 0.7"
+
+    # プレイヤー関連
+    NearPlayers: "nearbyPlayers.count > 0"
+    ManyPlayers: "nearbyPlayers.count >= 3"
+    NoPlayers: "nearbyPlayers.count == 0"
+
+    # 変数関連
+    CanStoreVars: "target.canHoldVariables"
+    CanStoreSelf: "entity.canHoldVariables"
+    CanStoreTrigger: "trigger.canHoldVariables"
+
+    # 時間関連
+    IsDay: "world.isDay"
+    IsNight: "world.isNight"
+    HasStorm: "world.hasStorm"
+
+    # TPS関連
+    HighTPS: "current.tps > 18.0"
+    LowTPS: "current.tps < 15.0"
+    GoodPerformance: "average.tps1m > 19.0"
+
+  # ==========================================
+  # ターゲッターのエイリアス
+  # ==========================================
+  targeters:
+    # Nearest系（最も近い）
+    NP: NearestPlayer           # 最も近いプレイヤー
+    NL: NearestLiving           # 最も近いLivingEntity
+    NE: NearestEntity           # 最も近いEntity
+    NPM: NearestPacketMob       # 最も近いPacketMob
+
+    # All系（範囲内全て）
+    AP: AllPlayers              # 範囲内の全プレイヤー
+    AL: AllLiving               # 範囲内の全LivingEntity
+    AE: AllEntities             # 範囲内の全Entity
+    APM: AllPacketMobs          # 範囲内の全PacketMob
+
+    # Radius系（範囲指定版）
+    RP: RadiusPlayers           # 範囲指定プレイヤー
+    RL: RadiusLiving            # 範囲指定LivingEntity
+    RE: RadiusEntity            # 範囲指定Entity
+    RPM: RadiusPacketMobs       # 範囲指定PacketMob
+
+    # その他
+    Self: SelfTargeter          # 自分自身
+    Los: LineOfSight            # 視線先
+    Atk: AttackerTargeter       # 攻撃者
+    Rand: RandomPlayer          # ランダムプレイヤー
+    TL: TargetLocation          # ターゲット位置
+
+  # ==========================================
+  # トリガーのエイリアス
+  # ==========================================
+  triggers:
+    Attack: onAttack            # 攻撃時
+    Damaged: onDamaged          # ダメージ受けた時
+    Timer: onTimer              # タイマー
+    Spawn: onSpawn              # スポーン時
+    Death: onDeath              # 死亡時
+    Kill: onKill                # 敵を倒した時
+
+# ==========================================
+# 使用例
+# ==========================================
+# Mob定義での使用:
+#
+# StrongZombie:
+#   Type: ZOMBIE
+#   Skills:
+#     # エイリアスを使用した簡潔な記述
+#     - FB @NP{r=10} ~Attack              # 最も近いプレイヤーに火球
+#     - Heal @Self{cond=LowHP} ~Damaged   # 低HP時に回復
+#     - AOE @AP{r=15;cond=HighHP} ~Timer:40  # HP高い時に範囲攻撃
+#
+# エンティティタイプ別ターゲティング:
+#
+# ElementalBoss:
+#   Type: BLAZE
+#   Skills:
+#     - damage{amount=20} @NL{r=15} ~Attack        # 近くのLivingEntityにダメージ
+#     - freeze{duration=60} @AE{r=10} ~Timer:100   # 全Entityを凍結
+#     - heal{amount=10} @APM{r=20} ~Timer:60       # PacketMobを回復
+#
+# ソート・制限機能の使用:
+#
+# AdvancedBoss:
+#   Type: WITHER
+#   Skills:
+#     - damage{amount=15} @AP{r=20;sort=NEAREST;limit=3} ~Attack
+#       # 最も近い3名のプレイヤーにダメージ
+#     - damage{amount=20} @AL{r=30;sort=HIGHEST_HEALTH;limit=10} ~Timer:100
+#       # HP高い10体にダメージ（強い敵優先）
+#     - heal{amount=10} @AP{r=15;sort=LOWEST_HEALTH;limit=3} ~Timer:60
+#       # HP低い3名のプレイヤーを回復
+#     - buff{type=SPEED} @AL{r=20;sort=THREAT;limit=5} ~Timer:120
+#       # ヘイト値上位5名にバフ
+#
+# CEL式カスタムソート・オフセット機能:
+#
+# UltimateBoss:
+#   Type: ENDER_DRAGON
+#   Skills:
+#     - damage{amount=30} @AL{r=25;sort=CUSTOM;sortExpression="target.armor";limit=5} ~Attack
+#       # 防御力が最も低い5体を狙う（CEL式）
+#     - damage{amount=40} @AL{r=20;sort=CUSTOM;sortExpression="-(target.armor + target.health)";limit=3} ~Timer:80
+#       # 最もタンク性能が高い3体に大ダメージ
+#     - heal{amount=20} @AP{r=15;sort=CUSTOM;sortExpression="target.health / target.maxHealth";limit=3} ~Timer:100
+#       # HP割合が低い3名を回復
+#     - damage{amount=25} @AL{r=30;sort=NEAREST;offset=1;limit=3} ~Timer:60
+#       # 2番目～4番目に近い敵に攻撃（1番目はスキップ）
+#     - potion{type=WEAKNESS} @AL{r=20;sort=CUSTOM;sortExpression="-target.attackDamage";limit=3} ~Timer:120
+#       # 攻撃力が高い3体に弱体化
+#
+# コンディション付きターゲティング:
+#
+# BossZombie:
+#   Skills:
+#     - PFB @NP{r=50;cond=CanStoreVars}   # 変数保持可能なプレイヤーにのみ
+#     - Nova @AL{r=20;cond=ManyPlayers}   # プレイヤー3人以上いる時
+#     - damage{amount=30} @NE{r=10;cond=LowHP}  # 低HPのEntityを狙う

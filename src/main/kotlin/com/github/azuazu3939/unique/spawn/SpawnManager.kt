@@ -6,8 +6,10 @@ import com.github.azuazu3939.unique.event.PacketMobSkillEvent
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.TimeParser
 import com.github.shynixn.mccoroutine.folia.launch
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.World
@@ -119,15 +121,17 @@ class SpawnManager(private val plugin: Unique) {
      */
     private fun parseSpawnDefinition(section: ConfigurationSection): SpawnDefinition {
         return SpawnDefinition(
-            mob = section.getString("Mob") ?: throw IllegalArgumentException("Mob is required"),
-            conditions = section.getStringList("Conditions").takeIf { it.isNotEmpty() } ?: listOf("true"),
-            spawnRate = section.getInt("SpawnRate", 20),
-            maxNearby = section.getInt("MaxNearby", 5),
-            chunkRadius = section.getInt("ChunkRadius", 3),
-            region = parseRegion(section.getConfigurationSection("Region")),
-            location = parseLocation(section.getConfigurationSection("Location")),
-            advancedConditions = parseAdvancedConditions(section.getConfigurationSection("AdvancedConditions")),
-            onSpawn = parseOnSpawnSkills(section.getConfigurationSection("OnSpawn"))
+            mob = section.getString("mob") ?: section.getString("Mob") ?: throw IllegalArgumentException("Mob is required"),
+            conditions = section.getStringList("conditions").takeIf { it.isNotEmpty() }
+                ?: section.getStringList("Conditions").takeIf { it.isNotEmpty() }
+                ?: listOf("true"),
+            spawnRate = section.getInt("spawnRate", section.getInt("SpawnRate", 20)),
+            maxNearby = section.getInt("maxNearbyMobs", section.getInt("MaxNearby", 5)),
+            chunkRadius = section.getInt("spawnRadius", section.getInt("ChunkRadius", 3)),
+            region = parseRegion(section.getConfigurationSection("region") ?: section.getConfigurationSection("Region")),
+            location = parseLocation(section.getConfigurationSection("location") ?: section.getConfigurationSection("Location")),
+            advancedConditions = parseAdvancedConditions(section.getConfigurationSection("advancedConditions") ?: section.getConfigurationSection("AdvancedConditions")),
+            onSpawn = parseOnSpawnSkills(section.getConfigurationSection("onSpawn") ?: section.getConfigurationSection("OnSpawn"))
         )
     }
 
@@ -281,7 +285,7 @@ class SpawnManager(private val plugin: Unique) {
     /**
      * スポーンタスクを開始
      */
-    private fun startSpawnTasks() {
+    fun startSpawnTasks() {
         DebugLogger.info("Starting spawn tasks...")
 
         for ((name, definition) in spawnDefinitions) {
@@ -320,6 +324,16 @@ class SpawnManager(private val plugin: Unique) {
         // ワールド取得
         val world = getSpawnWorld(definition) ?: return
 
+        // オンラインプレイヤーを取得
+        val players = world.players
+        if (players.isEmpty()) {
+            DebugLogger.verbose("Spawn $name: No players online in world ${world.name}")
+            return
+        }
+
+        // ランダムにプレイヤーを選択
+        val targetPlayer = players.random()
+
         // 条件評価
         if (!evaluateSpawnConditions(definition, world)) {
             return
@@ -331,21 +345,21 @@ class SpawnManager(private val plugin: Unique) {
             DebugLogger.verbose("Spawn $name: Max nearby reached ($currentCount/${definition.maxNearby})")
             return
         }
-
-        // スポーン位置を決定
-        val location = determineSpawnLocation(definition, world) ?: return
-
         // Mobをスポーン
-        val mob = plugin.mobManager.spawnMob(definition.mob, location)
+        withContext(plugin.regionDispatcher(targetPlayer.location)) {
+            val location = determineSpawnLocationNearPlayer(targetPlayer.location, definition) ?: return@withContext
 
-        if (mob != null) {
-            // カウント増加
-            spawnCounts.compute(name) { _, count -> (count ?: 0) + 1 }
+            val mob = plugin.mobManager.spawnMob(definition.mob, location)
 
-            DebugLogger.debug("Spawned ${definition.mob} at ${location.blockX}, ${location.blockY}, ${location.blockZ} ($name)")
+            if (mob != null) {
+                // カウント増加
+                spawnCounts.compute(name) { _, count -> (count ?: 0) + 1 }
 
-            // OnSpawnスキルを実行
-            executeOnSpawnSkills(mob, definition.onSpawn)
+                DebugLogger.debug("Spawned ${definition.mob} at ${location.blockX}, ${location.blockY}, ${location.blockZ} near ${targetPlayer.name} ($name)")
+
+                // OnSpawnスキルを実行
+                executeOnSpawnSkills(mob, definition.onSpawn)
+            }
         }
     }
 
@@ -559,6 +573,29 @@ class SpawnManager(private val plugin: Unique) {
             }
             else -> null
         }
+    }
+
+    /**
+     * プレイヤー周囲のスポーン位置を決定
+     */
+    private fun determineSpawnLocationNearPlayer(playerLocation: Location, definition: SpawnDefinition): Location? {
+        // chunkRadiusを使用してスポーン範囲を決定（デフォルトは3チャンク = 48ブロック）
+        val minRadius = 20.0  // プレイヤーから最小20ブロック離す
+        val maxRadius = (definition.chunkRadius * 16.0).coerceAtLeast(minRadius + 10.0)  // 最大半径
+
+        // ランダムな角度と距離を生成
+        val angle = Random.nextDouble() * 2 * Math.PI
+        val distance = Random.nextDouble(minRadius, maxRadius)
+
+        // X, Z座標を計算
+        val x = playerLocation.x + distance * cos(angle)
+        val z = playerLocation.z + distance * sin(angle)
+
+        // 地面の高さを取得（+1で地面の上）
+        val world = playerLocation.world ?: return null
+        val y = world.getHighestBlockYAt(x.toInt(), z.toInt()).toDouble() + 1
+
+        return Location(world, x, y, z)
     }
 
     /**

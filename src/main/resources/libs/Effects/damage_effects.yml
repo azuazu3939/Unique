@@ -1,0 +1,38 @@
+# ==========================================
+# Damage Effects - ダメージエフェクト定義
+# ==========================================
+# オーディエンス機能付きエフェクト定義
+# audience パラメータで効果/視覚の受信者を指定可能
+
+# 重ダメージエフェクト
+HeavyDamageEffect:
+  - damage{amount=50}
+  - particle{type=CRIT;count=25;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_PLAYER_ATTACK_CRIT;volume=1.2;pitch=0.8;audience=@RadiusPlayers{r=30}}
+
+# 火炎ダメージエフェクト
+FlameDamageEffect:
+  - damage{amount=35}
+  - particle{type=FLAME;count=40;speed=0.2;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_BLAZE_SHOOT;volume=1.0;pitch=0.9;audience=@RadiusPlayers{r=30}}
+
+# 雷撃ダメージエフェクト
+ThunderDamageEffect:
+  - damage{amount=45}
+  - lightning{damage=0;fire=false;visualOnly=true}
+  - particle{type=ELECTRIC_SPARK;count=50;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_LIGHTNING_BOLT_IMPACT;volume=1.0;pitch=1.0;audience=@RadiusPlayers{r=40}}
+
+# 氷結ダメージエフェクト
+FrostDamageEffect:
+  - damage{amount=30}
+  - freeze{duration=100;amplifier=2}
+  - particle{type=SNOWFLAKE;count=35;speed=0.1;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_GLASS_BREAK;volume=1.0;pitch=1.2;audience=@RadiusPlayers{r=30}}
+
+# 毒ダメージエフェクト
+PoisonDamageEffect:
+  - damage{amount=20}
+  - potion{type=POISON;duration=200;amplifier=3}
+  - particle{type=SLIME;count=30;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_SPIDER_AMBIENT;volume=0.8;pitch=0.8;audience=@RadiusPlayers{r=30}}

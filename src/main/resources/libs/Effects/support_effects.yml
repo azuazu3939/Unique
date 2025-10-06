@@ -1,0 +1,47 @@
+# ==========================================
+# Support Effects - サポートエフェクト定義
+# ==========================================
+# 回復、シールド、バフ等のサポート系エフェクト
+
+# 大回復エフェクト
+GreatHealEffect:
+  - heal{amount=50}
+  - particle{type=HEART;count=30;audience=@RadiusPlayers{r=50}}
+  - particle{type=TOTEM_OF_UNDYING;count=20;audience=@RadiusPlayers{r=50}}
+  - sound{type=ITEM_TOTEM_USE;volume=1.0;pitch=1.0;audience=@RadiusPlayers{r=30}}
+
+# 小回復エフェクト
+HealEffect:
+  - heal{amount=20}
+  - particle{type=HEART;count=15;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_PLAYER_LEVELUP;volume=0.5;pitch=1.5;audience=@RadiusPlayers{r=30}}
+
+# 強力なシールドエフェクト
+PowerShieldEffect:
+  - shield{amount=100;duration=300}
+  - particle{type=BARRIER;count=60;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_BEACON_ACTIVATE;volume=1.2;pitch=1.0;audience=@RadiusPlayers{r=30}}
+
+# 通常シールドエフェクト
+ShieldEffect:
+  - shield{amount=50;duration=200}
+  - particle{type=BARRIER;count=40;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_BEACON_ACTIVATE;volume=1.0;pitch=1.0;audience=@RadiusPlayers{r=30}}
+
+# 再生エフェクト
+RegenerationEffect:
+  - potion{type=REGENERATION;duration=200;amplifier=2}
+  - particle{type=HAPPY_VILLAGER;count=25;audience=@RadiusPlayers{r=50}}
+  - sound{type=BLOCK_BEACON_AMBIENT;volume=0.8;pitch=1.2;audience=@RadiusPlayers{r=30}}
+
+# 速度上昇エフェクト
+SpeedBoostEffect:
+  - potion{type=SPEED;duration=200;amplifier=2}
+  - particle{type=CLOUD;count=20;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_HORSE_GALLOP;volume=0.8;pitch=1.3;audience=@RadiusPlayers{r=30}}
+
+# 力上昇エフェクト
+StrengthBoostEffect:
+  - potion{type=STRENGTH;duration=200;amplifier=2}
+  - particle{type=ANGRY_VILLAGER;count=20;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_IRON_GOLEM_ATTACK;volume=0.8;pitch=1.2;audience=@RadiusPlayers{r=30}}

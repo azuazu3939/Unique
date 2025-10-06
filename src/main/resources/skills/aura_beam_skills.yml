@@ -1,0 +1,71 @@
+# ==========================================
+# Aura & Beam Skills - オーラ・ビームスキル定義
+# ==========================================
+# インライン形式のスキル定義
+# Mob側で「スキル名 @ターゲッター ~トリガー」として使用
+
+# 炎のオーラ
+FlameAura:
+  - >
+    aura{radius=10.0;duration=10000;tickInterval=1000;particle=FLAME;particleCount=30;
+    particleSpeed=0.1;selfAffect=false;maxTargets=0;
+    onTick=[damage{amount=5},particle{type=FLAME;count=10}]}
+
+# 氷結オーラ
+FrostAura:
+  - >
+    aura{radius=8.0;duration=8000;tickInterval=1000;particle=SNOWFLAKE;particleCount=25;
+    particleSpeed=0.05;selfAffect=false;maxTargets=5;
+    onTick=[freeze{duration=60;amplifier=1},particle{type=CLOUD;count=15}]}
+
+# 回復オーラ
+HealingAura:
+  - >
+    aura{radius=12.0;duration=15000;tickInterval=2000;particle=HEART;particleCount=20;
+    particleSpeed=0.1;selfAffect=true;maxTargets=3;
+    onTick=[heal{amount=10},particle{type=VILLAGER_HAPPY;count=10}]}
+
+# 雷のオーラ
+ThunderAura:
+  - >
+    aura{radius=15.0;duration=12000;tickInterval=1500;particle=ELECTRIC_SPARK;particleCount=40;
+    particleSpeed=0.15;selfAffect=false;maxTargets=0;
+    onTick=[damage{amount=8},lightning{damage=10;fire=false;visualOnly=true}]}
+
+# 炎のビーム
+FlameBeam:
+  - >
+    beam{range=25.0;width=1.0;particle=FLAME;density=0.3;duration=2000;tickInterval=100;
+    piercing=true;onHit=[damage{amount=15},particle{type=FLAME;count=5}]}
+
+# 氷のビーム
+FrostBeam:
+  - >
+    beam{range=20.0;width=0.8;particle=SNOWFLAKE;density=0.4;duration=1500;tickInterval=100;
+    piercing=false;onHit=[damage{amount=12},freeze{duration=80;amplifier=2}]}
+
+# 雷のビーム
+ThunderBeam:
+  - >
+    beam{range=30.0;width=1.2;particle=ELECTRIC_SPARK;density=0.5;duration=1000;tickInterval=50;
+    piercing=true;onHit=[damage{amount=20},lightning{damage=10;fire=false;visualOnly=true}]}
+
+# 毒のビーム
+PoisonBeam:
+  - >
+    beam{range=22.0;width=0.9;particle=SLIME;density=0.35;duration=1800;tickInterval=120;
+    piercing=false;onHit=[damage{amount=10},potion{type=POISON;duration=150;amplifier=2}]}
+
+# 虚弱オーラ
+WeaknessAura:
+  - >
+    aura{radius=10.0;duration=10000;tickInterval=1000;particle=SMOKE;particleCount=20;
+    particleSpeed=0.05;selfAffect=false;maxTargets=0;
+    onTick=[potion{type=WEAKNESS;duration=100;amplifier=1},particle{type=MYCELIUM;count=10}]}
+
+# 盲目オーラ
+BlindnessAura:
+  - >
+    aura{radius=8.0;duration=8000;tickInterval=1500;particle=SQUID_INK;particleCount=25;
+    particleSpeed=0.1;selfAffect=false;maxTargets=5;
+    onTick=[blind{duration=80;amplifier=2},particle{type=SMOKE;count=15}]}

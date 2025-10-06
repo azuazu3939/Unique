@@ -1,0 +1,699 @@
+# ==========================================
+# Utility Effects - ユーティリティエフェクト定義
+# ==========================================
+# タイミング制御やユーティリティ系のエフェクト
+
+# 遅延エフェクト（並列実行）
+# 前のスキルを待たずに遅延を開始
+# 記法: - delay 2s または - delay 40 または - delay "CEL式"
+Delay1Second:
+  - delay 1s  # 1秒（20tick）
+
+Delay2Seconds:
+  - delay 2s  # 2秒（40tick）
+
+Delay3Seconds:
+  - delay 3s  # 3秒（60tick）
+
+Delay5Seconds:
+  - delay 5s  # 5秒（100tick）
+
+Delay10Seconds:
+  - delay 10s  # 10秒（200tick）
+
+DelayDynamic:
+  - delay "toInt(current.tps)"  # 動的遅延：現在のTPS
+
+DelayByAverageTPS:
+  - delay "toInt(average.tps1m)"  # 動的遅延：1分平均TPS
+
+DelayByServerLoad:
+  - delay "toInt(20 - average.tps5m)"  # 動的遅延：サーバー負荷に応じて
+
+# 待機エフェクト（直列実行）
+# 前のスキルが全て完了するまで待ってから遅延
+# 記法: - wait 2s または - wait 40 または - wait "CEL式"
+Wait1Second:
+  - wait 1s  # 1秒（20tick）
+
+Wait2Seconds:
+  - wait 2s  # 2秒（40tick）
+
+Wait3Seconds:
+  - wait 3s  # 3秒（60tick）
+
+Wait5Seconds:
+  - wait 5s  # 5秒（100tick）
+
+Wait10Seconds:
+  - wait 10s  # 10秒（200tick）
+
+WaitDynamic:
+  - wait "nearbyPlayers.count * 20"  # 動的待機：プレイヤー数に応じて
+
+WaitByAverageTPS:
+  - wait "toInt(average.tps1m)"  # 動的待機：1分平均TPS
+
+WaitAdaptive:
+  - wait "entity.health < entity.maxHealth * 0.5 ? 100 : 50"  # 動的待機：HP50%以下なら100tick、それ以外50tick
+
+# 変数保存エフェクト
+# スキル実行中に値を一時保存し、後続のエフェクトで再利用
+# 記法: - set 変数名 "CEL式"
+# 参照: vars.変数名
+
+# HP割合を保存
+SaveHPPercent:
+  - set hpPercent "entity.health / entity.maxHealth * 100"
+
+# プレイヤー数を保存
+SavePlayerCount:
+  - set playerCount "nearbyPlayers.count"
+
+# 複雑な計算結果を保存
+SaveScaledDamage:
+  - set playerCount "nearbyPlayers.count"
+  - set avgLevel "nearbyPlayers.avgLevel"
+  - set scaledDamage "vars.playerCount * vars.avgLevel * 0.5"
+
+# TPS調整値を保存
+SaveTPSAdjust:
+  - set tpsAdjust "20 - average.tps5m"
+
+# 繰り返し処理エフェクト
+# waitと組み合わせて時間差攻撃が可能
+# ループ変数: vars.index (0始まり), vars.iteration (1始まり)
+
+# 5回連続攻撃（1秒間隔）
+FiveTimesAttack:
+  - foreach{count=5;effects=[damage{amount=10},particle{type=FLAME;count=5},wait{time=1s}]}
+
+# プレイヤー数分繰り返し
+RepeatByPlayerCount:
+  - foreach{count="nearbyPlayers.count";effects=[damage{amount=20},wait{time=500ms}]}
+
+# ループカウンタを使った段階的攻撃
+ScalingAttack:
+  - foreach{count=10;effects=[
+      damage{amount="10 + vars.index * 2"},
+      particle{count="vars.iteration * 5"},
+      wait{time="vars.index * 100"}
+    ]}
+
+# repeat形式（シンプル）
+SimpleRepeat:
+  - repeat{count=5;delay=1s;effect=damage{amount=15}}
+
+# HP基準の繰り返し
+HPBasedRepeat:
+  - set hpPercent "entity.health / entity.maxHealth * 100"
+  - set attackCount "vars.hpPercent < 50 ? 10 : 5"
+  - foreach{count="vars.attackCount";effects=[
+      damage{amount="20 + vars.index * 3"},
+      particle{type=CRIT;count="10 + vars.iteration * 2"},
+      wait{time=1s}
+    ]}
+
+# コレクション操作エフェクト
+# リスト/マップをforeachで繰り返し処理
+
+# リストでダメージパターン
+ListDamagePattern:
+  - set damages "[10, 20, 30, 40, 50]"
+  - foreach{in="vars.damages";effects=[
+      damage{amount="vars.item"},
+      particle{count="vars.item"},
+      wait{time=1s}
+    ]}
+
+# マップで属性攻撃
+ElementalAttacks:
+  - set elements "{fire: 10, ice: 20, thunder: 30}"
+  - foreach{in="vars.elements";mode=entries;effects=[
+      damage{amount="vars.value"},
+      particle{type="vars.key.toUpperCase()"},
+      wait{time=500ms}
+    ]}
+
+# 動的リスト生成と使用
+DynamicList:
+  - set count "nearbyPlayers.count"
+  - set damages "[]"
+  - foreach{count="vars.count";effects=[
+      set damages "vars.damages + [10 + vars.index * 5]"
+    ]}
+  - foreach{in="vars.damages";effects=[
+      damage{amount="vars.item"},
+      wait{time=500ms}
+    ]}
+
+# 変数スコープ例
+
+# ターゲットにマークを付ける
+MarkTarget:
+  - set{type=target} marked "true"
+  - set{type=target} markTime "world.time"
+
+# マークされたターゲットに追加ダメージ
+AttackMarked:
+  - damage{amount="target.vars.marked ? 50 : 25"}
+
+# ターゲットのカウンターを増やす
+IncrementTargetCounter:
+  - set{type=target} hitCount "target.vars.hitCount != null ? target.vars.hitCount + 1 : 1"
+  - damage{amount="10 * target.vars.hitCount"}
+
+# 自分の変数を使ったカウンター
+CounterAttack:
+  - set attackCount "vars.attackCount != null ? vars.attackCount + 1 : 1"
+  - damage{amount="10 + vars.attackCount * 2"}
+
+# グローバル変数で全体カウント
+GlobalCounter:
+  - set{type=global} totalAttacks "global.vars.totalAttacks != null ? global.vars.totalAttacks + 1 : 1"
+
+# トリガー（攻撃者）にカウンター
+TriggerCounter:
+  - set{type=trigger} damageDealt "trigger.vars.damageDealt != null ? trigger.vars.damageDealt + 25 : 25"
+
+# テレポート系エフェクト
+RandomTeleportEffect:
+  - teleport{mode=RANDOM;range=15.0}
+  - particle{type=PORTAL;count=50;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_ENDERMAN_TELEPORT;volume=1.0;pitch=1.0;audience=@RadiusPlayers{r=30}}
+
+TargetTeleportEffect:
+  - teleport{mode=TARGET}
+  - particle{type=PORTAL;count=30;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_ENDERMAN_TELEPORT;volume=0.8;pitch=1.2;audience=@RadiusPlayers{r=30}}
+
+# 無敵エフェクト
+InvulnerabilityEffect:
+  - invulnerable{duration=100}
+  - particle{type=TOTEM_OF_UNDYING;count=30;audience=@RadiusPlayers{r=50}}
+  - sound{type=ITEM_TOTEM_USE;volume=0.8;pitch=1.5;audience=@RadiusPlayers{r=30}}
+
+# 透明化エフェクト
+InvisibilityEffect:
+  - potion{type=INVISIBILITY;duration=200;amplifier=1}
+  - particle{type=SMOKE;count=40;audience=@RadiusPlayers{r=50}}
+  - sound{type=ENTITY_ENDERMAN_TELEPORT;volume=0.5;pitch=1.8;audience=@RadiusPlayers{r=30}}
+
+# ==========================================
+# 変数編集エフェクト - 簡略記法
+# ==========================================
+
+# カウンター（従来）
+CounterTraditional:
+  - set count "vars.count != null ? vars.count + 1 : 1"
+  - damage{amount="vars.count * 5"}
+
+# カウンター（簡略版）
+CounterSimple:
+  - inc count
+  - damage{amount="vars.count * 5"}
+
+# ダメージ累積
+AccumulateDamage:
+  - add totalDamage 25
+  - inc hitCount
+  - damage{amount="vars.totalDamage"}
+  - message{text="Hit #{vars.hitCount}: {vars.totalDamage} damage"}
+
+# HP基準のスケーリング
+ScaledAttack:
+  - set baseDamage "20"
+  - mul baseDamage "entity.health / entity.maxHealth"
+  - damage{amount="vars.baseDamage"}
+
+# ターゲットのヒットカウント
+TargetHitCounter:
+  - inc{type=target} hitCount
+  - damage{amount="target.vars.hitCount * 10"}
+  - particle{type=CRIT;count="toInt(target.vars.hitCount * 5)"}
+
+# グローバルキルカウンター
+GlobalKillCounter:
+  - inc{type=global} totalKills
+  - message{text="Total server kills: {global.vars.totalKills}"}
+
+# 複雑な計算の組み合わせ
+ComplexCalculation:
+  - set power "20"
+  - mul power "nearbyPlayers.count"        # プレイヤー数で倍率
+  - add power "toInt(entity.health)"       # HPを加算
+  - div power "2"                           # 半分にする
+  - damage{amount="vars.power"}
+
+# 攻撃回数に応じた威力上昇
+StackingDamage:
+  - inc attackCount
+  - set damage "10"
+  - mul damage "vars.attackCount"
+  - damage{amount="vars.damage"}
+  - particle{count="toInt(vars.attackCount * 3)"}
+
+# 条件付き減算
+ConditionalSubtract:
+  - add energy 10
+  - sub energy "entity.health < 50 ? 5 : 0"
+  - damage{amount="vars.energy"}
+
+# 剰余演算でサイクル
+CyclicEffect:
+  - inc cycle
+  - mod cycle 5
+  - damage{amount="vars.cycle == 0 ? 100 : 20"}
+
+# プレイヤー数基準のバフ
+PlayerCountBuff:
+  - set buff "1.0"
+  - add buff "nearbyPlayers.count * 0.2"
+  - mul buff "entity.maxHealth"
+  - damage{amount="vars.buff"}
+
+# ターゲットにマーク
+MarkAndAttack:
+  - inc{type=target} markLevel
+  - add{type=target} storedDamage "25"
+  - damage{amount="target.vars.storedDamage * target.vars.markLevel"}
+
+# グローバル型変換関数の使用例
+GlobalCastExamples:
+  - set hpPercent "entity.health / entity.maxHealth * 100"
+  - particle{count="toInt(vars.hpPercent)"}               # グローバル関数形式（推奨）
+  - delay "toInt(vars.hpPercent * 2)"
+  - damage{amount="toDoubleClamped(vars.hpPercent, 10.0, 100.0)"}
+
+# 従来のcast形式（互換性）
+TraditionalCastExamples:
+  - set hpPercent "entity.health / entity.maxHealth * 100"
+  - particle{count="cast.toInt(vars.hpPercent)"}          # 従来形式
+  - delay "cast.toInt(vars.hpPercent * 2)"
+  - damage{amount="cast.toDoubleClamped(vars.hpPercent, 10.0, 100.0)"}
+
+# ==========================================
+# チェーン型変換 - 拡張関数風の記法
+# ==========================================
+
+# 単一の型変換
+SimpleChainCast:
+  - delay "current.tps.toInt"
+  - damage{amount="entity.health.toDouble"}
+
+# 複数のチェーン変換
+MultipleChainCast:
+  - delay "current.tps.toInt.toDouble.toFloat.toString.toInt"
+  - particle{count="(entity.health / entity.maxHealth * 100).toInt"}
+
+# 変数とチェーン変換
+VariableChainCast:
+  - set hpPercent "entity.health / entity.maxHealth * 100"
+  - delay "vars.hpPercent.toInt"
+  - damage{amount="vars.hpPercent.toDoubleClamped(0.0, 100.0)"}
+
+# 複雑な式での変換
+ComplexChainCast:
+  - set raw "entity.health.toString"
+  - set truncated "vars.raw.toDouble.toInt"
+  - set message "HP is {vars.truncated}"
+  - message{text="{vars.message}"}
+
+# ==========================================
+# 型付き変数操作 - 型安全記法
+# ==========================================
+
+# Int型変数の操作
+IntTypeVariable:
+  - set "self.vars.test.toInt" "0"
+  - add "self.vars.test.toInt" "1"
+  - inc "test.toInt"
+  - damage{amount="vars.test"}  # → 2
+
+# String型変数の操作（文字列連結）
+StringTypeVariable:
+  - set "self.vars.message.toString" "Hello"
+  - add "self.vars.message.toString" " World"
+  - add "message.toString" "神"
+  - message{text="{vars.message}"}  # → "Hello World神"
+
+# List型変数の操作
+ListTypeVariable:
+  - set "self.vars.items.toList" "[]"
+  - add "self.vars.items.toList" "sword"
+  - add "items.toList" "bow"
+  - add "items.toList" "arrow"
+  # vars.items → ["sword", "bow", "arrow"]
+
+# Map型変数の操作
+MapTypeVariable:
+  - set "self.vars.stats.toMap" "{}"
+  - add "self.vars.stats.toMap" "{hp: 100}"
+  - add "stats.toMap" "{mp: 50}"
+  - add "stats.toMap" "{power: 10}"
+  # vars.stats → {hp: 100, mp: 50, power: 10}
+
+# ターゲットのList型変数
+TargetListVariable:
+  - set "target.vars.debuff.toList" "[]"
+  - add "target.vars.debuff.toList" "poison"
+  - add "target.vars.debuff.toList" "weakness"
+  - damage{amount="target.vars.debuff.size() * 10"}
+
+# グローバルMap型変数
+GlobalMapVariable:
+  - set "global.vars.ranking.toMap" "{}"
+  - add "global.vars.ranking.toMap" "{player1: 1000}"
+  - add "global.vars.ranking.toMap" "{player2: 950}"
+
+# 型変換との組み合わせ
+TypeCastCombination:
+  - set damage "entity.health.toInt"
+  - mul damage "2"
+  - add damage "nearbyPlayers.count.toInt"
+  - damage{amount="vars.damage"}
+
+# 複雑な型操作
+ComplexTypeOperation:
+  - set raw "entity.health / entity.maxHealth * 100"
+  - set "percent.toInt" "vars.raw.toInt"
+  - add "percent.toInt" "10"
+  - set "message.toString" "HP: {vars.percent}%"
+  - message{text="{vars.message}"}
+
+# List操作の実例：デバフスタック
+DebuffStack:
+  - set "target.vars.debuffs.toList" "[]"
+  - add "target.vars.debuffs.toList" "poison"
+  - add "target.vars.debuffs.toList" "slowness"
+  - add "target.vars.debuffs.toList" "weakness"
+  - damage{amount="10 * target.vars.debuffs.size()"}
+  - sub "target.vars.debuffs.toList" "poison"  # poisonを削除
+  # target.vars.debuffs → ["slowness", "weakness"]
+
+# Map操作の実例：属性ダメージ
+ElementalDamageMap:
+  - set "self.vars.elements.toMap" "{}"
+  - add "self.vars.elements.toMap" "{fire: 10}"
+  - add "self.vars.elements.toMap" "{ice: 20}"
+  - add "self.vars.elements.toMap" "{thunder: 30}"
+  - set totalDamage "vars.elements.fire + vars.elements.ice + vars.elements.thunder"
+  - damage{amount="vars.totalDamage"}
+  # vars.elements → {fire: 10, ice: 20, thunder: 30}
+  # totalDamage → 60
+
+# 型推論の例
+TypeInference:
+  - set count "0"              # 型推論: Int
+  - inc count                  # OK: Int型として扱う
+  - set message "hello"        # 型推論: String
+  - add message " world"       # OK: String型として文字列連結
+  - set items "[1, 2, 3]"      # 型推論: List
+  - add items "4"              # OK: List型として要素追加
+
+# ==========================================
+# スコープの省略規則の実例
+# ==========================================
+
+# selfスコープの省略（デフォルト）
+SelfScopeOmission:
+  # これらは全て同じ意味
+  - set "count.toInt" "0"                    # self省略
+  - set "self.vars.count.toInt" "0"          # 完全指定
+  - set{type=self} "count.toInt" "0"         # typeパラメータ
+  - inc count                                 # 最も簡潔
+  - inc "self.vars.count"                     # 完全指定
+  - inc{type=self} count                      # typeパラメータ
+
+# targetスコープは明示的に指定
+TargetScopeRequired:
+  # ターゲット（ターゲッターで選択されたエンティティ）の変数を操作
+  - set "target.vars.marked.toBoolean" "true"
+  - set{type=target} "marked.toBoolean" "true"
+  - inc "target.vars.hitCount"
+  - inc{type=target} hitCount
+
+# ターゲッターとの組み合わせ例
+# スキル定義: AttackNearest @Nearest{range=10}
+# → 10m以内の最も近いエンティティが target になる
+AttackNearestWithVariables:
+  - set{type=target} "debuffLevel.toInt" "1"     # ターゲットにデバフレベルを設定
+  - damage{amount="20 + target.vars.debuffLevel * 5"}
+  - inc{type=target} debuffLevel                  # デバフレベルを増加
+  - particle{type=FLAME;count="target.vars.debuffLevel * 10"}
+
+# グローバル変数の例
+GlobalVariableExample:
+  - set "global.vars.serverKills.toInt" "0"      # サーバー全体の撃破数
+  - inc "global.vars.serverKills"
+  - message{text="Total server kills: {global.vars.serverKills}"}
+
+# triggerの例（onDamagedトリガーで使用）
+TriggerExample:
+  - set{type=trigger} "damageDealt.toDouble" "0"
+  - add{type=trigger} damageDealt "25.0"
+  - message{text="Attacker dealt {trigger.vars.damageDealt} damage"}
+
+# 省略と完全指定の混在
+MixedScopeUsage:
+  - set "myCounter.toInt" "0"                     # self省略
+  - inc myCounter                                  # self省略
+  - set{type=target} "targetCounter.toInt" "0"    # target明示
+  - inc{type=target} targetCounter                 # target明示
+  - set "global.vars.totalCounter.toInt" "0"      # global明示
+  - add "global.vars.totalCounter" "vars.myCounter + target.vars.targetCounter"
+
+# ==========================================
+# 変数格納可能性のチェック
+# ==========================================
+
+# ターゲットが変数を保持できる場合のみ設定
+CheckTargetCanHoldVariables:
+  - condition: "target.canHoldVariables"
+    effects:
+      - set{type=target} marked "true"
+      - set{type=target} markTime "world.time"
+      - message{text="Target marked!"}
+
+# 条件式での利用
+ConditionalDamageByVariableSupport:
+  - damage{amount="target.canHoldVariables && target.vars.marked ? 50 : 25"}
+
+# 複数条件の組み合わせ
+MultipleConditionsWithVariables:
+  - condition: "target.canHoldVariables && entity.health > 50"
+    effects:
+      - inc{type=target} hitCount
+      - damage{amount="10 * target.vars.hitCount"}
+
+# 変数保持不可のターゲットへのフォールバック
+FallbackForNonVariableTargets:
+  - condition: "target.canHoldVariables"
+    effects:
+      - set{type=target} "debuffLevel.toInt" "3"
+      - damage{amount="20 + target.vars.debuffLevel * 5"}
+
+  - condition: "!target.canHoldVariables"
+    effects:
+      - damage{amount="35"}  # 固定ダメージ
+
+# 自分が変数を保持できるかチェック
+CheckSelfCanHoldVariables:
+  - condition: "entity.canHoldVariables"
+    effects:
+      - inc attackCount
+      - message{text="Attack count: {vars.attackCount}"}
+
+# トリガーエンティティの変数チェック
+CheckTriggerCanHoldVariables:
+  - condition: "trigger.canHoldVariables"
+    effects:
+      - add{type=trigger} damageDealt "25"
+      - message{text="Attacker damage: {trigger.vars.damageDealt}"}
+
+# 複雑な条件分岐
+ComplexVariableConditions:
+  # ケース1: ターゲットがPlayerまたはPacketMob
+  - condition: "target.canHoldVariables"
+    effects:
+      - set{type=target} "encounters.toInt" "target.vars.encounters != null ? target.vars.encounters + 1 : 1"
+      - damage{amount="10 + target.vars.encounters * 5"}
+      - message{text="Encounter #{target.vars.encounters} with this target"}
+
+  # ケース2: ターゲットが通常のMob
+  - condition: "!target.canHoldVariables"
+    effects:
+      - damage{amount="20"}  # 固定ダメージ
+      - message{text="Normal mob attack"}
+
+# 全スコープでの変数チェック
+AllScopeVariableCheck:
+  - condition: "entity.canHoldVariables && target.canHoldVariables && trigger.canHoldVariables"
+    effects:
+      - inc selfCounter
+      - inc{type=target} targetCounter
+      - inc{type=trigger} triggerCounter
+      - message{text="All entities can hold variables!"}
+
+  - condition: "!entity.canHoldVariables || !target.canHoldVariables || !trigger.canHoldVariables"
+    effects:
+      - message{text="Some entities cannot hold variables"}
+
+# ==========================================
+# エイリアス使用例
+# ==========================================
+
+# エイリアスを使った簡潔な記述
+# aliases.yml に定義されたエイリアスを使用
+
+# HP条件のエイリアス使用
+HPBasedSkill:
+  # LowHP = "entity.health < entity.maxHealth * 0.3"
+  - condition: "LowHP"
+    effects:
+      - damage{amount=10}
+      - message{text="Low HP attack!"}
+
+  # HighHP = "entity.health > entity.maxHealth * 0.7"
+  - condition: "HighHP"
+    effects:
+      - damage{amount=50}
+      - message{text="High HP powerful attack!"}
+
+# 変数保持チェックのエイリアス使用
+VariableCheckWithAlias:
+  # CanStoreVars = "target.canHoldVariables"
+  - condition: "CanStoreVars"
+    effects:
+      - set{type=target} marked "true"
+      - damage{amount=30}
+
+  - condition: "!CanStoreVars"
+    effects:
+      - damage{amount=20}
+
+# 複数エイリアスの組み合わせ
+ComplexAliasUsage:
+  # CanStoreVars && HighHP
+  - condition: "CanStoreVars && HighHP"
+    effects:
+      - inc{type=target} powerLevel
+      - damage{amount="50 + target.vars.powerLevel * 5"}
+
+  # NearPlayers = "nearbyPlayers.count > 0"
+  - condition: "NearPlayers && LowHP"
+    effects:
+      - message{text="Many players nearby and low HP!"}
+      - damage{amount=100}
+
+# TPS条件のエイリアス使用
+TPSBasedSkill:
+  # HighTPS = "current.tps > 18.0"
+  - condition: "HighTPS"
+    effects:
+      - damage{amount=30}
+      - particle{type=FLAME;count=50}
+
+  # LowTPS = "current.tps < 15.0"
+  - condition: "LowTPS"
+    effects:
+      - damage{amount=15}
+      - particle{type=FLAME;count=10}
+
+# 時間条件のエイリアス使用
+TimeBasedSkill:
+  # IsDay = "world.isDay"
+  - condition: "IsDay"
+    effects:
+      - damage{amount=20}
+      - message{text="Day attack!"}
+
+  # IsNight = "world.isNight"
+  - condition: "IsNight"
+    effects:
+      - damage{amount=40}
+      - message{text="Night powerful attack!"}
+
+# ==========================================
+# エンティティタイプフィルタの使用例
+# ==========================================
+
+# プレイヤーのみに攻撃
+PlayerOnlyAttack:
+  - damage{amount=20} @Nearest{range=10;entityType=PLAYER}
+  - message{text="Player attacked!"}
+
+# PacketMobのみを強化
+PacketMobBuff:
+  - potion{type=STRENGTH;duration=200;amplifier=2} @All{range=20;entityType=PACKET_MOB}
+  - potion{type=SPEED;duration=200;amplifier=1} @All{range=20;entityType=PACKET_MOB}
+  - particle{type=ANGRY_VILLAGER;count=10} @All{range=20;entityType=PACKET_MOB}
+
+# プレイヤーとPacketMob両方に効果
+HybridTargeting:
+  - damage{amount=20} @Nearest{range=10;entityType=PLAYER}
+  - particle{type=FLAME;count=20} @Nearest{range=10;entityType=PLAYER}
+  - damage{amount=15} @Nearest{range=10;entityType=PACKET_MOB}
+  - particle{type=SOUL;count=20} @Nearest{range=10;entityType=PACKET_MOB}
+
+# LivingEntity全体に範囲攻撃
+AreaLivingAttack:
+  - damage{amount=10} @All{range=15;entityType=LIVING}
+  - particle{type=EXPLOSION;count=30} @All{range=15}
+
+# Entity全体（アイテムスタンドなども含む）
+AllEntityEffect:
+  - particle{type=FLAME;count=10} @All{range=20;entityType=ENTITY}
+
+# ==========================================
+# ダメージの高度なオプション使用例
+# ==========================================
+
+# 連続ヒット攻撃（無敵時間を無視）
+RapidHitAttack:
+  - foreach{count=5;effects=[
+      damage{amount=5;ignoreInvulnerability=true},
+      particle{type=CRIT;count=10},
+      wait{time=100ms}
+    ]}
+
+# 連続ヒットコンボ
+ComboAttack:
+  - damage{amount=10;ignoreInvulnerability=true}
+  - wait{time=50ms}
+  - damage{amount=15;ignoreInvulnerability=true}
+  - wait{time=50ms}
+  - damage{amount=20;ignoreInvulnerability=true}
+  - particle{type=SWEEP_ATTACK;count=30}
+
+# ボス用の貫通攻撃（無敵時間＋ノックバック耐性無視）
+BossPiercingAttack:
+  - damage{amount=100;ignoreInvulnerability=true;ignoreKnockbackResistance=true}
+  - particle{type=EXPLOSION;count=50}
+  - sound{type=ENTITY_ENDER_DRAGON_HURT;volume=2.0}
+
+# ノックバック重視の攻撃
+KnockbackSlam:
+  - damage{amount=15;ignoreKnockbackResistance=true}
+  - particle{type=CLOUD;count=40}
+  - sound{type=ENTITY_IRON_GOLEM_ATTACK}
+
+# 高速連打攻撃（DPS重視）
+RapidFireAttack:
+  - foreach{count=10;effects=[
+      damage{amount=3;ignoreInvulnerability=true},
+      particle{type=FLAME;count=5},
+      wait{time=50ms}
+    ]}
+
+# 強制ノックバック攻撃（通常ノックバックしない敵も吹き飛ばす）
+ForceKnockbackAttack:
+  - damage{amount=20;ignoreKnockbackResistance=true}
+  - particle{type=SWEEP_ATTACK;count=20}
+  - sound{type=ENTITY_PLAYER_ATTACK_KNOCKBACK}
+
+# 真のダメージ（全防御無視）
+TrueStrike:
+  - damage{amount=50;ignoreInvulnerability=true;ignoreKnockbackResistance=true}
+  - sound{type=ENTITY_LIGHTNING_BOLT_IMPACT;volume=2.0}
+  - particle{type=EXPLOSION;count=100}

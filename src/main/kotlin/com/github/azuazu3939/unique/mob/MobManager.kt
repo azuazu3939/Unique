@@ -3,21 +3,19 @@ package com.github.azuazu3939.unique.mob
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.effect.*
+import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketMob
 import com.github.azuazu3939.unique.event.*
 import com.github.azuazu3939.unique.skill.BasicSkill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.*
-import com.github.azuazu3939.unique.util.DebugLogger
-import com.github.azuazu3939.unique.util.EventUtil
-import com.github.azuazu3939.unique.util.TimeParser
-import com.github.azuazu3939.unique.util.getSound
+import com.github.azuazu3939.unique.util.*
 import com.github.shynixn.mccoroutine.folia.launch
-import org.bukkit.Location
-import org.bukkit.NamespacedKey
-import org.bukkit.Particle
-import org.bukkit.Sound
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
+import kotlinx.coroutines.withContext
+import org.bukkit.*
 import org.bukkit.configuration.ConfigurationSection
+import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import java.util.concurrent.ConcurrentHashMap
 
@@ -82,8 +80,6 @@ class MobManager(private val plugin: Unique) {
                         // Mob定義を構築
                         val mobDef = parseMobDefinition(section)
                         mobDefinitions[mobName] = mobDef
-
-                        DebugLogger.debug("  ✓ Loaded mob: $mobName (${mobDef.type})")
                     } catch (e: Exception) {
                         DebugLogger.error("  ✗ Failed to parse mob: $mobName", e)
                     }
@@ -142,122 +138,64 @@ class MobManager(private val plugin: Unique) {
     }
 
     /**
-     * スキル設定を解析
+     * スキル設定を解析（超コンパクト構文専用）
      */
     private fun parseSkills(section: ConfigurationSection?): MobSkills {
-        if (section == null) return MobSkills()
+        if (section == null) return MobSkills.empty()
 
-        return MobSkills(
-            onTimer = parseSkillTriggers(section.getConfigurationSection("OnTimer")),
-            onDamaged = parseSkillTriggers(section.getConfigurationSection("OnDamaged")),
-            onDeath = parseSkillTriggers(section.getConfigurationSection("OnDeath")),
-            onSpawn = parseSkillTriggers(section.getConfigurationSection("OnSpawn")),
-            onAttack = parseSkillTriggers(section.getConfigurationSection("OnAttack"))
-        )
+        // 超コンパクト構文: Skills が直接文字列リストの場合
+        val compactSkills = section.getList("")
+        if (compactSkills != null && compactSkills.isNotEmpty()) {
+            return parseCompactSkills(compactSkills)
+        }
+
+        DebugLogger.warn("Skills section is empty or invalid format")
+        return MobSkills.empty()
     }
 
     /**
-     * スキルトリガーリストを解析
+     * 超コンパクト構文のスキルリストを解析
+     *
+     * 例: ["projectile{...} @NP{r=30.0} ~onTimer:30t", "FireballAttack @TL ~onDamaged"]
      */
-    @Suppress("UNCHECKED_CAST")
-    private fun parseSkillTriggers(section: ConfigurationSection?): List<SkillTrigger> {
-        if (section == null) return emptyList()
+    private fun parseCompactSkills(skills: List<*>): MobSkills {
+        val onTimerList = mutableListOf<SkillTrigger>()
+        val onDamagedList = mutableListOf<SkillTrigger>()
+        val onDeathList = mutableListOf<SkillTrigger>()
+        val onSpawnList = mutableListOf<SkillTrigger>()
+        val onAttackList = mutableListOf<SkillTrigger>()
 
-        // リスト形式で読み込み
-        val triggers = mutableListOf<SkillTrigger>()
+        for (item in skills) {
+            val line = item?.toString() ?: continue
 
-        // セクション直下がリストの場合
-        if (section.isList("")) {
-            val list = section.getList("") as? List<Map<String, Any>> ?: return emptyList()
+            // トリガータイプを取得
+            val triggerType = CompactSyntaxParser.extractTriggerType(line)?.lowercase()
 
-            for (item in list) {
-                triggers.add(parseSkillTrigger(item))
+            // スキルトリガーをパース
+            val trigger = CompactSyntaxParser.parseSkillTrigger(line) ?: continue
+
+            // トリガータイプ別に振り分け
+            when (triggerType) {
+                "ontimer" -> onTimerList.add(trigger)
+                "ondamaged" -> onDamagedList.add(trigger)
+                "ondeath" -> onDeathList.add(trigger)
+                "onspawn" -> onSpawnList.add(trigger)
+                "onattack" -> onAttackList.add(trigger)
+                else -> {
+                    DebugLogger.warn("Unknown trigger type: $triggerType in line: $line")
+                }
             }
         }
 
-        return triggers
-    }
-
-    /**
-     * 単一スキルトリガーを解析
-     */
-    @Suppress("UNCHECKED_CAST")
-    private fun parseSkillTrigger(map: Map<String, Any>): SkillTrigger {
-        val targeterMap = map["targeter"] as? Map<String, Any> ?: mapOf("type" to "Self")
-        val metaMap = map["meta"] as? Map<String, Any> ?: emptyMap()
-        val skillsList = map["skills"] as? List<Map<String, Any>> ?: emptyList()
-
-        return SkillTrigger(
-            name = map["name"] as? String ?: "unnamed",
-            interval = (map["interval"] as? Number)?.toInt(),
-            condition = map["condition"] as? String ?: "true",
-            targeter = parseTargeterDefinition(targeterMap),
-            meta = parseSkillMetaDefinition(metaMap),
-            skills = skillsList.map { parseSkillReference(it) }
+        return MobSkills(
+            onTimer = onTimerList,
+            onDamaged = onDamagedList,
+            onDeath = onDeathList,
+            onSpawn = onSpawnList,
+            onAttack = onAttackList
         )
     }
 
-    /**
-     * ターゲッター定義を解析
-     */
-    private fun parseTargeterDefinition(map: Map<String, Any>): TargeterDefinition {
-        return TargeterDefinition(
-            type = map["type"] as? String ?: "Self",
-            range = (map["range"] as? Number)?.toDouble() ?: 16.0,
-            maxDistance = (map["maxDistance"] as? Number)?.toDouble() ?: 50.0,
-            count = (map["count"] as? Number)?.toInt() ?: 1,
-            condition = map["condition"] as? String ?: "true"
-        )
-    }
-
-    /**
-     * スキルメタ定義を解析
-     */
-    private fun parseSkillMetaDefinition(map: Map<String, Any>): SkillMetaDefinition {
-        return SkillMetaDefinition(
-            sync = map["sync"] as? Boolean ?: false,
-            executeDelay = map["executeDelay"] as? String ?: "0ms",
-            effectDelay = map["effectDelay"] as? String ?: "0ms",
-            cancelOnDeath = map["cancelOnDeath"] as? Boolean ?: true,
-            interruptible = map["interruptible"] as? Boolean ?: false
-        )
-    }
-
-    /**
-     * スキル参照を解析
-     */
-    @Suppress("UNCHECKED_CAST")
-    private fun parseSkillReference(map: Map<String, Any>): SkillReference {
-        val metaMap = map["meta"] as? Map<String, Any> ?: emptyMap()
-        val effectsList = map["effects"] as? List<Map<String, Any>> ?: emptyList()
-
-        return SkillReference(
-            skill = map["skill"] as? String ?: "unknown",
-            meta = parseSkillMetaDefinition(metaMap),
-            effects = effectsList.map { parseEffectDefinition(it) }
-        )
-    }
-
-    /**
-     * エフェクト定義を解析
-     */
-    private fun parseEffectDefinition(map: Map<String, Any>): EffectDefinition {
-        return EffectDefinition(
-            type = map["type"] as? String ?: "unknown",
-            amount = (map["amount"] as? Number)?.toDouble() ?: 0.0,
-            strength = (map["strength"] as? Number)?.toDouble() ?: 1.0,
-            duration = map["duration"] as? String ?: "0ms",
-            amplifier = (map["amplifier"] as? Number)?.toInt() ?: 0,
-            particle = map["particle"] as? String,
-            sound = map["sound"] as? String,
-            count = (map["count"] as? Number)?.toInt() ?: 10,
-            message = map["message"] as? String,
-            command = map["command"] as? String,
-            asOp = map["asOp"] as? Boolean ?: false,
-            volume = (map["volume"] as? Number)?.toFloat() ?: 1.0f,
-            pitch = (map["pitch"] as? Number)?.toFloat() ?: 1.0f
-        )
-    }
 
     /**
      * ドロップ設定を解析
@@ -387,20 +325,22 @@ class MobManager(private val plugin: Unique) {
         )
             .health(evaluatedHealth)
             .maxHealth(evaluatedHealth)
+            .damage(evaluatedDamage)
             .armor(evaluatedArmor)
             .armorToughness(evaluatedArmorToughness)
+            .damageFormula(definition.damageFormula)
             .customNameVisible(definition.appearance.customNameVisible)
             .hasAI(definition.ai.hasAI)
             .hasGravity(definition.ai.hasGravity)
             .glowing(definition.appearance.glowing)
             .invisible(definition.appearance.invisible)
+            .options(definition.options)
             .movementSpeed(definition.ai.movementSpeed)
             .followRange(definition.ai.followRange)
             .knockbackResistance(definition.ai.knockbackResistance)
+            .lookAtMovementDirection(definition.ai.lookAtMovementDirection)
+            .wallClimbHeight(definition.ai.wallClimbHeight)
             .build()
-
-        // ダメージ値を保存（後で使用するため）
-        // TODO: PacketMobにdamageフィールドがあれば設定
 
         // スポーンイベント発火（キャンセルされた場合はnullを返す）
         if (EventUtil.callEvent(PacketMobSpawnEvent(mob, location, mobName))) {
@@ -442,8 +382,14 @@ class MobManager(private val plugin: Unique) {
                         return@forEach
                     }
 
-                    // 条件チェック
-                    if (!evaluateCondition(trigger.condition, mob)) {
+                    // 条件チェック（onDamagedの場合はdamager情報も含める）
+                    val conditionMet = if (triggerType == PacketMobSkillEvent.SkillTriggerType.ON_DAMAGED && mob.lastDamager != null) {
+                        evaluateCondition(trigger.condition, mob, mob.lastDamager)
+                    } else {
+                        evaluateCondition(trigger.condition, mob)
+                    }
+
+                    if (!conditionMet) {
                         DebugLogger.verbose("Skill trigger ${trigger.name} condition not met")
                         return@forEach
                     }
@@ -460,10 +406,20 @@ class MobManager(private val plugin: Unique) {
     }
 
     /**
-     * 条件を評価
+     * 条件を評価（攻撃者情報なし）
      */
     private fun evaluateCondition(condition: String, mob: PacketMob): Boolean {
         return condition == "true" || plugin.celEvaluator.evaluatePacketEntityCondition(condition, mob)
+    }
+
+    /**
+     * 条件を評価（攻撃者情報あり）
+     */
+    private fun evaluateCondition(condition: String, mob: PacketMob, damager: Entity?): Boolean {
+        if (condition == "true") return true
+        if (damager == null) return plugin.celEvaluator.evaluatePacketEntityCondition(condition, mob)
+
+        return plugin.celEvaluator.evaluatePacketEntityTargetCondition(condition, mob, damager)
     }
 
     /**
@@ -547,11 +503,10 @@ class MobManager(private val plugin: Unique) {
                 sync = sync
             )
             "particle" -> {
-                val particle = try {
-                    Particle.valueOf(def.particle ?: "FLAME")
-                } catch (e: IllegalArgumentException) {
+                val particle = ResourceKeyResolver.resolveParticle(
+                    def.particle ?: "FLAME",
                     Particle.FLAME
-                }
+                )
                 ParticleEffect(
                     particle = particle,
                     count = def.count,
@@ -572,7 +527,8 @@ class MobManager(private val plugin: Unique) {
                     sound = sound,
                     volume = def.volume,
                     pitch = def.pitch,
-                    sync = sync
+                    sync = sync,
+                    category = SoundCategory.HOSTILE
                 )
             }
             "message" -> MessageEffect(
@@ -664,18 +620,21 @@ class MobManager(private val plugin: Unique) {
     }
 
     /**
-     * ドロップ処理
+     * ドロップアイテムを計算（リストを返すのみ）
+     *
+     * @param definition Mob定義
+     * @param killer キラー（プレイヤー）
+     * @param location ドロップ位置
+     * @return ドロップアイテムのリスト
      */
-    private fun processDrops(
+    suspend fun calculateDropItems(
         definition: MobDefinition,
-        location: Location,
         killer: Player,
-        eventDrops: MutableList<org.bukkit.inventory.ItemStack>
-    ) {
-        if (definition.drops.isEmpty() && eventDrops.isEmpty()) return
+        location: Location
+    ): List<org.bukkit.inventory.ItemStack> {
+        if (definition.drops.isEmpty()) return emptyList()
 
-        val world = location.world ?: return
-
+        val drops = mutableListOf<org.bukkit.inventory.ItemStack>()
         val context = buildDropContext(killer, location)
 
         // 定義からのドロップ処理
@@ -685,18 +644,58 @@ class MobManager(private val plugin: Unique) {
                 if (!shouldDrop(drop, context)) return@forEach
 
                 // アイテムスタック作成＆追加
-                createDropItem(drop, context)?.let { eventDrops.add(it) }
+                createDropItem(drop, context)?.let { drops.add(it) }
 
             } catch (e: Exception) {
-                DebugLogger.error("Failed to process drop: ${drop.item}", e)
+                DebugLogger.error("Failed to calculate drop: ${drop.item}", e)
             }
         }
 
-        // 全てドロップ
-        eventDrops.forEach { itemStack ->
-            world.dropItemNaturally(location, itemStack)
-            DebugLogger.debug("Dropped ${itemStack.amount}x ${itemStack.type} at $location")
+        return drops
+    }
+
+    /**
+     * アイテムをワールドにドロップする
+     *
+     * @param location ドロップ位置
+     * @param items ドロップするアイテムのリスト
+     */
+    suspend fun dropItemsInWorld(
+        location: Location,
+        items: List<org.bukkit.inventory.ItemStack>
+    ) {
+        if (items.isEmpty()) return
+
+        val world = location.world ?: return
+
+        withContext(plugin.regionDispatcher(location)) {
+            items.forEach { itemStack ->
+                world.dropItemNaturally(location, itemStack)
+                DebugLogger.debug("Dropped ${itemStack.amount}x ${itemStack.type} at $location")
+            }
         }
+    }
+
+    /**
+     * ドロップ処理（計算 + ワールドにドロップ）
+     *
+     * @param definition Mob定義
+     * @param location ドロップ位置
+     * @param killer キラー（プレイヤー）
+     * @param eventDrops イベントで追加されたドロップアイテム
+     */
+    suspend fun processDrops(
+        definition: MobDefinition,
+        location: Location,
+        killer: Player,
+        eventDrops: MutableList<org.bukkit.inventory.ItemStack>
+    ) {
+        // 定義からドロップを計算
+        val calculatedDrops = calculateDropItems(definition, killer, location)
+        eventDrops.addAll(calculatedDrops)
+
+        // ワールドにドロップ
+        dropItemsInWorld(location, eventDrops)
     }
 
     /**
@@ -726,7 +725,7 @@ class MobManager(private val plugin: Unique) {
      * ドロップアイテムを作成
      */
     private fun createDropItem(drop: DropDefinition, context: Map<String, Any>): org.bukkit.inventory.ItemStack? {
-        val material = org.bukkit.Material.getMaterial(drop.item.uppercase())
+        val material = Material.getMaterial(drop.item.uppercase())
         if (material == null) {
             DebugLogger.error("Invalid drop material: ${drop.item}")
             return null
@@ -740,9 +739,11 @@ class MobManager(private val plugin: Unique) {
     /**
      * ドロップコンテキストを構築
      */
-    private fun buildDropContext(killer: Player, location: Location): Map<String, Any> {
-        val nearbyPlayers = location.world?.getNearbyEntities(location, 50.0, 50.0, 50.0)
-            ?.filterIsInstance<Player>() ?: emptyList()
+    private suspend fun buildDropContext(killer: Player, location: Location): Map<String, Any> {
+        val nearbyPlayers = withContext(plugin.regionDispatcher(location)) {
+            location.world?.getNearbyEntities(location, 50.0, 50.0, 50.0)
+                ?.filterIsInstance<Player>() ?: emptyList()
+        }
 
         val baseContext = buildMap {
             put("killer", CELVariableProvider.buildEntityInfo(killer))
@@ -760,7 +761,7 @@ class MobManager(private val plugin: Unique) {
     /**
      * Mob被ダメージ処理
      */
-    suspend fun handleMobDamaged(mob: PacketMob, damager: org.bukkit.entity.Entity, damage: Double) {
+    suspend fun handleMobDamaged(mob: PacketMob, damager: Entity, damage: Double) {
         val instance = getMobInstance(mob) ?: return
         val definition = instance.definition
 
@@ -796,11 +797,13 @@ class MobManager(private val plugin: Unique) {
     /**
      * Mobスポーン時のCELコンテキストを構築
      */
-    private fun buildMobSpawnContext(location: Location): Map<String, Any> {
+    private suspend fun buildMobSpawnContext(location: Location): Map<String, Any> {
         val world = location.world ?: return emptyMap()
 
-        val nearbyPlayers = world.getNearbyEntities(location, 50.0, 50.0, 50.0)
-            .filterIsInstance<Player>()
+        val nearbyPlayers = withContext(plugin.regionDispatcher(location)) {
+            world.getNearbyEntities(location, 50.0, 50.0, 50.0)
+                .filterIsInstance<Player>()
+        }
 
         val baseContext = buildMap {
             put("world", CELVariableProvider.buildWorldInfo(world))
@@ -821,7 +824,7 @@ class MobManager(private val plugin: Unique) {
      * Health値を評価（CEL式対応）
      */
     private fun evaluateHealth(healthExpression: String?, context: Map<String, Any>): Double {
-        if (healthExpression == null) return 20.0
+        if (healthExpression == null || healthExpression.equals("null", ignoreCase = true)) return 20.0
 
         return try {
             // 固定値ならそのまま返す
@@ -839,7 +842,7 @@ class MobManager(private val plugin: Unique) {
      * Damage値を評価（CEL式対応）
      */
     private fun evaluateDamage(damageExpression: String?, context: Map<String, Any>): Double {
-        if (damageExpression == null) return 5.0
+        if (damageExpression == null || damageExpression.equals("null", ignoreCase = true)) return 5.0
 
         return try {
             damageExpression.toDoubleOrNull() ?: run {
@@ -855,7 +858,7 @@ class MobManager(private val plugin: Unique) {
      * Armor値を評価（CEL式対応）
      */
     private fun evaluateArmor(armorExpression: String?, context: Map<String, Any>): Double {
-        if (armorExpression == null) return 0.0
+        if (armorExpression == null || armorExpression.equals("null", ignoreCase = true)) return 0.0
 
         return try {
             armorExpression.toDoubleOrNull() ?: run {
@@ -871,7 +874,7 @@ class MobManager(private val plugin: Unique) {
      * ArmorToughness値を評価（CEL式対応）
      */
     private fun evaluateArmorToughness(armorToughnessExpression: String?, context: Map<String, Any>): Double {
-        if (armorToughnessExpression == null) return 0.0
+        if (armorToughnessExpression == null || armorToughnessExpression.equals("null", ignoreCase = true)) return 0.0
 
         return try {
             armorToughnessExpression.toDoubleOrNull() ?: run {

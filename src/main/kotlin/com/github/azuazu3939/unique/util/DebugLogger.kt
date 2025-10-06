@@ -23,11 +23,6 @@ object DebugLogger {
         private set
 
     /**
-     * プレフィックス
-     */
-    private const val PREFIX = "[Unique]"
-
-    /**
      * デバッグモードを設定
      */
     fun setDebugMode(enabled: Boolean) {
@@ -62,7 +57,7 @@ object DebugLogger {
      */
     fun error(message: String, throwable: Throwable? = null) {
         if (throwable != null) {
-            Unique.instance.logger.log(Level.SEVERE, "$PREFIX $message", throwable)
+            Unique.instance.logger.log(Level.SEVERE, message, throwable)
         } else {
             log(Level.SEVERE, message)
         }
@@ -166,7 +161,7 @@ object DebugLogger {
      * 内部ログメソッド
      */
     private fun log(level: Level, message: String) {
-        Unique.instance.logger.log(level, "$PREFIX $message")
+        Unique.instance.logger.log(level, message)
     }
 
     /**
