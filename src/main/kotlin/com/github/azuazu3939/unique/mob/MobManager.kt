@@ -656,6 +656,7 @@ class MobManager(private val plugin: Unique) {
 
     /**
      * アイテムをワールドにドロップする
+     * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
      *
      * @param location ドロップ位置
      * @param items ドロップするアイテムのリスト
@@ -668,11 +669,10 @@ class MobManager(private val plugin: Unique) {
 
         val world = location.world ?: return
 
-        withContext(plugin.regionDispatcher(location)) {
-            items.forEach { itemStack ->
-                world.dropItemNaturally(location, itemStack)
-                DebugLogger.debug("Dropped ${itemStack.amount}x ${itemStack.type} at $location")
-            }
+        // 既にregion dispatcherのコンテキスト内にいるので、直接dropItemNaturallyを呼ぶ
+        items.forEach { itemStack ->
+            world.dropItemNaturally(location, itemStack)
+            DebugLogger.debug("Dropped ${itemStack.amount}x ${itemStack.type} at $location")
         }
     }
 
@@ -690,12 +690,15 @@ class MobManager(private val plugin: Unique) {
         killer: Player,
         eventDrops: MutableList<org.bukkit.inventory.ItemStack>
     ) {
-        // 定義からドロップを計算
-        val calculatedDrops = calculateDropItems(definition, killer, location)
-        eventDrops.addAll(calculatedDrops)
+        // region dispatcherのコンテキスト内で実行
+        withContext(plugin.regionDispatcher(location)) {
+            // 定義からドロップを計算
+            val calculatedDrops = calculateDropItems(definition, killer, location)
+            eventDrops.addAll(calculatedDrops)
 
-        // ワールドにドロップ
-        dropItemsInWorld(location, eventDrops)
+            // ワールドにドロップ
+            dropItemsInWorld(location, eventDrops)
+        }
     }
 
     /**
@@ -738,12 +741,12 @@ class MobManager(private val plugin: Unique) {
 
     /**
      * ドロップコンテキストを構築
+     * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
      */
-    private suspend fun buildDropContext(killer: Player, location: Location): Map<String, Any> {
-        val nearbyPlayers = withContext(plugin.regionDispatcher(location)) {
-            location.world?.getNearbyEntities(location, 50.0, 50.0, 50.0)
-                ?.filterIsInstance<Player>() ?: emptyList()
-        }
+    private fun buildDropContext(killer: Player, location: Location): Map<String, Any> {
+        // 既にregion dispatcherのコンテキスト内にいるので、直接getNearbyEntitiesを呼ぶ
+        val nearbyPlayers = location.world?.getNearbyEntities(location, 50.0, 50.0, 50.0)
+            ?.filterIsInstance<Player>() ?: emptyList()
 
         val baseContext = buildMap {
             put("killer", CELVariableProvider.buildEntityInfo(killer))
@@ -796,14 +799,14 @@ class MobManager(private val plugin: Unique) {
 
     /**
      * Mobスポーン時のCELコンテキストを構築
+     * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
      */
-    private suspend fun buildMobSpawnContext(location: Location): Map<String, Any> {
+    private fun buildMobSpawnContext(location: Location): Map<String, Any> {
         val world = location.world ?: return emptyMap()
 
-        val nearbyPlayers = withContext(plugin.regionDispatcher(location)) {
-            world.getNearbyEntities(location, 50.0, 50.0, 50.0)
-                .filterIsInstance<Player>()
-        }
+        // 既にregion dispatcherのコンテキスト内にいるので、直接getNearbyEntitiesを呼ぶ
+        val nearbyPlayers = world.getNearbyEntities(location, 50.0, 50.0, 50.0)
+            .filterIsInstance<Player>()
 
         val baseContext = buildMap {
             put("world", CELVariableProvider.buildWorldInfo(world))

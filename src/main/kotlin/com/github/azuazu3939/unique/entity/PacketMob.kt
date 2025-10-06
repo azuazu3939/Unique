@@ -9,6 +9,8 @@ import com.github.azuazu3939.unique.event.*
 import com.github.azuazu3939.unique.mob.MobOptions
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.EventUtil
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
+import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Entity
@@ -552,17 +554,21 @@ class PacketMob(
         // 死亡イベント発火
         val deathEvent = PacketMobDeathEvent(this, killer)
 
-        // ドロップアイテムを計算してイベントに追加
+        // ドロップアイテムを計算してイベントに追加（region dispatcherのコンテキスト内で実行）
         val instance = Unique.instance.mobManager.getMobInstance(this)
         if (instance != null && killer != null) {
-            val drops = Unique.instance.mobManager.calculateDropItems(instance.definition, killer, location)
-            deathEvent.drops.addAll(drops)
+            withContext(Unique.instance.regionDispatcher(location)) {
+                val drops = Unique.instance.mobManager.calculateDropItems(instance.definition, killer, location)
+                deathEvent.drops.addAll(drops)
+            }
         }
 
         EventUtil.callEvent(deathEvent)
 
-        // イベントで追加/変更されたドロップをワールドに生成
-        Unique.instance.mobManager.dropItemsInWorld(location, deathEvent.drops)
+        // イベントで追加/変更されたドロップをワールドに生成（region dispatcherのコンテキスト内で実行）
+        withContext(Unique.instance.regionDispatcher(location)) {
+            Unique.instance.mobManager.dropItemsInWorld(location, deathEvent.drops)
+        }
 
         // OnDeathスキルトリガー実行
         if (instance != null) {

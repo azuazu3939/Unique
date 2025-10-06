@@ -5,6 +5,7 @@ import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.event.PacketMobSkillEvent
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.TimeParser
+import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.Job
@@ -14,6 +15,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.configuration.ConfigurationSection
+import org.bukkit.entity.Player
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.cos
 import kotlin.math.sin
@@ -289,7 +291,9 @@ class SpawnManager(private val plugin: Unique) {
         DebugLogger.info("Starting spawn tasks...")
 
         for ((name, definition) in spawnDefinitions) {
-            val job = plugin.launch {
+            // Foliaではglobal region dispatcherを使用
+            val job = plugin.launch(plugin.globalRegionDispatcher) {
+                DebugLogger.info("Spawn task started for: $name")
                 runSpawnTask(name, definition)
             }
 
@@ -308,8 +312,17 @@ class SpawnManager(private val plugin: Unique) {
                 // スポーンレートに基づいて待機
                 delay(definition.spawnRate * 50L)  // tickをミリ秒に変換
 
-                // スポーン試行
-                attemptSpawn(name, definition)
+                // 軽量なチェックのみここで実行
+                val world = getSpawnWorld(definition) ?: continue
+                val players = world.players
+                if (players.isEmpty()) continue
+
+                val targetPlayer = players.random()
+
+                // 実際のスポーン処理はプレイヤーのregion dispatcherで実行
+                plugin.launch(plugin.regionDispatcher(targetPlayer.location)) {
+                    attemptSpawnForPlayer(name, definition, targetPlayer)
+                }
 
             } catch (e: Exception) {
                 DebugLogger.error("Error in spawn task: $name", e)
@@ -318,24 +331,12 @@ class SpawnManager(private val plugin: Unique) {
     }
 
     /**
-     * スポーンを試行
+     * プレイヤーの周囲にスポーンを試行
+     * 注：この関数はプレイヤーのregion dispatcherのコンテキスト内で呼ばれることを前提とする
      */
-    private suspend fun attemptSpawn(name: String, definition: SpawnDefinition) {
-        // ワールド取得
-        val world = getSpawnWorld(definition) ?: return
-
-        // オンラインプレイヤーを取得
-        val players = world.players
-        if (players.isEmpty()) {
-            DebugLogger.verbose("Spawn $name: No players online in world ${world.name}")
-            return
-        }
-
-        // ランダムにプレイヤーを選択
-        val targetPlayer = players.random()
-
+    private suspend fun attemptSpawnForPlayer(name: String, definition: SpawnDefinition, targetPlayer: Player) {
         // 条件評価
-        if (!evaluateSpawnConditions(definition, world)) {
+        if (!evaluateSpawnConditions(definition, targetPlayer.world)) {
             return
         }
 
@@ -345,17 +346,32 @@ class SpawnManager(private val plugin: Unique) {
             DebugLogger.verbose("Spawn $name: Max nearby reached ($currentCount/${definition.maxNearby})")
             return
         }
-        // Mobをスポーン
-        withContext(plugin.regionDispatcher(targetPlayer.location)) {
-            val location = determineSpawnLocationNearPlayer(targetPlayer.location, definition) ?: return@withContext
 
-            val mob = plugin.mobManager.spawnMob(definition.mob, location)
+        // X, Z座標を計算（プレイヤーの周囲20-48ブロック固定）
+        val minRadius = 20.0
+        val maxRadius = 48.0  // 固定値
+        val angle = Random.nextDouble() * 2 * kotlin.math.PI
+        val distance = Random.nextDouble(minRadius, maxRadius)
+        val x = targetPlayer.location.x + distance * cos(angle)
+        val z = targetPlayer.location.z + distance * sin(angle)
+
+        // 仮の位置を作成
+        val tempLocation = Location(targetPlayer.world, x, 64.0, z)
+
+        // スポーン位置のregion dispatcherで実際のY座標を取得してスポーン
+        withContext(plugin.regionDispatcher(tempLocation)) {
+            // 地面の高さを取得
+            val y = targetPlayer.world.getHighestBlockYAt(x.toInt(), z.toInt()).toDouble() + 1
+            val spawnLocation = Location(targetPlayer.world, x, y, z)
+
+            // Mobをスポーン
+            val mob = plugin.mobManager.spawnMob(definition.mob, spawnLocation)
 
             if (mob != null) {
                 // カウント増加
                 spawnCounts.compute(name) { _, count -> (count ?: 0) + 1 }
 
-                DebugLogger.debug("Spawned ${definition.mob} at ${location.blockX}, ${location.blockY}, ${location.blockZ} near ${targetPlayer.name} ($name)")
+                DebugLogger.debug("Spawned ${definition.mob} at ${spawnLocation.blockX}, ${spawnLocation.blockY}, ${spawnLocation.blockZ} near ${targetPlayer.name} ($name)")
 
                 // OnSpawnスキルを実行
                 executeOnSpawnSkills(mob, definition.onSpawn)
@@ -552,7 +568,7 @@ class SpawnManager(private val plugin: Unique) {
                 val center = region.center ?: RegionCenter()
                 val radius = region.radius ?: 100.0
 
-                val angle = Random.nextDouble() * 2 * Math.PI
+                val angle = Random.nextDouble() * 2 * kotlin.math.PI
                 val r = Random.nextDouble() * radius
 
                 val x = center.x + r * cos(angle)
@@ -577,6 +593,7 @@ class SpawnManager(private val plugin: Unique) {
 
     /**
      * プレイヤー周囲のスポーン位置を決定
+     * 注：この関数は現在使用されていません（attemptSpawn内で直接計算しています）
      */
     private fun determineSpawnLocationNearPlayer(playerLocation: Location, definition: SpawnDefinition): Location? {
         // chunkRadiusを使用してスポーン範囲を決定（デフォルトは3チャンク = 48ブロック）
@@ -584,7 +601,7 @@ class SpawnManager(private val plugin: Unique) {
         val maxRadius = (definition.chunkRadius * 16.0).coerceAtLeast(minRadius + 10.0)  // 最大半径
 
         // ランダムな角度と距離を生成
-        val angle = Random.nextDouble() * 2 * Math.PI
+        val angle = Random.nextDouble() * 2 * kotlin.math.PI
         val distance = Random.nextDouble(minRadius, maxRadius)
 
         // X, Z座標を計算
