@@ -2,6 +2,7 @@ package com.github.azuazu3939.unique.entity
 
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.util.DebugLogger
+import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.Job
@@ -47,8 +48,15 @@ class PacketEntityManager(private val plugin: Unique) {
     fun initialize() {
         DebugLogger.info("Initializing PacketEntityManager...")
 
-        // 更新タスクを開始
-        startUpdateTask()
+        try {
+            // 更新タスクを開始
+            DebugLogger.info("Starting update task...")
+            startUpdateTask()
+            DebugLogger.info("Update task start completed")
+        } catch (e: Exception) {
+            DebugLogger.error("Failed to start update task", e)
+            e.printStackTrace()
+        }
 
         DebugLogger.info("PacketEntityManager initialized")
     }
@@ -77,6 +85,7 @@ class PacketEntityManager(private val plugin: Unique) {
 
     /**
      * エンティティを登録
+     * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
      */
     suspend fun registerEntity(entity: PacketEntity) {
         entities[entity.uuid] = entity
@@ -85,18 +94,24 @@ class PacketEntityManager(private val plugin: Unique) {
         DebugLogger.debug("Registered entity: ${entity.entityId} (${entity.entityType})")
 
         // 登録時に近くのプレイヤーにスポーンパケットを送信
-        withContext(plugin.regionDispatcher(entity.location)) {
-            val nearbyPlayers = entity.location.world?.players?.filter { player ->
-                player.location.distance(entity.location) <= 64.0  // 描画範囲
-            } ?: emptyList()
+        val world = entity.location.world
+        if (world == null) {
+            DebugLogger.error("Entity world is null! Cannot spawn for players")
+            return
+        }
 
-            for (player in nearbyPlayers) {
-                try {
-                    entity.spawn(player)
-                    DebugLogger.verbose("Spawned entity ${entity.entityId} for player ${player.name}")
-                } catch (e: Exception) {
-                    DebugLogger.error("Failed to spawn entity for player ${player.name}", e)
-                }
+        val nearbyPlayers = world.players.filter { player ->
+            player.location.distance(entity.location) <= 64.0  // 描画範囲
+        }
+
+        DebugLogger.verbose("Registering entity ${entity.entityId}, found ${nearbyPlayers.size} nearby players")
+
+        for (player in nearbyPlayers) {
+            try {
+                entity.spawn(player)
+                DebugLogger.verbose("Spawned entity ${entity.entityId} for player ${player.name}")
+            } catch (e: Exception) {
+                DebugLogger.error("Failed to spawn entity for player ${player.name}", e)
             }
         }
     }
@@ -208,21 +223,31 @@ class PacketEntityManager(private val plugin: Unique) {
      * 更新タスクを開始
      */
     private fun startUpdateTask() {
-        val updateInterval = plugin.configManager.mainConfig.performance.packetEntityUpdateInterval
+        try {
+            val updateInterval = plugin.configManager.mainConfig.performance.packetEntityUpdateInterval
+            DebugLogger.info("Update interval: $updateInterval ticks")
 
-        updateTask = plugin.launch {
-            while (true) {
-                delay(updateInterval * 50L)  // tickをミリ秒に変換
+            // Foliaではglobal region dispatcherを使用
+            DebugLogger.info("Launching update coroutine with global dispatcher...")
+            updateTask = plugin.launch(plugin.globalRegionDispatcher) {
+                DebugLogger.info("Update coroutine started!")
+                while (true) {
+                    delay(updateInterval * 50L)  // tickをミリ秒に変換
 
-                try {
-                    updateEntities()
-                } catch (e: Exception) {
-                    DebugLogger.error("Error during entity update", e)
+                    try {
+                        updateEntities()
+                    } catch (e: Exception) {
+                        DebugLogger.error("Error during entity update", e)
+                        e.printStackTrace()
+                    }
                 }
             }
-        }
 
-        DebugLogger.debug("Update task started (interval: $updateInterval ticks)")
+            DebugLogger.info("PacketEntity update task started (interval: $updateInterval ticks)")
+        } catch (e: Exception) {
+            DebugLogger.error("Failed in startUpdateTask", e)
+            e.printStackTrace()
+        }
     }
 
     /**
@@ -232,6 +257,11 @@ class PacketEntityManager(private val plugin: Unique) {
         val startTime = System.nanoTime()
 
         val entityList = entities.values.toList()
+
+        if (entityList.isNotEmpty()) {
+            DebugLogger.verbose("Updating ${entityList.size} entities")
+        }
+
         for (entity in entityList) {
             try {
                 // 各エンティティを適切なregionディスパッチャーで処理
@@ -240,6 +270,7 @@ class PacketEntityManager(private val plugin: Unique) {
                 }
             } catch (e: Exception) {
                 DebugLogger.error("Error updating entity ${entity.entityId}", e)
+                e.printStackTrace()
             }
         }
 

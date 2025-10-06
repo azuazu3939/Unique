@@ -12,7 +12,6 @@ import io.papermc.paper.plugin.bootstrap.BootstrapContext
 import io.papermc.paper.plugin.bootstrap.PluginBootstrap
 import io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents
-import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
@@ -84,7 +83,7 @@ object UniqueCommand : BrigadierCommand {
         // /unique spawn <mob>
         .then(
             Commands.literal("spawn")
-                .requires { it.sender.hasPermission("unique.spawn") }
+                // .requires { it.sender.hasPermission("unique.spawn") }  // 一時的に無効化
                 .then(
                     Commands.argument("mob", com.mojang.brigadier.arguments.StringArgumentType.word())
                         .suggests { ctx, builder ->
@@ -255,21 +254,20 @@ object UniqueCommand : BrigadierCommand {
             return
         }
 
-        plugin.launch {
-            val location = sender.location
-            withContext(plugin.regionDispatcher(location)) {
-                try {
-                    val mob = plugin.mobManager.spawnMob(mobName, location)
+        val location = sender.location
 
-                    if (mob != null) {
-                        sender.sendMessage("§6[Unique] §aSpawned $mobName at your location")
-                    } else {
-                        sender.sendMessage("§6[Unique] §cFailed to spawn $mobName")
-                    }
-                } catch (e: Exception) {
-                    sender.sendMessage("§6[Unique] §cError: ${e.message}")
-                    DebugLogger.error("Failed to spawn mob", e)
+        plugin.launch(plugin.regionDispatcher(location)) {
+            try {
+                val mob = plugin.mobManager.spawnMob(mobName, location)
+
+                if (mob != null) {
+                    sender.sendMessage("§6[Unique] §aSpawned $mobName at your location")
+                } else {
+                    sender.sendMessage("§6[Unique] §cFailed to spawn $mobName")
                 }
+            } catch (e: Exception) {
+                sender.sendMessage("§6[Unique] §cError: ${e.message}")
+                DebugLogger.error("Failed to spawn mob via command", e)
             }
         }
     }
