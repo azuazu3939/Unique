@@ -280,7 +280,7 @@ class PacketEntityManager(private val plugin: Unique) {
             }
             val duration = (System.nanoTime() - startTime) / 1_000_000L
             DebugLogger.timing("Entity update batch (${entityList.size} entities, ${toRemove.size} removed)", duration)
-        }, 2000, TimeUnit.MICROSECONDS)
+        }, 1000, TimeUnit.MILLISECONDS)
     }
 
     /**
