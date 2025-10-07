@@ -2,13 +2,10 @@ package com.github.azuazu3939.unique.entity
 
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.util.DebugLogger
-import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
+import com.github.shynixn.mccoroutine.folia.asyncDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
-import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.joinAll
+import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
@@ -39,11 +36,6 @@ class PacketEntityManager(private val plugin: Unique) {
     private val entityIdToUuid = ConcurrentHashMap<Int, UUID>()
 
     /**
-     * 更新タスク
-     */
-    private var updateTask: Job? = null
-
-    /**
      * 初期化
      */
     fun initialize() {
@@ -67,10 +59,6 @@ class PacketEntityManager(private val plugin: Unique) {
      */
     suspend fun shutdown() {
         DebugLogger.info("Shutting down PacketEntityManager...")
-
-        // 更新タスクを停止
-        updateTask?.cancel()
-        updateTask = null
 
         // すべてのエンティティをクリーンアップ
         val entityList = entities.values.toList()
@@ -227,29 +215,9 @@ class PacketEntityManager(private val plugin: Unique) {
         try {
             val updateInterval = plugin.configManager.mainConfig.performance.packetEntityUpdateInterval
             DebugLogger.info("Update interval: $updateInterval ticks")
-
-            // Foliaではglobal region dispatcherを使用
-            DebugLogger.info("Launching update coroutine with global dispatcher...")
-
-            updateTask = plugin.launch(plugin.globalRegionDispatcher) {
-                DebugLogger.info("Update coroutine started!")
-                while (true) { // tickをミリ秒に変換
-                    try {
-                        delay(updateInterval.toLong())
-                        updateEntities()
-                    } catch (e: CancellationException) {
-                        // 正常なキャンセル（リロードやシャットダウン時）- 再スローして終了
-                        DebugLogger.debug("Entity update task cancelled")
-                        throw e
-                    } catch (e: Exception) {
-                        DebugLogger.error("Error during entity update", e)
-                        e.printStackTrace()
-                    } finally {
-
-                    }
-                }
-            }
-
+            Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, {
+                updateEntities()
+            }, 1, 1)
             DebugLogger.info("PacketEntity update task started (interval: $updateInterval ticks)")
         } catch (e: Exception) {
             DebugLogger.error("Failed in startUpdateTask", e)
@@ -261,7 +229,7 @@ class PacketEntityManager(private val plugin: Unique) {
      * すべてのエンティティを更新
      * 最適化：エンティティごとに並列処理、バッチ削除
      */
-    private suspend fun updateEntities() {
+    private fun updateEntities() {
         val startTime = System.nanoTime()
         val entityList = entities.values.toList()
 
@@ -274,10 +242,7 @@ class PacketEntityManager(private val plugin: Unique) {
         val config = plugin.configManager.mainConfig.performance
 
         // 死亡エンティティのリスト
-        val toRemove = mutableListOf<PacketEntity>()
-
-        // 並列実行するジョブのリスト
-        val jobs = mutableListOf<Job>()
+        val toRemove = ConcurrentHashMap.newKeySet<PacketEntity>()
 
         for ((world, worldEntities) in entitiesByWorld) {
             if (world == null) continue
@@ -286,7 +251,7 @@ class PacketEntityManager(private val plugin: Unique) {
             for (entity in worldEntities) {
                 try {
                     // 非同期で更新開始
-                    val job = plugin.launch(plugin.regionDispatcher(entity.location)) {
+                    Bukkit.getRegionScheduler().run(plugin, entity.location) {
                         try {
                             entity.tick()
 
@@ -306,36 +271,29 @@ class PacketEntityManager(private val plugin: Unique) {
                             DebugLogger.error("Error ticking entity ${entity.entityId}", e)
                         }
                     }
-                    jobs.add(job)
-                } catch (e: CancellationException) {
-                    // 正常なキャンセル - 再スロー
-                    throw e
                 } catch (e: Exception) {
-                    DebugLogger.error("Error launching entity update ${entity.entityId}", e)
+                    throw e
                 }
             }
         }
 
-        // すべてのtick処理が完了するまで待機（重要！）
-        jobs.joinAll()
-
-        // バッチで削除（少し待ってから）- 待機時間は設定可能
-        if (toRemove.isNotEmpty()) {
-            delay(config.batchCleanupDelayMs)
-            for (entity in toRemove) {
-                try {
-                    unregisterEntity(entity.uuid)
-                } catch (e: CancellationException) {
-                    // 正常なキャンセル - 再スロー
-                    throw e
-                } catch (e: Exception) {
-                    DebugLogger.error("Error removing entity ${entity.entityId}", e)
+        plugin.launch(plugin.asyncDispatcher) {
+            if (toRemove.isNotEmpty()) {
+                for (entity in toRemove) {
+                    try {
+                        unregisterEntity(entity.uuid)
+                    } catch (e: CancellationException) {
+                        // 正常なキャンセル - 再スロー
+                        throw e
+                    } catch (e: Exception) {
+                        DebugLogger.error("Error removing entity ${entity.entityId}", e)
+                    }
                 }
             }
-        }
 
-        val duration = (System.nanoTime() - startTime) / 1_000_000L
-        DebugLogger.timing("Entity update batch (${entityList.size} entities, ${toRemove.size} removed)", duration)
+            val duration = (System.nanoTime() - startTime) / 1_000_000L
+            DebugLogger.timing("Entity update batch (${entityList.size} entities, ${toRemove.size} removed)", duration)
+        }
     }
 
     /**

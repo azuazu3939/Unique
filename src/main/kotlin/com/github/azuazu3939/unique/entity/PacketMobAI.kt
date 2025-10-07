@@ -1,13 +1,10 @@
 package com.github.azuazu3939.unique.entity
 
-import com.github.azuazu3939.unique.entity.physics.AABB
-import com.github.azuazu3939.unique.entity.physics.CollisionDetector
 import com.github.azuazu3939.unique.event.PacketMobTargetEvent
 import com.github.azuazu3939.unique.util.EventUtil
 import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.entity.Entity
-import org.bukkit.util.Vector
 import kotlin.math.atan2
 import kotlin.math.sqrt
 
@@ -51,7 +48,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * AI処理
      */
-    suspend fun tick() {
+    fun tick() {
         // ターゲット検索
         if (mob.ticksLived - lastTargetCheckTick >= mob.targetSearchInterval) {
             searchTarget()
@@ -115,7 +112,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * 待機状態の処理
      */
-    private suspend fun tickIdle() {
+    private fun tickIdle() {
         if (Math.random() < 0.01) {
             aiState = AIState.WANDER
             wanderTarget = getRandomWanderLocation()
@@ -125,7 +122,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * ターゲット追跡状態の処理
      */
-    private suspend fun tickTarget() {
+    private fun tickTarget() {
         val target = currentTarget ?: return
 
         val distance = mob.location.distance(target.location)
@@ -141,7 +138,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * 攻撃状態の処理
      */
-    private suspend fun tickAttack() {
+    private fun tickAttack() {
         val target = currentTarget ?: run {
             aiState = AIState.IDLE
             return
@@ -165,7 +162,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * 徘徊状態の処理
      */
-    private suspend fun tickWander() {
+    private fun tickWander() {
         val wander = wanderTarget
 
         if (wander == null || mob.location.distance(wander) < 1.0) {
@@ -180,7 +177,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * 指定位置に向かって移動（バニラ準拠・速度ベース）
      */
-    private suspend fun moveTowards(target: Location) {
+    private fun moveTowards(target: Location) {
         // 外部速度（ノックバック等）が大きい場合、AI移動を抑制
         if (physics.hasExternalVelocity()) {
             return
@@ -213,7 +210,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * 指定位置を向く
      */
-    private suspend fun lookAt(target: Location) {
+    private fun lookAt(target: Location) {
         val direction = target.toVector().subtract(mob.location.toVector()).normalize()
         mob.location.direction = direction
 
@@ -227,7 +224,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * ピッチをリセット（水平を向く）
      */
-    private suspend fun resetPitch() {
+    private fun resetPitch() {
         mob.updateRotation(mob.location.yaw, 0f)
     }
 

@@ -104,7 +104,7 @@ class PacketMobPhysics(private val mob: PacketMob) {
     /**
      * 物理演算のメインtick処理
      */
-    suspend fun tick() {
+    fun tick() {
         mob.location.world ?: return
 
         // 前回の位置を保存
@@ -195,7 +195,7 @@ class PacketMobPhysics(private val mob: PacketMob) {
     /**
      * 内部速度を衝突判定付きで適用
      */
-    private suspend fun applyVelocityWithCollision() {
+    private fun applyVelocityWithCollision() {
         // 移動ベクトルを作成
         val motion = Vector(velocityX, velocityY, velocityZ)
 

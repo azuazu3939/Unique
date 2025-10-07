@@ -355,7 +355,7 @@ class PacketMob(
      * 更新処理
      * 最適化：AI処理を間引き、ビューワーがいない場合はスキップ
      */
-    override suspend fun tick() {
+    override fun tick() {
         super.tick()
 
         val config = Unique.instance.configManager.mainConfig.performance
@@ -568,14 +568,14 @@ class PacketMob(
     /**
      * Internal method for AI class to perform attacks
      */
-    internal suspend fun performAttack(target: Entity) {
+    internal fun performAttack(target: Entity) {
         combat.performAttack(target)
     }
 
     /**
      * Internal method for AI to update rotation
      */
-    internal suspend fun updateRotation(yaw: Float, pitch: Float) {
+    internal fun updateRotation(yaw: Float, pitch: Float) {
         location.yaw = yaw
         location.pitch = pitch
 

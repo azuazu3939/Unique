@@ -237,7 +237,7 @@ abstract class PacketEntity(
     /**
      * 更新処理（1tick毎に呼ばれる）
      */
-    open suspend fun tick() {
+    open fun tick() {
         ticksLived++  // 死亡後もカウントを続ける（クリーンアップ判定に必要）
         if (isDead) return  // 死亡後はAI等の処理をスキップ
     }

@@ -177,7 +177,7 @@ class PacketMobCombat(private val mob: PacketMob) {
     /**
      * 攻撃実行
      */
-    suspend fun performAttack(target: Entity) {
+    fun performAttack(target: Entity) {
         DebugLogger.debug("${mob.mobName} attacks ${(target as? Player)?.name ?: target.type.name}")
 
         // MobInstance取得
@@ -386,7 +386,7 @@ class PacketMobCombat(private val mob: PacketMob) {
     /**
      * 攻撃アニメーションを再生
      */
-    private suspend fun playAttackAnimation() {
+    private fun playAttackAnimation() {
         mob.viewers.forEach { uuid ->
             Bukkit.getPlayer(uuid)?.let { player ->
                 PacketSender.sendAttackAnimationPacket(player, mob.entityId, mob.entityType)
