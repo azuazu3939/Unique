@@ -66,13 +66,32 @@ data class MobDefinition(
  * Mob AI設定
  */
 data class MobAI(
+    // AI行動パターン (AGGRESSIVE, PASSIVE, DEFENSIVE, WANDER, CUSTOM)
+    val behavior: String? = null,  // nullの場合はAGGRESSIVE（デフォルト）
+
+    // AI移動タイプ (GROUND, FLYING, JUMPING, TELEPORT, STATIONARY, CUSTOM)
+    val movement: String? = null,  // nullの場合はGROUND（デフォルト）
+
+    // 移動速度
     val movementSpeed: Double = 0.25,
+
+    // 追跡範囲
     val followRange: Double = 16.0,
+
+    // ノックバック耐性
     val knockbackResistance: Double = 0.0,
+
+    // AI有効フラグ
     val hasAI: Boolean = true,
+
+    // 重力有効フラグ
     val hasGravity: Boolean = true,
+
+    // 移動方向を向くか
     val lookAtMovementDirection: Boolean = true,
-    val wallClimbHeight: Double = 1.0  // 乗り越えられる壁の高さ（ブロック数）
+
+    // 乗り越えられる壁の高さ（ブロック数）
+    val wallClimbHeight: Double = 1.0
 )
 
 /**
@@ -187,6 +206,7 @@ data class SkillTrigger(
  */
 data class TargeterDefinition(
     val type: String,
+    val aliases: List<String> = emptyList(),  // ターゲッター名のエイリアス
     val range: Double = 16.0,
     val maxDistance: Double = 50.0,
     val count: Int = 1,
@@ -231,6 +251,7 @@ data class SkillMetaDefinition(
  */
 data class SkillReference(
     val skill: String,
+    val aliases: List<String> = emptyList(),  // スキル名のエイリアス
     val type: String? = null,  // Skillタイプ（Basic, Projectile, Meta, Branch等）
     val meta: SkillMetaDefinition = SkillMetaDefinition(),
     val effects: List<EffectDefinition> = emptyList(),
@@ -305,6 +326,7 @@ data class SkillBranchDefinition(
  */
 data class EffectDefinition(
     val type: String,
+    val aliases: List<String> = emptyList(),  // エフェクト名のエイリアス
     val amount: Double = 0.0,
     val strength: Double = 1.0,
     val duration: String = "0ms",

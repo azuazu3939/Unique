@@ -49,6 +49,8 @@ class Unique : SuspendingJavaPlugin() {
         private set
     lateinit var libsFolder: File
         private set
+    lateinit var aiFolder: File
+        private set
     lateinit var sampleFolder: File
         private set
 
@@ -194,6 +196,19 @@ class Unique : SuspendingJavaPlugin() {
 
         effectsFolder = createFolder("effects")
 
+        // AIフォルダとそのサブフォルダを作成
+        aiFolder = File(dataFolder, "ai")
+        if (!aiFolder.exists()) {
+            aiFolder.mkdirs()
+            DebugLogger.debug("Created folder: ai")
+
+            // ai/behaviors/
+            createFolder("ai/behaviors")
+
+            // ai/movements/
+            createFolder("ai/movements")
+        }
+
         // libsフォルダとそのサブフォルダを作成
         libsFolder = File(dataFolder, "libs")
         if (!libsFolder.exists()) {
@@ -222,6 +237,7 @@ class Unique : SuspendingJavaPlugin() {
 
         sampleFolder = createFolderWithSamples("sample", listOf(
             "sample/README.md",
+            "sample/ai_behavior_examples.yml",
             "sample/complete_example.yml",
             "sample/effect_examples.yml",
             "sample/inline_syntax_examples.yml",
@@ -396,7 +412,7 @@ class Unique : SuspendingJavaPlugin() {
                         }
                         DebugLogger.debug("  Generated sample: $fileName")
                     } else {
-                        DebugLogger.warn("  Resource not found: $resourcePath")
+                        DebugLogger.info("  Resource not found: $resourcePath")
                     }
                 } catch (e: Exception) {
                     DebugLogger.error("  Failed to copy sample file: $resourcePath", e)

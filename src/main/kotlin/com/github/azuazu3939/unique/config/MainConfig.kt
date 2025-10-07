@@ -34,8 +34,14 @@ data class PerformanceConfig(
     val asyncByDefault: Boolean = true,
     val packetEntityUpdateInterval: Int = 1,
     val maxConcurrentSkills: Int = 100,
-    val viewDistance: Double = 50.0,  // パケットエンティティの可視距離
-    val autoSpawnOnJoin: Boolean = true  // プレイヤー参加時の自動スポーン
+    val viewDistance: Double = 64.0,  // パケットエンティティの可視距離
+    val autoSpawnOnJoin: Boolean = true,  // プレイヤー参加時の自動スポーン
+    val aiTickInterval: Int = 1,  // MobのAI更新間隔（tick）
+    val deadEntityCleanupTicks: Long = 40L,  // 死亡エンティティクリーンアップまでの時間（死亡アニメーション表示時間も兼ねる）
+    val batchCleanupDelayMs: Long = 100L,  // バッチクリーンアップの遅延（ミリ秒）
+    val skipAiWhenNoViewers: Boolean = true,  // 観察者がいない場合にAIをスキップ
+    val damageMemoryTicks: Long = 200L,  // Mobがダメージを記憶する時間（tick）
+    val contextSearchRange: Double = 50.0  // CELコンテキスト構築時の検索範囲
 )
 
 /**

@@ -2,10 +2,11 @@ package com.github.azuazu3939.unique.entity
 
 import com.github.azuazu3939.unique.util.DebugLogger
 import kotlinx.coroutines.Job
+import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -41,7 +42,6 @@ abstract class PacketEntity(
      * 死亡フラグ
      */
     var isDead: Boolean = false
-        protected set
 
     /**
      * 生存時間（tick）
@@ -50,9 +50,14 @@ abstract class PacketEntity(
         protected set
 
     /**
+     * 死亡した時刻（tick）
+     */
+    var deathTick: Int = -1
+
+    /**
      * このエンティティを見ているプレイヤー
      */
-    protected val viewers = ConcurrentHashMap.newKeySet<UUID>()!!
+    val viewers = ConcurrentHashMap.newKeySet<UUID>()!!
 
     /**
      * アクティブなコルーチンジョブ
@@ -89,6 +94,13 @@ abstract class PacketEntity(
     suspend fun despawnForAll(players: Collection<Player>) {
         for (player in players) {
             despawn(player)
+        }
+    }
+
+    suspend fun despawnForAll(players: Set<UUID>) {
+        for (player in players) {
+            val p = Bukkit.getPlayer(player) ?: continue
+            despawn(p)
         }
     }
 
@@ -147,15 +159,15 @@ abstract class PacketEntity(
 
         isDead = true
         health = 0.0
+        deathTick = ticksLived  // 死亡時刻を記録
 
         // 死亡アニメーション
         playAnimation(EntityAnimation.DEATH)
 
-        // すべてのアクティブなジョブをキャンセル
-        activeJobs.values.forEach { it.cancel() }
-        activeJobs.clear()
+        // 注：activeJobsのキャンセルはcleanup()で行う
+        // これにより、OnDeathスキルなどが起動したジョブがキャンセルされるのを防ぐ
 
-        DebugLogger.debug("PacketEntity killed: $entityId ($entityType)")
+        DebugLogger.debug("PacketEntity killed: $entityId ($entityType), deathTick=$deathTick")
     }
 
     /**
@@ -226,17 +238,17 @@ abstract class PacketEntity(
      * 更新処理（1tick毎に呼ばれる）
      */
     open suspend fun tick() {
-        if (isDead) return
-        ticksLived++
+        ticksLived++  // 死亡後もカウントを続ける（クリーンアップ判定に必要）
+        if (isDead) return  // 死亡後はAI等の処理をスキップ
     }
 
     /**
      * クリーンアップ
      */
     open suspend fun cleanup() {
-        // すべてのビューワーからデスポーン
-        val onlinePlayers = location.world?.players ?: emptyList()
-        despawnForAll(onlinePlayers)
+        DebugLogger.info("Cleaning up PacketEntity: $entityId (type=$entityType, viewers=${viewers.size})")
+
+        despawnForAll(viewers.toSet())
 
         // ジョブをキャンセル
         activeJobs.values.forEach { it.cancel() }
@@ -245,7 +257,7 @@ abstract class PacketEntity(
         // ビューワーをクリア
         viewers.clear()
 
-        DebugLogger.debug("PacketEntity cleaned up: $entityId")
+        DebugLogger.info("PacketEntity cleaned up: $entityId")
     }
 }
 

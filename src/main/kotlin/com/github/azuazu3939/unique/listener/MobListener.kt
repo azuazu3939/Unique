@@ -18,6 +18,7 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import kotlin.math.sqrt
 
 /**
  * Mobイベントリスナー
@@ -97,7 +98,7 @@ class MobListener(private val plugin: Unique) : Listener {
         val deltaZ = mobLocation.z - playerLocation.z
 
         // 水平距離を計算
-        val distance = kotlin.math.sqrt(deltaX * deltaX + deltaZ * deltaZ)
+        val distance = sqrt(deltaX * deltaX + deltaZ * deltaZ)
 
         // 距離が0の場合はノックバックなし
         if (distance < 0.01) {
@@ -108,12 +109,27 @@ class MobListener(private val plugin: Unique) : Listener {
         val dirX = deltaX / distance
         val dirZ = deltaZ / distance
 
-        // ノックバック強度（Minecraftのデフォルト値）
-        val baseKnockbackStrength = 0.4
+        // ノックバック強度を計算
+        var knockbackStrength = 0.4  // 基本ノックバック
 
-        // knockbackResistanceを考慮（0.0 = ノックバックなし, 1.0 = 完全にノックバック）
+        // スプリント攻撃判定
+        val isSprinting = player.isSprinting
+        if (isSprinting) {
+            knockbackStrength += 1.0  // スプリント攻撃でバニラ相当の増加
+        }
+
+        // ノックバックエンチャント判定
+        val item = player.inventory.itemInMainHand
+        if (item.hasItemMeta()) {
+            val knockbackLevel = item.itemMeta.enchants[org.bukkit.enchantments.Enchantment.KNOCKBACK] ?: 0
+            if (knockbackLevel > 0) {
+                knockbackStrength += knockbackLevel * 0.4  // レベルごとに+0.4
+            }
+        }
+
+        // knockbackResistanceを考慮（0.0 = 完全にノックバック, 1.0 = ノックバックなし）
         val knockbackResistance = packetMob.knockbackResistance
-        val actualKnockback = baseKnockbackStrength * (1.0 - knockbackResistance)
+        val actualKnockback = knockbackStrength * (1.0 - knockbackResistance)
 
         // ノックバックが無効化されている場合はスキップ
         if (actualKnockback <= 0.0) {
@@ -122,13 +138,12 @@ class MobListener(private val plugin: Unique) : Listener {
 
         // ノックバック移動量を計算（水平 + 垂直）
         val knockbackX = dirX * actualKnockback
-        val knockbackY = 0.2  // 垂直方向のノックバック
+        // スプリント攻撃の場合はY軸ノックバックなし（水平方向のみ）
+        val knockbackY = if (isSprinting) 0.0 else 0.35
         val knockbackZ = dirZ * actualKnockback
 
-        // PacketMobを移動
-        packetMob.move(knockbackX, knockbackY, knockbackZ)
-
-        DebugLogger.verbose("Applied knockback to ${packetMob.mobName}: ($knockbackX, $knockbackY, $knockbackZ)")
+        // PacketMobに速度を追加（move()ではなくvelocityとして追加）
+        packetMob.addVelocity(knockbackX, knockbackY, knockbackZ)
     }
 
     /**
@@ -139,17 +154,12 @@ class MobListener(private val plugin: Unique) : Listener {
     fun onPlayerJoin(event: PlayerJoinEvent) {
         val player = event.player
 
-        DebugLogger.debug("Player joined: ${player.name}")
-
-        // TODO: マナ/MPシステムが有効な場合のみプレイヤーデータを作成
-        // plugin.playerDataManager.getPlayerData(player)
-
         // 周辺のパケットエンティティを表示
         val config = plugin.configManager.mainConfig.performance
         if (config.autoSpawnOnJoin) {
             plugin.launch {
                 plugin.packetEntityManager.autoSpawnForPlayer(player, config.viewDistance)
-                DebugLogger.verbose("Auto-spawned entities for ${player.name} (range: ${config.viewDistance})")
+                plugin.packetEntityManager.autoDespawnForPlayer(player, config.viewDistance * 2)
             }
         }
     }
@@ -161,11 +171,6 @@ class MobListener(private val plugin: Unique) : Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     fun onPlayerQuit(event: PlayerQuitEvent) {
         val player = event.player
-
-        DebugLogger.debug("Player quit: ${player.name}")
-
-        // TODO: マナ/MPシステムが有効な場合のみプレイヤーデータを削除
-        // plugin.playerDataManager.removePlayerData(player)
 
         // パケットエンティティのビューワーから削除
         val entities = plugin.packetEntityManager.getEntitiesViewedBy(player)
@@ -187,12 +192,7 @@ class MobListener(private val plugin: Unique) : Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPacketMobSpawn(event: PacketMobSpawnEvent) {
-        if (event.isCancelled) {
-            DebugLogger.debug("PacketMob spawn cancelled: ${event.mobName}")
-            return
-        }
-
-        DebugLogger.verbose("PacketMob spawned: ${event.mobName} at ${event.location}")
+        // イベント処理（必要に応じて他プラグインが使用）
     }
 
     /**
@@ -203,13 +203,7 @@ class MobListener(private val plugin: Unique) : Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPacketMobDamage(event: PacketMobDamageEvent) {
-        if (event.isCancelled) {
-            DebugLogger.verbose("PacketMob damage cancelled")
-            return
-        }
-
-        val damagerName = (event.damager as? Player)?.name ?: event.damager?.type?.name ?: "Unknown"
-        DebugLogger.verbose("PacketMob damaged: ${event.mob.mobName} took ${event.damage} damage from $damagerName")
+        // イベント処理（必要に応じて他プラグインが使用）
     }
 
     /**
@@ -220,16 +214,10 @@ class MobListener(private val plugin: Unique) : Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPacketMobDeath(event: PacketMobDeathEvent) {
-        val killerName = event.killer?.name ?: "Environment"
-        DebugLogger.debug("PacketMob died: ${event.mob.mobName} killed by $killerName")
-
         // ダメージランキングを表示（設定で有効な場合のみ）
         if (event.mob.options.showDamageRanking) {
-            event.mob.broadcastDamageRanking(limit = 10)
+            event.mob.broadcastDamageRanking()
         }
-
-        // 例: カスタムドロップを追加
-        // event.drops.add(ItemStack(Material.DIAMOND, 1))
     }
 
     /**
@@ -240,13 +228,7 @@ class MobListener(private val plugin: Unique) : Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPacketMobAttack(event: PacketMobAttackEvent) {
-        if (event.isCancelled) {
-            DebugLogger.verbose("PacketMob attack cancelled")
-            return
-        }
-
-        val targetName = (event.target as? Player)?.name ?: event.target.type.name
-        DebugLogger.verbose("PacketMob attacks: ${event.mob.mobName} -> $targetName (${event.damage} damage)")
+        // イベント処理（必要に応じて他プラグインが使用）
     }
 
     /**
@@ -257,14 +239,7 @@ class MobListener(private val plugin: Unique) : Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPacketMobTarget(event: PacketMobTargetEvent) {
-        if (event.isCancelled) {
-            DebugLogger.verbose("PacketMob target change cancelled")
-            return
-        }
-
-        val oldName = (event.oldTarget as? Player)?.name ?: "None"
-        val newName = (event.newTarget as? Player)?.name ?: "None"
-        DebugLogger.verbose("PacketMob target changed: ${event.mob.mobName} ($oldName -> $newName)")
+        // イベント処理（必要に応じて他プラグインが使用）
     }
 
     /**
@@ -275,12 +250,7 @@ class MobListener(private val plugin: Unique) : Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPacketMobSkill(event: PacketMobSkillEvent) {
-        if (event.isCancelled) {
-            DebugLogger.verbose("PacketMob skill cancelled: ${event.skillName}")
-            return
-        }
-
-        DebugLogger.verbose("PacketMob skill used: ${event.mob.mobName} -> ${event.skillName} (${event.trigger})")
+        // イベント処理（必要に応じて他プラグインが使用）
     }
 
     /**
@@ -291,6 +261,6 @@ class MobListener(private val plugin: Unique) : Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPacketMobRemove(event: PacketMobRemoveEvent) {
-        DebugLogger.verbose("PacketMob removed: ${event.mob.mobName} (${event.reason})")
+        // イベント処理（必要に応じて他プラグインが使用）
     }
 }

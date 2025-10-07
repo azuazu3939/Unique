@@ -8,6 +8,7 @@ import com.github.azuazu3939.unique.util.TimeParser
 import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -324,6 +325,10 @@ class SpawnManager(private val plugin: Unique) {
                     attemptSpawnForPlayer(name, definition, targetPlayer)
                 }
 
+            } catch (e: CancellationException) {
+                // 正常なキャンセル（リロードやシャットダウン時）- 再スローして終了
+                DebugLogger.debug("Spawn task cancelled: $name")
+                throw e
             } catch (e: Exception) {
                 DebugLogger.error("Error in spawn task: $name", e)
             }

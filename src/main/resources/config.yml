@@ -13,7 +13,7 @@ debug:
   verbose: false
 
   # スキル実行ログ
-  log_skill_execution: true
+  log_skill_execution: false
 
   # CEL評価ログ
   log_cel_evaluation: false
@@ -32,6 +32,30 @@ performance:
   # スキル実行の最大同時実行数
   max_concurrent_skills: 100
 
+  # パケットエンティティの可視距離（ブロック）
+  view_distance: 64.0
+
+  # MobのAI更新間隔（tick）- この間隔でAIを実行
+  ai_tick_interval: 1
+
+  # 死亡エンティティをクリーンアップするまでの時間（tick）
+  # この時間が死亡アニメーション表示時間も兼ねる
+  # 20tick = 1秒、40tick = 2秒
+  dead_entity_cleanup_ticks: 4
+
+  # バッチクリーンアップの遅延（ミリ秒）
+  # 0-50を推奨。大きいほど負荷分散、小さいほど即座に削除
+  batch_cleanup_delay_ms: 50
+
+  # 観察者がいない場合にAIをスキップするか
+  skip_ai_when_no_viewers: true
+
+  # Mobがダメージを記憶する時間（tick）
+  damage_memory_ticks: 200
+
+  # CELコンテキスト構築時の検索範囲（ブロック）
+  context_search_range: 64.0
+
 # スポーン設定
 spawn:
   # スポーンシステムの有効化
@@ -41,17 +65,17 @@ spawn:
   check_interval: 20
 
   # 最大スポーン数（サーバー全体）
-  max_total_spawns: 200
+  max_total_spawns: 2000
 
 # CEL設定
 cel:
   # CEL式のキャッシュサイズ
   # 大きいほどパフォーマンスが向上しますが、メモリを消費します
-  cache_size: 1000
+  cache_size: 2000
 
   # CEL評価のタイムアウト（ミリ秒）
   # この時間を超えると警告が表示されます
-  evaluation_timeout: 100
+  evaluation_timeout: 1000
 
 # 実験的機能
 experimental:

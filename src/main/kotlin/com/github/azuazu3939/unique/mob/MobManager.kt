@@ -5,7 +5,9 @@ import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.effect.*
 import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketMob
-import com.github.azuazu3939.unique.event.*
+import com.github.azuazu3939.unique.event.PacketMobDamageEvent
+import com.github.azuazu3939.unique.event.PacketMobSkillEvent
+import com.github.azuazu3939.unique.event.PacketMobSpawnEvent
 import com.github.azuazu3939.unique.skill.BasicSkill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.*
@@ -383,8 +385,8 @@ class MobManager(private val plugin: Unique) {
                     }
 
                     // 条件チェック（onDamagedの場合はdamager情報も含める）
-                    val conditionMet = if (triggerType == PacketMobSkillEvent.SkillTriggerType.ON_DAMAGED && mob.lastDamager != null) {
-                        evaluateCondition(trigger.condition, mob, mob.lastDamager)
+                    val conditionMet = if (triggerType == PacketMobSkillEvent.SkillTriggerType.ON_DAMAGED && mob.combat.lastDamager != null) {
+                        evaluateCondition(trigger.condition, mob, mob.combat.lastDamager)
                     } else {
                         evaluateCondition(trigger.condition, mob)
                     }
@@ -586,37 +588,12 @@ class MobManager(private val plugin: Unique) {
     }
 
     /**
-     * Mob死亡処理
+     * MobInstanceを削除
      */
-    suspend fun handleMobDeath(mob: PacketMob, killer: Player?) {
-        val instance = getMobInstance(mob) ?: return
-        val definition = instance.definition
-
-        DebugLogger.info("Handling death for mob: ${instance.definitionName}")
-
-        // 死亡イベント発火
-        val deathEvent = PacketMobDeathEvent(mob, killer, mutableListOf())
-        EventUtil.callEvent(deathEvent)
-
-        // OnDeathスキルトリガー実行
-        executeSkillTriggers(mob, definition.skills.onDeath, PacketMobSkillEvent.SkillTriggerType.ON_DEATH)
-
-        // ドロップ処理
-        if (killer != null) {
-            processDrops(definition, mob.location, killer, deathEvent.drops)
+    fun removeMobInstance(uuid: java.util.UUID) {
+        activeMobs.remove(uuid.toString())?.let {
+            DebugLogger.debug("Removed MobInstance: ${it.definitionName}")
         }
-
-        // MobInstanceを削除
-        activeMobs.remove(mob.uuid.toString())
-
-        // 削除イベント発火
-        EventUtil.callEvent(PacketMobRemoveEvent(mob, PacketMobRemoveEvent.RemoveReason.DEATH))
-
-        // PacketEntityをアンレジスター（一定時間後）
-        kotlinx.coroutines.delay(5000)  // 5秒後にクリーンアップ
-        plugin.packetEntityManager.unregisterEntity(mob.uuid)
-
-        DebugLogger.debug("Mob ${instance.definitionName} cleaned up")
     }
 
     /**
@@ -742,11 +719,16 @@ class MobManager(private val plugin: Unique) {
     /**
      * ドロップコンテキストを構築
      * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
+     * 最適化：getNearbyEntitiesの代わりにworld.playersを使用
      */
     private fun buildDropContext(killer: Player, location: Location): Map<String, Any> {
-        // 既にregion dispatcherのコンテキスト内にいるので、直接getNearbyEntitiesを呼ぶ
-        val nearbyPlayers = location.world?.getNearbyEntities(location, 50.0, 50.0, 50.0)
-            ?.filterIsInstance<Player>() ?: emptyList()
+        // 最適化：getNearbyEntitiesは重いので、world.playersから距離チェック
+        val world = location.world
+        val searchRange = plugin.configManager.mainConfig.performance.contextSearchRange
+        val searchRangeSquared = searchRange * searchRange
+        val nearbyPlayers = world?.players
+            ?.filter { it.location.world == world && it.location.distanceSquared(location) <= searchRangeSquared }
+            ?: emptyList()
 
         val baseContext = buildMap {
             put("killer", CELVariableProvider.buildEntityInfo(killer))
@@ -790,23 +772,23 @@ class MobManager(private val plugin: Unique) {
         // OnDamagedスキルトリガー実行
         executeSkillTriggers(mob, definition.skills.onDamaged, PacketMobSkillEvent.SkillTriggerType.ON_DAMAGED)
 
-        // 死亡チェック
-        if (mob.isDead) {
-            val killer = damager as? Player
-            handleMobDeath(mob, killer)
-        }
+        // 死亡チェック - PacketMob.kill()で既に処理されているので、ここでは何もしない
+        // PacketEntityManagerが dead_entity_cleanup_ticks 後に cleanup() を呼び出す
     }
 
     /**
      * Mobスポーン時のCELコンテキストを構築
      * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
+     * 最適化：getNearbyEntitiesの代わりにworld.playersを使用
      */
     private fun buildMobSpawnContext(location: Location): Map<String, Any> {
         val world = location.world ?: return emptyMap()
 
-        // 既にregion dispatcherのコンテキスト内にいるので、直接getNearbyEntitiesを呼ぶ
-        val nearbyPlayers = world.getNearbyEntities(location, 50.0, 50.0, 50.0)
-            .filterIsInstance<Player>()
+        // 最適化：getNearbyEntitiesは重いので、world.playersから距離チェック
+        val searchRange = plugin.configManager.mainConfig.performance.contextSearchRange
+        val searchRangeSquared = searchRange * searchRange
+        val nearbyPlayers = world.players
+            .filter { it.location.world == world && it.location.distanceSquared(location) <= searchRangeSquared }
 
         val baseContext = buildMap {
             put("world", CELVariableProvider.buildWorldInfo(world))

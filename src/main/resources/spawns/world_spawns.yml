@@ -12,7 +12,7 @@ OverworldCommonSpawns:
       value: NIGHT
     - type: LightLevel
       max: 7
-  spawnRate: 0.05
+  spawnRate: 600  # 30秒ごとに1回スポーン試行（めったに湧かない）
   maxNearbyMobs: 3
   spawnRadius: 32
 
@@ -24,16 +24,16 @@ NetherEliteSpawns:
   conditions:
     - type: World
       value: world_nether
-  spawnRate: 0.03
+  spawnRate: 800  # 40秒ごとに1回スポーン試行（エリートMobは更に稀）
   maxNearbyMobs: 2
   spawnRadius: 40
 
 # ボススポーン（手動）
-FlameDragonBossSpawn:
-  mob: FlameDragon
-  enabled: false
-  manual: true
-  description: "炎龍ボス - 手動スポーン用"
+#FlameDragonBossSpawn:
+  #ob: FlameDragon
+  #enabled: false
+  #manual: true
+  #description: "炎龍ボス - 手動スポーン用"
 
 # 時限スポーン（夜間のみ）
 NightOnlySpawn:
@@ -45,7 +45,7 @@ NightOnlySpawn:
       value: NIGHT
     - type: MoonPhase
       value: FULL_MOON
-  spawnRate: 0.02
+  spawnRate: 1200  # 60秒ごとに1回スポーン試行（満月限定の特別なMob）
   maxNearbyMobs: 1
   spawnRadius: 50
 
@@ -58,6 +58,6 @@ BiomeSpecificSpawn:
     - SNOWY_PLAINS
     - ICE_SPIKES
     - FROZEN_PEAKS
-  spawnRate: 0.04
+  spawnRate: 800  # 40秒ごとに1回スポーン試行（バイオーム限定）
   maxNearbyMobs: 2
   spawnRadius: 35

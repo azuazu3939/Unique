@@ -1,0 +1,163 @@
+# ================================================================
+# AI Behavior Examples
+# ================================================================
+# AI行動パターンのサンプル
+#
+# 利用可能な行動タイプ:
+# - AGGRESSIVE (デフォルト): 近くのプレイヤーを追跡して攻撃
+# - PASSIVE: 何もしない、攻撃もしない
+# - DEFENSIVE: 攻撃されたときのみ反撃
+# - WANDER: ランダムに徘徊するが攻撃しない
+# - CUSTOM: カスタムAI行動（将来実装予定）
+#
+# 利用可能な移動タイプ:
+# - GROUND (デフォルト): 地上を歩いて移動
+# - FLYING: 空中を自由に移動
+# - JUMPING: ジャンプして障害物を飛び越える
+# - TELEPORT: 瞬間移動で接近
+# - STATIONARY: 移動しない
+# - CUSTOM: カスタム移動（将来実装予定）
+# ================================================================
+
+# ======================
+# 攻撃的なMob（デフォルト）
+# ======================
+AggressiveZombie:
+  type: ZOMBIE
+  display: "§c攻撃的なゾンビ"
+  health: "40"
+  damage: "8"
+  ai:
+    behavior: AGGRESSIVE  # 近くのプレイヤーを自動追跡
+    movement: GROUND      # 地上移動
+    movementSpeed: 0.3
+    followRange: 20.0
+    attackRange: 2.0
+
+# ======================
+# 受動的なMob
+# ======================
+PassiveVillager:
+  type: VILLAGER
+  display: "§a平和な村人"
+  health: "20"
+  ai:
+    behavior: PASSIVE     # 何もしない
+    movement: WANDER      # 徘徊のみ
+    movementSpeed: 0.2
+    hasAI: true
+
+# ======================
+# 防御的なMob
+# ======================
+DefensiveIronGolem:
+  type: IRON_GOLEM
+  display: "§7防衛ゴーレム"
+  health: "100"
+  damage: "15"
+  ai:
+    behavior: DEFENSIVE   # 攻撃されたときのみ反撃
+    movement: GROUND
+    movementSpeed: 0.25
+    followRange: 16.0
+    knockbackResistance: 0.8
+
+# ======================
+# 徘徊のみのMob
+# ======================
+WanderingSlime:
+  type: SLIME
+  display: "§2徘徊スライム"
+  health: "30"
+  ai:
+    behavior: WANDER      # 徘徊するが攻撃しない
+    movement: JUMPING     # ジャンプ移動
+    movementSpeed: 0.2
+    hasAI: true
+
+# ======================
+# 飛行するMob
+# ======================
+FlyingPhantom:
+  type: PHANTOM
+  display: "§5空飛ぶファントム"
+  health: "50"
+  damage: "12"
+  ai:
+    behavior: AGGRESSIVE
+    movement: FLYING      # 空中を自由に移動
+    movementSpeed: 0.4
+    followRange: 30.0
+    hasGravity: false     # 飛行時は重力無効
+
+# ======================
+# テレポートするMob
+# ======================
+TeleportingEnderman:
+  type: ENDERMAN
+  display: "§dテレポートエンダーマン"
+  health: "80"
+  damage: "10"
+  ai:
+    behavior: AGGRESSIVE
+    movement: TELEPORT    # 瞬間移動で接近
+    movementSpeed: 0.3
+    followRange: 32.0
+
+# ======================
+# 固定砲台Mob
+# ======================
+StationaryTurret:
+  type: BLAZE
+  display: "§6固定砲台"
+  health: "60"
+  damage: "15"
+  ai:
+    behavior: AGGRESSIVE  # 攻撃はするが移動しない
+    movement: STATIONARY  # 移動しない
+    followRange: 20.0     # 射程距離
+  skills:
+    onAttack:
+      - name: turret_attack
+        skills:
+          - skill: FireballShot
+        targeter:
+          type: NearestPlayer
+          range: 20
+
+# ======================
+# エイリアスの例
+# ======================
+PowerfulFireball:
+  aliases:
+    - PFB
+    - StrongFireball
+    - FireballStrong
+  type: Projectile
+  projectileType: FIREBALL
+  speed: "3.0"
+  hitEffects:
+    - type: damage
+      amount: 25.0
+    - type: explosion
+      power: 2.0
+
+# 別のMobでエイリアスを使用
+FireBoss:
+  type: BLAZE
+  display: "§c§lファイアボス"
+  health: "500"
+  damage: "20"
+  ai:
+    behavior: AGGRESSIVE
+    movement: FLYING
+    movementSpeed: 0.35
+    followRange: 30.0
+    hasGravity: false
+  skills:
+    onAttack:
+      - name: fire_attack
+        skills:
+          - skill: PFB          # エイリアスを使用
+        targeter:
+          type: NearestPlayer

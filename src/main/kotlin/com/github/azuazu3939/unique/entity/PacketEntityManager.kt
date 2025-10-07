@@ -5,9 +5,10 @@ import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.joinAll
 import org.bukkit.Location
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
@@ -100,16 +101,15 @@ class PacketEntityManager(private val plugin: Unique) {
             return
         }
 
+        // 設定から可視距離を取得
+        val viewDistance = plugin.configManager.mainConfig.performance.viewDistance
         val nearbyPlayers = world.players.filter { player ->
-            player.location.distance(entity.location) <= 64.0  // 描画範囲
+            player.location.distance(entity.location) <= viewDistance
         }
-
-        DebugLogger.verbose("Registering entity ${entity.entityId}, found ${nearbyPlayers.size} nearby players")
 
         for (player in nearbyPlayers) {
             try {
                 entity.spawn(player)
-                DebugLogger.verbose("Spawned entity ${entity.entityId} for player ${player.name}")
             } catch (e: Exception) {
                 DebugLogger.error("Failed to spawn entity for player ${player.name}", e)
             }
@@ -236,6 +236,10 @@ class PacketEntityManager(private val plugin: Unique) {
 
                     try {
                         updateEntities()
+                    } catch (e: CancellationException) {
+                        // 正常なキャンセル（リロードやシャットダウン時）- 再スローして終了
+                        DebugLogger.debug("Entity update task cancelled")
+                        throw e
                     } catch (e: Exception) {
                         DebugLogger.error("Error during entity update", e)
                         e.printStackTrace()
@@ -252,46 +256,83 @@ class PacketEntityManager(private val plugin: Unique) {
 
     /**
      * すべてのエンティティを更新
+     * 最適化：エンティティごとに並列処理、バッチ削除
      */
     private suspend fun updateEntities() {
         val startTime = System.nanoTime()
-
         val entityList = entities.values.toList()
 
-        if (entityList.isNotEmpty()) {
-            DebugLogger.verbose("Updating ${entityList.size} entities")
-        }
+        if (entityList.isEmpty()) return
 
-        for (entity in entityList) {
-            try {
-                // 各エンティティを適切なregionディスパッチャーで処理
-                withContext(plugin.regionDispatcher(entity.location)) {
-                    entity.tick()
+        // エンティティをワールドごとにグループ化して効率化
+        val entitiesByWorld = entityList.groupBy { it.location.world }
+
+        // 設定から値を取得
+        val config = plugin.configManager.mainConfig.performance
+
+        // 死亡エンティティのリスト
+        val toRemove = mutableListOf<PacketEntity>()
+
+        // 並列実行するジョブのリスト
+        val jobs = mutableListOf<Job>()
+
+        for ((world, worldEntities) in entitiesByWorld) {
+            if (world == null) continue
+
+            // 各エンティティを並列で更新（それぞれのregionで実行）
+            for (entity in worldEntities) {
+                try {
+                    // 非同期で更新開始
+                    val job = plugin.launch(plugin.regionDispatcher(entity.location)) {
+                        try {
+                            entity.tick()
+
+                            // 死亡して一定時間経過したエンティティをマーク（設定可能）
+                            if (entity.isDead && entity.deathTick >= 0) {
+                                val ticksSinceDeath = entity.ticksLived - entity.deathTick
+                                if (ticksSinceDeath > config.deadEntityCleanupTicks) {
+                                    synchronized(toRemove) {
+                                        toRemove.add(entity)
+                                    }
+                                }
+                            }
+                        } catch (e: CancellationException) {
+                            // 正常なキャンセル - 再スロー
+                            throw e
+                        } catch (e: Exception) {
+                            DebugLogger.error("Error ticking entity ${entity.entityId}", e)
+                        }
+                    }
+                    jobs.add(job)
+                } catch (e: CancellationException) {
+                    // 正常なキャンセル - 再スロー
+                    throw e
+                } catch (e: Exception) {
+                    DebugLogger.error("Error launching entity update ${entity.entityId}", e)
                 }
-            } catch (e: Exception) {
-                DebugLogger.error("Error updating entity ${entity.entityId}", e)
-                e.printStackTrace()
             }
         }
 
-        // 死亡して一定時間経過したエンティティを削除
-        val toRemove = entityList.filter { entity ->
-            entity.isDead && entity.ticksLived > 100  // 5秒後に削除
-        }
+        // すべてのtick処理が完了するまで待機（重要！）
+        jobs.joinAll()
 
-        for (entity in toRemove) {
-            try {
-                // エンティティの削除も適切なregionディスパッチャーで処理
-                withContext(plugin.regionDispatcher(entity.location)) {
+        // バッチで削除（少し待ってから）- 待機時間は設定可能
+        if (toRemove.isNotEmpty()) {
+            delay(config.batchCleanupDelayMs)
+            for (entity in toRemove) {
+                try {
                     unregisterEntity(entity.uuid)
+                } catch (e: CancellationException) {
+                    // 正常なキャンセル - 再スロー
+                    throw e
+                } catch (e: Exception) {
+                    DebugLogger.error("Error removing entity ${entity.entityId}", e)
                 }
-            } catch (e: Exception) {
-                DebugLogger.error("Error removing entity ${entity.entityId}", e)
             }
         }
 
         val duration = (System.nanoTime() - startTime) / 1_000_000L
-        DebugLogger.timing("Entity update (${entityList.size} entities)", duration)
+        DebugLogger.timing("Entity update batch (${entityList.size} entities, ${toRemove.size} removed)", duration)
     }
 
     /**

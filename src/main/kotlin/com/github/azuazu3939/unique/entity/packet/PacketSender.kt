@@ -32,8 +32,6 @@ object PacketSender {
      * @param entity エンティティ
      */
     fun sendSpawnPacket(player: Player, entity: PacketEntity) {
-        DebugLogger.verbose("Sending spawn packet to ${player.name} for entity ${entity.entityId}")
-
         try {
             // EntityTypeを変換
             val peEntityType = convertToPEEntityType(entity.entityType)
@@ -69,8 +67,6 @@ object PacketSender {
      * @param entityId エンティティID
      */
     fun sendDespawnPacket(player: Player, entityId: Int) {
-        DebugLogger.verbose("Sending despawn packet to ${player.name} for entity $entityId")
-
         try {
             // デスポーンパケット作成
             val despawnPacket = WrapperPlayServerDestroyEntities(entityId)
@@ -91,8 +87,6 @@ object PacketSender {
      * @param location 新しい座標
      */
     fun sendTeleportPacket(player: Player, entityId: Int, location: Location) {
-        DebugLogger.verbose("Sending teleport packet to ${player.name} for entity $entityId")
-
         try {
             // テレポートパケット作成
             val teleportPacket = WrapperPlayServerEntityTeleport(

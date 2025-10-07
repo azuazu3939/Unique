@@ -157,6 +157,7 @@ class PacketDisplayEntity(
             PacketSender.sendDespawnPacket(player, entityId)
             removeViewer(player)
             DebugLogger.verbose("Despawned $displayType display for ${player.name}")
+
         } catch (e: Exception) {
             DebugLogger.error("Failed to despawn display entity for ${player.name}", e)
         }
