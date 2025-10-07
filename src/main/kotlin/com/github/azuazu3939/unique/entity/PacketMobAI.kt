@@ -6,8 +6,6 @@ import com.github.azuazu3939.unique.nms.distanceToAsync
 import com.github.azuazu3939.unique.nms.getLocationAsync
 import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.EventUtil
-import net.kyori.adventure.text.Component
-import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Entity
 import kotlin.math.atan2
@@ -95,8 +93,6 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
                         player.world.name == world.name &&
                         player.distanceToAsync(mob.location) <= followRange
             }
-
-        Bukkit.broadcast(Component.text("Searching for ${nearbyPlayers.size} nearby ${world.getPlayersAsync().size}"))
 
         if (nearbyPlayers.isNotEmpty()) {
             val newTarget = nearbyPlayers.minByOrNull { it.distanceToAsync(mob.location) }
