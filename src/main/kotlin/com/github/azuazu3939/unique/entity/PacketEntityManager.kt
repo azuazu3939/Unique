@@ -249,7 +249,7 @@ class PacketEntityManager(private val plugin: Unique) {
                     DebugLogger.error("Error removing entity ${entity.entityId}", e)
                 }
             }
-        }, 40 * 50, TimeUnit.MILLISECONDS)
+        }, 20 * 50, TimeUnit.MILLISECONDS)
     }
 
     /**
