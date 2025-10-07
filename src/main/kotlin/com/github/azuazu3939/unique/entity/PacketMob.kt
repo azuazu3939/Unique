@@ -156,6 +156,27 @@ class PacketMob(
         variables.clear()
     }
 
+    /**
+     * Physicsコンポーネントを取得
+     */
+    fun getPhysicsComponent(): PacketMobPhysics {
+        return physics
+    }
+
+    /**
+     * AIコンポーネントを取得
+     */
+    fun getAIComponent(): PacketMobAI {
+        return ai
+    }
+
+    /**
+     * Combatコンポーネントを取得
+     */
+    fun getCombatComponent(): PacketMobCombat {
+        return combat
+    }
+
     // ========================================
     // AI関連フィールド
     // ========================================
@@ -198,8 +219,9 @@ class PacketMob(
 
     /**
      * 乗り越えられる壁の高さ（ブロック数）
+     * 旧名: wallClimbHeight
      */
-    var wallClimbHeight: Double = 1.0
+    var stepHeight: Double = 1.0
 
     /**
      * エンティティをスポーン
@@ -343,9 +365,9 @@ class PacketMob(
             combat.clearDamageMemory()
         }
 
-        // 重力処理（死亡していない場合のみ）
-        if (hasGravity && !isDead) {
-            physics.applyGravity()
+        // 物理処理（重力、速度、埋まりチェック、摩擦を一括処理）
+        if (!isDead) {
+            physics.tick()
         }
 
         // AI処理（最適化：周囲にプレイヤーがいない場合はスキップ）
@@ -357,11 +379,6 @@ class PacketMob(
                     ai.tick()
                 }
             }
-        }
-
-        // 速度を実際の移動に適用（死亡していない場合のみ）
-        if (!isDead) {
-            physics.applyVelocity()
         }
     }
 
@@ -837,7 +854,7 @@ class PacketMob(
             mob.targetSearchInterval = targetSearchInterval
             mob.knockbackResistance = knockbackResistance
             mob.lookAtMovementDirection = lookAtMovementDirection
-            mob.wallClimbHeight = wallClimbHeight
+            mob.stepHeight = wallClimbHeight
 
             return mob
         }

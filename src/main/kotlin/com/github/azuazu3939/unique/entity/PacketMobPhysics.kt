@@ -1,11 +1,20 @@
 package com.github.azuazu3939.unique.entity
 
+import com.github.azuazu3939.unique.entity.packet.PacketSender
+import com.github.azuazu3939.unique.entity.physics.AABB
+import com.github.azuazu3939.unique.entity.physics.CollisionDetector
+import org.bukkit.Bukkit
+import org.bukkit.util.Vector
+import kotlin.math.abs
+
 /**
  * PacketMobの物理演算を担当するクラス
  *
+ * BukkitのBoundingBoxとAABBを使用した正確な衝突判定
  * - 重力の適用
  * - 速度の管理と適用
  * - 移動時の衝突判定
+ * - 地面埋まり防止
  */
 class PacketMobPhysics(private val mob: PacketMob) {
 
@@ -21,192 +30,242 @@ class PacketMobPhysics(private val mob: PacketMob) {
     var isOnGround: Boolean = false
         private set
 
+    // 前回の位置（デバッグ用）
+    private var lastX: Double = 0.0
+    private var lastY: Double = 0.0
+    private var lastZ: Double = 0.0
+
     /**
      * 速度を追加（ノックバックなど）
+     * ノックバック耐性を考慮
      */
     fun addVelocity(vx: Double, vy: Double, vz: Double) {
-        velocityX += vx
-        velocityY += vy
-        velocityZ += vz
+        val resistance = mob.knockbackResistance.coerceIn(0.0, 1.0)
+        val multiplier = 1.0 - resistance
+
+        velocityX += vx * multiplier
+        velocityY += vy * multiplier
+        velocityZ += vz * multiplier
     }
 
     /**
      * 速度を設定（上書き）
+     * ノックバック耐性を考慮
      */
     fun setVelocity(vx: Double, vy: Double, vz: Double) {
-        velocityX = vx
-        velocityY = vy
-        velocityZ = vz
+        val resistance = mob.knockbackResistance.coerceIn(0.0, 1.0)
+        val multiplier = 1.0 - resistance
+
+        velocityX = vx * multiplier
+        velocityY = vy * multiplier
+        velocityZ = vz * multiplier
     }
 
     /**
-     * 速度を実際の移動に適用
+     * AI移動速度を設定（水平方向のみ）
+     * 外部速度（ノックバックなど）がある場合は上書きしない
+     * 現在の速度に目標速度へ近づける加速度を適用（滑らかな移動）
      */
-    suspend fun applyVelocity() {
-        // 速度がほぼ0なら処理をスキップ
-        if (kotlin.math.abs(velocityX) < 0.001 &&
-            kotlin.math.abs(velocityY) < 0.001 &&
-            kotlin.math.abs(velocityZ) < 0.001) {
-            velocityX = 0.0
-            velocityY = 0.0
-            velocityZ = 0.0
+    fun setAIVelocity(vx: Double, vz: Double) {
+        // 外部速度が大きい場合は上書きしない
+        if (hasExternalVelocity()) {
             return
         }
 
-        // 速度を移動に適用
-        mob.move(velocityX, velocityY, velocityZ)
+        // 目標速度へ徐々に加速（バニラライク）
+        val acceleration = 0.6  // 加速度（1.0 = 即座に目標速度、0.5 = 半分ずつ近づく）
 
-        // 摩擦・空気抵抗を適用
-        if (isOnGround) {
-            // 地面摩擦（強めに設定してノックバックをより早く減衰）
-            velocityX *= 0.5
-            velocityZ *= 0.5
-        } else {
-            // 空気抵抗
-            velocityX *= 0.95
-            velocityZ *= 0.95
-        }
-
-        // Y軸は空気抵抗のみ
-        velocityY *= 0.98
+        velocityX += (vx - velocityX) * acceleration
+        velocityZ += (vz - velocityZ) * acceleration
     }
 
     /**
-     * 重力を適用（Mobの当たり判定全体をチェック）
+     * 現在のAABBを取得
      */
-    suspend fun applyGravity() {
-        val world = mob.location.world ?: return
+    private fun getEntityAABB(): AABB {
+        return getEntityAABB(mob.location.x, mob.location.y, mob.location.z)
+    }
 
-        // Mobの当たり判定を取得
-        val hitboxRadius = mob.getEntityHitboxWidth() / 2.0
-        val hitboxHeight = mob.getEntityHitboxHeight()
+    /**
+     * 指定位置でのAABBを取得
+     */
+    private fun getEntityAABB(x: Double, y: Double, z: Double): AABB {
+        val width = mob.getEntityHitboxWidth()
+        val height = mob.getEntityHitboxHeight()
 
-        // 当たり判定の範囲を計算
-        val minX = (mob.location.x - hitboxRadius).toInt()
-        val maxX = (mob.location.x + hitboxRadius).toInt()
-        val minZ = (mob.location.z - hitboxRadius).toInt()
-        val maxZ = (mob.location.z + hitboxRadius).toInt()
+        val tempLocation = mob.location.clone()
+        tempLocation.x = x
+        tempLocation.y = y
+        tempLocation.z = z
 
-        val footY = mob.location.y
-        val footBlockY = footY.toInt()
+        return AABB.fromLocation(tempLocation, width, height)
+    }
 
-        // 当たり判定の範囲内で埋まりチェック（足元から頭まで）
-        var isEmbedded = false
-        var maxEmbeddedY = footBlockY
+    /**
+     * 物理演算のメインtick処理
+     */
+    suspend fun tick() {
+        mob.location.world ?: return
 
-        for (checkX in minX..maxX) {
-            for (checkZ in minZ..maxZ) {
-                for (i in 0 until kotlin.math.ceil(hitboxHeight).toInt()) {
-                    val checkY = footBlockY + i
-                    val block = world.getBlockAt(checkX, checkY, checkZ)
-                    if (block.type.isSolid) {
-                        isEmbedded = true
-                        if (checkY > maxEmbeddedY) {
-                            maxEmbeddedY = checkY
-                        }
-                    }
-                }
-            }
-        }
+        // 前回の位置を保存
+        lastX = mob.location.x
+        lastY = mob.location.y
+        lastZ = mob.location.z
 
-        // 埋まっている場合は押し上げる
-        if (isEmbedded) {
-            val groundY = maxEmbeddedY + 1.0
-            mob.location.y = groundY
-            isOnGround = true
-            velocityY = 0.0
-            return
-        }
+        // 摩擦・空気抵抗と重力を先に適用（移動前）
+        applyFrictionAndGravity()
 
-        // 当たり判定の範囲内で地面検出
-        var hasGround = false
-        var maxGroundY = footBlockY - 1
-
-        for (checkX in minX..maxX) {
-            for (checkZ in minZ..maxZ) {
-                val blockBelow = world.getBlockAt(checkX, footBlockY - 1, checkZ)
-                if (blockBelow.type.isSolid) {
-                    hasGround = true
-                    val groundBlockY = footBlockY - 1
-                    if (groundBlockY > maxGroundY) {
-                        maxGroundY = groundBlockY
-                    }
-                }
-            }
-        }
-
-        if (hasGround) {
-            val groundY = maxGroundY + 1.0
-            val distanceToGround = footY - groundY
-
-            // 地面に近い場合（0.15ブロック以内）
-            if (distanceToGround < 0.15) {
-                isOnGround = true
-                // 下降中なら速度をリセット
-                if (velocityY < 0) {
-                    velocityY = 0.0
-                }
-                // 地面より下にいる場合は補正
-                if (distanceToGround < 0.05) {
-                    mob.location.y = groundY
-                }
-            } else {
-                // まだ空中
-                isOnGround = false
-                velocityY -= 0.2
-                if (velocityY < -2.0) {
-                    velocityY = -2.0
-                }
-            }
-        } else {
-            // 空中（地面がない）
-            isOnGround = false
-            velocityY -= 0.2
-            if (velocityY < -2.0) {
-                velocityY = -2.0
-            }
+        // 速度を適用（衝突判定付き）
+        if (hasVelocity()) {
+            applyVelocityWithCollision()
         }
     }
 
     /**
-     * 指定された位置でMobが通れる空間があるかチェック
+     * 摩擦・空気抵抗と重力を適用（移動前）
      *
-     * @param world ワールド
-     * @param centerX Mobの中心X座標
-     * @param centerZ Mobの中心Z座標
-     * @param footY Mobの足元Y座標
-     * @return 通れる場合true、通れない場合false
+     * 参考実装に基づく処理順序
      */
-    fun checkClearance(world: org.bukkit.World, centerX: Double, centerZ: Double, footY: Double): Boolean {
-        val hitboxRadius = mob.getEntityHitboxWidth() / 2.0
-        val hitboxHeight = mob.getEntityHitboxHeight()
-
-        // 当たり判定の範囲を計算
-        val minX = (centerX - hitboxRadius).toInt()
-        val maxX = (centerX + hitboxRadius).toInt()
-        val minZ = (centerZ - hitboxRadius).toInt()
-        val maxZ = (centerZ + hitboxRadius).toInt()
-
-        val startY = footY.toInt()
-        val requiredHeight = kotlin.math.ceil(hitboxHeight).toInt()
-
-        // 当たり判定の範囲内の全ての位置で高さをチェック
-        for (checkX in minX..maxX) {
-            for (checkZ in minZ..maxZ) {
-                // 足元から必要な高さ分のブロックをチェック
-                for (i in 0 until requiredHeight) {
-                    val checkY = startY + i
-                    val block = world.getBlockAt(checkX, checkY, checkZ)
-
-                    // 固体ブロックがある場合は通れない
-                    if (block.type.isSolid) {
-                        return false
-                    }
-                }
+    private fun applyFrictionAndGravity() {
+        if (isOnGround) {
+            // 地面にいる場合、地面摩擦を適用
+            if (velocityX != 0.0) {
+                velocityX *= 0.6
+            }
+            if (velocityZ != 0.0) {
+                velocityZ *= 0.6
             }
         }
 
-        return true
+        // 重力と空気抵抗を適用（地面でも空中でも）
+        if (mob.hasGravity) {
+            velocityY = (velocityY - 0.08) * 0.98
+        } else if (velocityY != 0.0) {
+            velocityY *= 0.98
+        }
+
+        // 終端速度を制限
+        val terminalVelocity = 3.92
+        if (velocityY < -terminalVelocity) {
+            velocityY = -terminalVelocity
+        }
+
+        // 微小な速度はゼロにする
+        if (abs(velocityX) < 0.003) velocityX = 0.0
+        if (abs(velocityY) < 0.003) velocityY = 0.0
+        if (abs(velocityZ) < 0.003) velocityZ = 0.0
+    }
+
+    /**
+     * 指定された速度ベクトルで移動を試みる（衝突判定付き）
+     *
+     * velocityを引数に取り、衝突判定を処理しながら移動を試みます。
+     * 途中で衝突した場合は、その手前まで移動します。
+     *
+     * @param velocity 移動速度ベクトル
+     * @return 衝突判定の結果（実際に移動した量と衝突情報）
+     */
+    fun move(velocity: Vector): CollisionDetector.CollisionResult {
+        val world = mob.location.world ?: return CollisionDetector.CollisionResult(
+            Vector(0.0, 0.0, 0.0),
+            collidedX = false,
+            collidedY = false,
+            collidedZ = false,
+            isOnGround = isOnGround
+        )
+
+        // 前回の位置を保存
+        lastX = mob.location.x
+        lastY = mob.location.y
+        lastZ = mob.location.z
+
+        // 現在のAABBを取得
+        val entityAABB = getEntityAABB()
+
+        // 衝突判定を実行（スウィープテスト）
+        val result = CollisionDetector.sweepTest(world, entityAABB, velocity)
+
+        // 実際に移動可能な量だけ移動（衝突した場合はその手前まで）
+        mob.location.x += result.motion.x
+        mob.location.y += result.motion.y
+        mob.location.z += result.motion.z
+
+        // 地面判定を更新
+        isOnGround = result.isOnGround
+
+        // 位置が変更された場合、テレポートパケット送信
+        if (hasMoved()) {
+            sendMovementPackets()
+        }
+
+        return result
+    }
+
+    /**
+     * 内部速度を衝突判定付きで適用
+     */
+    private suspend fun applyVelocityWithCollision() {
+        // 移動ベクトルを作成
+        val motion = Vector(velocityX, velocityY, velocityZ)
+
+        // move関数を使用して移動
+        val result = move(motion)
+
+        // 衝突した場合、その軸の速度をリセット
+        if (result.collidedX) {
+            velocityX = 0.0
+        }
+        if (result.collidedY) {
+            velocityY = 0.0
+        }
+        if (result.collidedZ) {
+            velocityZ = 0.0
+        }
+    }
+
+    /**
+     * ノックバック効果を適用
+     *
+     * @param sourceX ノックバック元のX位置
+     * @param sourceZ ノックバック元のZ位置
+     * @param strength ノックバック強度
+     * @param verticalStrength 垂直方向の強度
+     */
+    fun applyKnockback(sourceX: Double, sourceZ: Double, strength: Double, verticalStrength: Double = 0.4) {
+        // ノックバック方向を計算
+        val dx = mob.location.x - sourceX
+        val dz = mob.location.z - sourceZ
+        val distance = kotlin.math.sqrt(dx * dx + dz * dz)
+
+        if (distance < 0.001) {
+            // 距離が0に近い場合はランダムな方向に
+            val angle = Math.random() * 2 * Math.PI
+            addVelocity(
+                kotlin.math.cos(angle) * strength,
+                verticalStrength,
+                kotlin.math.sin(angle) * strength
+            )
+        } else {
+            // 正規化してノックバック
+            val normalizedX = dx / distance
+            val normalizedZ = dz / distance
+
+            addVelocity(
+                normalizedX * strength,
+                verticalStrength,
+                normalizedZ * strength
+            )
+        }
+
+        // ノックバック時は接地フラグをリセット
+        isOnGround = false
+    }
+
+    /**
+     * 速度があるかチェック
+     */
+    fun hasVelocity(): Boolean {
+        return abs(velocityX) > 0.003 || abs(velocityY) > 0.003 || abs(velocityZ) > 0.003
     }
 
     /**
@@ -215,5 +274,42 @@ class PacketMobPhysics(private val mob: PacketMob) {
     fun hasExternalVelocity(): Boolean {
         val horizontalVelocity = kotlin.math.sqrt(velocityX * velocityX + velocityZ * velocityZ)
         return horizontalVelocity > 0.05
+    }
+
+    /**
+     * 位置が移動したかチェック
+     */
+    private fun hasMoved(): Boolean {
+        val dx = mob.location.x - lastX
+        val dy = mob.location.y - lastY
+        val dz = mob.location.z - lastZ
+        return abs(dx) > 0.001 || abs(dy) > 0.001 || abs(dz) > 0.001
+    }
+
+    /**
+     * 移動パケットを全viewerに送信
+     */
+    private fun sendMovementPackets() {
+        mob.viewers.forEach { uuid ->
+            Bukkit.getPlayer(uuid)?.let { player ->
+                PacketSender.sendTeleportPacket(player, mob.entityId, mob.location)
+            }
+        }
+    }
+
+    /**
+     * デバッグ情報を取得
+     */
+    fun getDebugInfo(): String {
+        return buildString {
+            appendLine("=== PacketMobPhysics Debug ===")
+            appendLine("Position: ${String.format("%.2f, %.2f, %.2f", mob.location.x, mob.location.y, mob.location.z)}")
+            appendLine("Velocity: ${String.format("%.3f, %.3f, %.3f", velocityX, velocityY, velocityZ)}")
+            appendLine("OnGround: $isOnGround")
+            appendLine("HasVelocity: ${hasVelocity()}")
+            appendLine("HasExternalVelocity: ${hasExternalVelocity()}")
+            appendLine("KnockbackResistance: ${mob.knockbackResistance}")
+            appendLine("StepHeight: ${mob.stepHeight}")
+        }
     }
 }

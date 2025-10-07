@@ -2,39 +2,104 @@
 
 Uniqueは、Minecraftサーバー向けの強力なカスタムMobプラグインです。超コンパクトな構文で、複雑なMobとスキルを簡単に作成できます。
 
-## 📚 ドキュメント一覧
+## 📚 ドキュメント構成
 
-### 基本ガイド
-- **[クイックスタート](QUICKSTART.md)** - 5分で始める
-- **[使い方ガイド](GUIDE.md)** - 詳細な使い方
-- **[構文リファレンス](ULTRA_COMPACT_SYNTAX.md)** - 完全な構文ガイド
+このドキュメントは、ユーザー向けガイドと開発者向け技術資料の2つのセクションに分かれています。
 
-### リファレンス
-- **[機能リファレンス](REFERENCE.md)** - 全機能の詳細
-- **[新機能ガイド](NEW_FEATURES_GUIDE.md)** - 最新機能の紹介
+### 👤 ユーザーガイド → [user-guide/](user-guide/)
 
-### 開発者向け
-- **[開発ガイド](DEVELOPMENT.md)** - プラグイン開発
-- **[変更履歴](CHANGELOG.md)** - バージョン履歴
-- **[トラブルシューティング](TROUBLESHOOTING.md)** - 問題解決
+プラグインの使用方法、設定方法、機能リファレンスなど、ユーザー向けの情報。
 
-## 🚀 特徴
+**はじめに:**
+- [クイックスタート](user-guide/QUICKSTART.md) - 5分で始める
+- [使い方ガイド](user-guide/GUIDE.md) - 詳細な使い方
+- [超コンパクト構文](user-guide/ULTRA_COMPACT_SYNTAX.md) - 完全な構文ガイド
+
+**リファレンス:**
+- [機能リファレンス](user-guide/REFERENCE.md) - 全機能の詳細
+- [上級機能ガイド](user-guide/ADVANCED_FEATURES.md) - 高度な機能
+- [クイックリファレンス（上級）](user-guide/QUICK_REFERENCE_ADVANCED.md) - 上級者向けチートシート
+- [リソースキーシステム](user-guide/RESOURCE_KEY_SYSTEM.md) - 最新のリソースキー対応
+- [新機能ガイド](user-guide/NEW_FEATURES_GUIDE.md) - 最新機能の紹介
+
+**その他:**
+- [トラブルシューティング](user-guide/TROUBLESHOOTING.md) - 問題解決
+- [変更履歴](user-guide/CHANGELOG.md) - バージョン履歴
+- [開発ガイド](user-guide/DEVELOPMENT.md) - プラグイン開発
+
+### 🛠️ 技術資料 → [technical/](technical/)
+
+プラグインの内部実装、アーキテクチャ、各システムの詳細など、開発者向けの技術情報。
+
+**アーキテクチャ:**
+- [アーキテクチャ概要](technical/architecture/overview.md)
+- [モジュール構造](technical/architecture/module-structure.md)
+- [初期化フロー](technical/architecture/initialization.md)
+
+**コアシステム:**
+- [CEL Engine](technical/core-systems/cel-engine.md)
+- [Config Manager](technical/core-systems/config-manager.md)
+- [PacketEntity Manager](technical/core-systems/packet-entity-manager.md)
+
+**エンティティシステム:**
+- [PacketMob](technical/entity-system/packet-mob.md)
+- [AI System](technical/entity-system/ai-system.md)
+- [Physics System](technical/entity-system/physics.md)
+- [Combat System](technical/entity-system/combat.md)
+
+**スキルシステム:**
+- [Skill Executor](technical/skill-system/skill-executor.md)
+- [Skill Types](technical/skill-system/skill-types.md)
+
+**エフェクトシステム:**
+- [Effect Overview](technical/effect-system/effect-overview.md)
+
+**ターゲッターシステム:**
+- [Targeter Overview](technical/targeter-system/targeter-overview.md)
+
+**Mobシステム:**
+- [Mob Manager](technical/mob-system/mob-manager.md)
+- [Spawn System](technical/mob-system/spawn-system.md)
+
+## 🚀 クイックスタート
+
+### インストール
+
+1. プラグインを `plugins/` フォルダーに配置
+2. サーバーを起動（自動で設定ファイル生成）
+3. `plugins/Unique/mobs/` にMob定義YAMLを作成
+4. `/unique reload` でリロード
+
+### 基本的なMob作成
+
+```yaml
+SimpleZombie:
+  Type: ZOMBIE
+  Display: "&c強化ゾンビ"
+  Health: "50"
+  Damage: "10"
+  Skills:
+    - "damage{amount=15} @TargetLocation ~onAttack"
+```
+
+### 超コンパクト構文
+
+```yaml
+FireMage:
+  Type: BLAZE
+  Display: "&c炎の魔法使い"
+  Health: "150"
+  Skills:
+    - "projectile{damage=22, speed=2.5, particle=FLAME} @NearestPlayer{range=30.0} ~onTimer:30t"
+```
+
+## 🎯 主要機能
 
 ### 超コンパクト構文
 たった1行でMobスキルを定義できます。
 
-```yaml
-FireMage:
-  type: BLAZE
-  display: "&c炎の魔法使い"
-  health: "150"
-  Skills:
-    - projectile{type=FIREBALL;speed=2.5;onHit=[damage{amount=22},explosion{radius=4.0}]} @NearestPlayer{r=30} ~onTimer:30
-```
-
 ### MythicMobs互換
 MythicMobsユーザーにとって馴染みやすい設計です。
-
 - **時間単位**: tick（デフォルト）、s、m、h、d
 - **省略形**: `@NP` = NearestPlayer、`@TL` = TargetLocation
 - **インライン構文**: `{param=value;...}` 形式
@@ -44,63 +109,55 @@ Google CEL式による動的な値の計算が可能です。
 
 ```yaml
 BossMob:
-  health: "100 + (nearbyPlayers.count * 50)"  # プレイヤー数に応じて体力増加
-  damage: "10 + (nearbyPlayers.avgLevel * 0.5)"  # レベルに応じてダメージ増加
+  Health: "100 + (nearbyPlayers.count * 50)"  # プレイヤー数に応じて体力増加
+  Damage: "10 + (nearbyPlayers.avgLevel * 0.5)"  # レベルに応じてダメージ増加
 ```
 
 ### 豊富なスキルタイプ
 - **Projectile（発射物）**: 矢、火球、ウィザースカルなど
 - **Beam（ビーム）**: レーザービーム攻撃
 - **Aura（オーラ）**: 範囲バフ・デバフ
+- **Summon（召喚）**: エンティティの召喚
 - **Basic（基本）**: カスタムエフェクト組み合わせ
 
 ### 多彩なエフェクト
-ダメージ、爆発、雷、パーティクル、サウンド、ポーション効果、回復、凍結、シールド、テレポート、引き寄せ、押し出し、盲目など
+ダメージ、爆発、雷、パーティクル、サウンド、ポーション効果、回復、ノックバック、テレポート、引き寄せ、押し出しなど15種類以上
 
-## 📖 基本構文
+### 自動スポーンシステム
+時間、天候、プレイヤー数などの条件に基づいた自動スポーン
 
-### Mob定義
+### パケットベースの軽量実装
+サーバー負荷を最小限に抑えた高性能な実装
 
-```yaml
-MobName:
-  type: ENTITY_TYPE        # エンティティタイプ（必須）
-  display: "&cボス名"      # 表示名
-  health: "200"            # 体力（CEL式対応）
-  damage: "15"             # 攻撃力（CEL式対応）
-  armor: "10"              # 防具値（CEL式対応）
+## 📖 詳細情報
 
-  AI:
-    movementSpeed: 0.3
-    followRange: 20.0
+### 初めての方
+1. [クイックスタート](user-guide/QUICKSTART.md)で基本を学ぶ
+2. [使い方ガイド](user-guide/GUIDE.md)で詳細を理解する
+3. [サンプルMob](../mobs/)を参考にカスタマイズする
 
-  Appearance:
-    customNameVisible: true
-    glowing: true
+### 既存ユーザー
+- [新機能ガイド](user-guide/NEW_FEATURES_GUIDE.md) - 最新機能をチェック
+- [上級機能](user-guide/ADVANCED_FEATURES.md) - 高度な機能を活用
+- [変更履歴](user-guide/CHANGELOG.md) - アップデート内容を確認
 
-  Skills:
-    - スキル定義 @ターゲッター ~トリガー
+### 開発者
+- [技術資料](technical/) - 内部実装の詳細
+- [アーキテクチャ概要](technical/architecture/overview.md) - システム全体の設計
+- [開発ガイド](user-guide/DEVELOPMENT.md) - プラグイン開発の開始方法
 
-  Drops:
-    - item: DIAMOND
-      amount: "1-3"
-      chance: "0.5"
-```
+## 🎓 学習リソース
 
-### スキル構文
+### サンプルファイル
+プラグインには豊富なサンプルファイルが含まれています：
+- `mobs/*.yml` - 様々なMobの例
+- `spawns/*.yml` - スポーン定義の例
+- `libs/Effects/*.yml` - エフェクトライブラリ
+- `sample/*.yml` - 学習用サンプル
 
-```
-スキル定義 @ターゲッター ~トリガー
-```
+### クイックリファレンス
 
-**例:**
-```yaml
-- projectile{type=FIREBALL;speed=2.5;onHit=[damage{amount=20}]} @NP{r=30} ~onTimer:30
-```
-
-## 🎯 クイックリファレンス
-
-### ターゲッター省略形
-
+#### ターゲッター省略形
 | 省略形 | 正式名 |
 |--------|--------|
 | `@TL` | TargetLocation |
@@ -110,8 +167,7 @@ MobName:
 | `@LH` | LowestHealth |
 | `@HH` | HighestHealth |
 
-### 時間単位
-
+#### 時間単位
 | 単位 | 説明 |
 |------|------|
 | `30` | 30tick（デフォルト、1.5秒） |
@@ -121,8 +177,7 @@ MobName:
 | `5m` | 5分 |
 | `2h` | 2時間 |
 
-### トリガー
-
+#### トリガー
 | トリガー | 説明 |
 |---------|------|
 | `~onTimer:interval` | 一定間隔で発動 |
@@ -131,101 +186,26 @@ MobName:
 | `~onSpawn` | スポーン時 |
 | `~onAttack` | 攻撃時 |
 
-## 📝 サンプル
-
-### シンプルなMob
-
-```yaml
-SimpleZombie:
-  type: ZOMBIE
-  display: "&c強化ゾンビ"
-  health: "50"
-  Skills:
-    - damage{amount=15} @TL ~onAttack
-```
-
-### 中級Mob
-
-```yaml
-IceMage:
-  type: STRAY
-  display: "&b氷の魔法使い"
-  health: "120"
-  Skills:
-    - projectile{type=SNOWBALL;speed=3.0;onHit=[damage{amount=12},freeze{duration=3s}]} @NP{r=25} ~onTimer:40
-    - explosion{amount=15;radius=5.0} @Self ~onDamaged
-    - heal{amount=10} @Self ~onTimer:5s
-```
-
-### 上級ボス
-
-```yaml
-DragonBoss:
-  type: ENDER_DRAGON
-  display: "&d&l古龍"
-  health: "500 + (nearbyPlayers.count * 100)"
-  damage: "25"
-  armor: "15"
-  Skills:
-    - projectile{type=DRAGON_FIREBALL;speed=1.5;pierce=true;onHit=[damage{amount=40},explosion{amount=30;radius=8.0;fire=true}]} @NP{r=50} ~onTimer:60
-    - lightning{damage=35;fire=true} @NP{r=40;cond=target.health < target.maxHealth * 0.3} ~onTimer:100
-    - aura{radius=15;duration=10000;particle=DRAGON_BREATH} @Self ~onTimer:200
-    - explosion{amount=80;radius=15.0;fire=true} @Self ~onDeath
-```
-
-## 🔧 セットアップ
-
-1. プラグインを `plugins/` フォルダーに配置
-2. サーバーを起動（自動で設定ファイル生成）
-3. `plugins/Unique/mobs/` にMob定義YAMLを作成
-4. `/unique reload` でリロード
-
-## 💡 Tips
-
-### 改行で見やすく
-
-```yaml
-Skills:
-  - >
-    projectile{
-      type=FIREBALL;
-      speed=2.5;
-      onHit=[
-        damage{amount=22},
-        explosion{radius=4.0}
-      ]
-    }
-    @NearestPlayer{r=30}
-    ~onTimer:30
-```
-
-### コメントで整理
-
-```yaml
-Skills:
-  # メイン攻撃（30tick毎）
-  - projectile{...} @NP{r=30} ~onTimer:30
-
-  # 防御スキル（ダメージ時）
-  - explosion{...} @Self ~onDamaged
-```
-
-## 📦 サンプルファイル
-
-プラグインには豊富なサンプルファイルが含まれています：
-
-- `mobs/*.yml` - 様々なMobの例
-- `skills/*.yml` - スキルライブラリ
-- `sample/*.yml` - 学習用サンプル
-
 ## 🆘 サポート
 
 問題が発生した場合：
 
-1. [トラブルシューティング](TROUBLESHOOTING.md)を確認
+1. [トラブルシューティング](user-guide/TROUBLESHOOTING.md)を確認
 2. ログファイルを確認（`plugins/Unique/logs/`）
 3. `/unique debug` でデバッグモードを有効化
 4. GitHubでIssueを作成
+
+## 📝 要件
+
+- **Minecraft**: 1.20.6+
+- **サーバー**: Paper 1.20.6+ / Folia
+- **Java**: 17+
+
+## 🔗 関連リンク
+
+- **GitHub Repository**: [azuazu3939/unique](https://github.com/azuazu3939/unique)
+- **Issues**: バグ報告・機能要望
+- **Discussions**: 質問・議論
 
 ## 📄 ライセンス
 

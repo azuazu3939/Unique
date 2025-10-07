@@ -89,6 +89,11 @@ class PacketMobCombat(private val mob: PacketMob) {
         mob.applyDamage(damageEvent.damage)
         val isDying = mob.health <= 0.0
 
+        // ノックバック効果を適用（死亡時は除く）
+        if (!isDying && damager != null) {
+            applyKnockbackFromDamage(damager, damageEvent.damage)
+        }
+
         // ダメージアニメーション再生（死亡時は除く、設定で有効な場合のみ）
         if (!isDying && mob.options.showDamageAnimation) {
             mob.playAnimation(DAMAGE)
@@ -423,5 +428,29 @@ class PacketMobCombat(private val mob: PacketMob) {
             is Player -> damager.name
             else -> damager?.type?.name ?: "Unknown"
         }
+    }
+
+    /**
+     * ダメージからノックバックを適用
+     *
+     * @param damager ダメージ元エンティティ
+     * @param damage ダメージ量
+     */
+    private fun applyKnockbackFromDamage(damager: Entity, damage: Double) {
+        // ノックバック強度を計算（ダメージに応じて調整）
+        val baseKnockback = 0.4
+        val damageMultiplier = min(1.0, damage / 10.0)
+        val knockbackStrength = baseKnockback * (1.0 + damageMultiplier * 0.5)
+
+        // 垂直方向の強度
+        val verticalStrength = 0.4
+
+        // Physicsコンポーネントにノックバックを適用
+        mob.getPhysicsComponent().applyKnockback(
+            damager.location.x,
+            damager.location.z,
+            knockbackStrength,
+            verticalStrength
+        )
     }
 }
