@@ -235,7 +235,7 @@ class PacketMob(
     /**
      * エンティティをデスポーン
      */
-    override suspend fun despawn(player: Player) {
+    override fun despawn(player: Player) {
         PacketSender.sendDespawnPacket(player, entityId)
         removeViewer(player)
     }
@@ -374,10 +374,7 @@ class PacketMob(
         if (hasAI && !isDead) {
             // ビューワー（周囲のプレイヤー）がいる場合のみAI処理（設定で変更可能）
             if (!config.skipAiWhenNoViewers || viewers.isNotEmpty()) {
-                // さらに最適化：AI処理をN tickに1回に減らす（設定可能）
-                if (ticksLived % config.aiTickInterval == 0) {
-                    ai.tick()
-                }
+                ai.tick()
             }
         }
     }

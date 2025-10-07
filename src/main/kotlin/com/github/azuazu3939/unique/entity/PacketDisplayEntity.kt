@@ -152,7 +152,7 @@ class PacketDisplayEntity(
     /**
      * デスポーン処理
      */
-    override suspend fun despawn(player: Player) {
+    override fun despawn(player: Player) {
         try {
             PacketSender.sendDespawnPacket(player, entityId)
             removeViewer(player)

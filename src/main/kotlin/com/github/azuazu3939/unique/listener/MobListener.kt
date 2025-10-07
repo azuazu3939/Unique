@@ -18,7 +18,6 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
-import kotlin.math.sqrt
 
 /**
  * Mobイベントリスナー
@@ -59,10 +58,6 @@ class MobListener(private val plugin: Unique) : Listener {
                 withContext(plugin.entityDispatcher(player)) {
                     val damage = calculatePlayerDamage(player)
                     packetMob.damage(damage, player)
-
-                    // PacketMobにノックバックを適用
-                    applyKnockbackToPacketMob(player, packetMob)
-
                     DebugLogger.verbose("${player.name} attacked ${packetMob.mobName} for $damage damage")
                 }
             }
@@ -84,66 +79,6 @@ class MobListener(private val plugin: Unique) : Listener {
         }
         // TODO: エンチャント、属性、ポーション効果などを考慮
         return baseDamage
-    }
-
-    /**
-     * PacketMobにノックバックを適用
-     */
-    private suspend fun applyKnockbackToPacketMob(player: Player, packetMob: PacketMob) {
-        // プレイヤーからPacketMobへの方向ベクトルを計算
-        val playerLocation = player.location
-        val mobLocation = packetMob.location
-
-        val deltaX = mobLocation.x - playerLocation.x
-        val deltaZ = mobLocation.z - playerLocation.z
-
-        // 水平距離を計算
-        val distance = sqrt(deltaX * deltaX + deltaZ * deltaZ)
-
-        // 距離が0の場合はノックバックなし
-        if (distance < 0.01) {
-            return
-        }
-
-        // 正規化して方向ベクトルを取得
-        val dirX = deltaX / distance
-        val dirZ = deltaZ / distance
-
-        // ノックバック強度を計算
-        var knockbackStrength = 0.4  // 基本ノックバック
-
-        // スプリント攻撃判定
-        val isSprinting = player.isSprinting
-        if (isSprinting) {
-            knockbackStrength += 1.0  // スプリント攻撃でバニラ相当の増加
-        }
-
-        // ノックバックエンチャント判定
-        val item = player.inventory.itemInMainHand
-        if (item.hasItemMeta()) {
-            val knockbackLevel = item.itemMeta.enchants[org.bukkit.enchantments.Enchantment.KNOCKBACK] ?: 0
-            if (knockbackLevel > 0) {
-                knockbackStrength += knockbackLevel * 0.4  // レベルごとに+0.4
-            }
-        }
-
-        // knockbackResistanceを考慮（0.0 = 完全にノックバック, 1.0 = ノックバックなし）
-        val knockbackResistance = packetMob.knockbackResistance
-        val actualKnockback = knockbackStrength * (1.0 - knockbackResistance)
-
-        // ノックバックが無効化されている場合はスキップ
-        if (actualKnockback <= 0.0) {
-            return
-        }
-
-        // ノックバック移動量を計算（水平 + 垂直）
-        val knockbackX = dirX * actualKnockback
-        // スプリント攻撃の場合はY軸ノックバックなし（水平方向のみ）
-        val knockbackY = if (isSprinting) 0.0 else 0.35
-        val knockbackZ = dirZ * actualKnockback
-
-        // PacketMobに速度を追加（move()ではなくvelocityとして追加）
-        packetMob.addVelocity(knockbackX, knockbackY, knockbackZ)
     }
 
     /**

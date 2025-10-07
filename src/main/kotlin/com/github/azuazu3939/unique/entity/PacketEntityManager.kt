@@ -2,8 +2,6 @@ package com.github.azuazu3939.unique.entity
 
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.util.DebugLogger
-import com.github.shynixn.mccoroutine.folia.asyncDispatcher
-import com.github.shynixn.mccoroutine.folia.launch
 import kotlinx.coroutines.CancellationException
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -11,6 +9,7 @@ import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -107,7 +106,7 @@ class PacketEntityManager(private val plugin: Unique) {
     /**
      * エンティティの登録を解除
      */
-    suspend fun unregisterEntity(uuid: UUID) {
+    fun unregisterEntity(uuid: UUID) {
         val entity = entities.remove(uuid) ?: return
         entityIdToUuid.remove(entity.entityId)
 
@@ -213,12 +212,9 @@ class PacketEntityManager(private val plugin: Unique) {
 
     private fun startUpdateTask() {
         try {
-            val updateInterval = plugin.configManager.mainConfig.performance.packetEntityUpdateInterval
-            DebugLogger.info("Update interval: $updateInterval ticks")
             Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, {
                 updateEntities()
             }, 1, 1)
-            DebugLogger.info("PacketEntity update task started (interval: $updateInterval ticks)")
         } catch (e: Exception) {
             DebugLogger.error("Failed in startUpdateTask", e)
             e.printStackTrace()
@@ -238,9 +234,6 @@ class PacketEntityManager(private val plugin: Unique) {
         // エンティティをワールドごとにグループ化して効率化
         val entitiesByWorld = entityList.groupBy { it.location.world }
 
-        // 設定から値を取得
-        val config = plugin.configManager.mainConfig.performance
-
         // 死亡エンティティのリスト
         val toRemove = ConcurrentHashMap.newKeySet<PacketEntity>()
 
@@ -254,18 +247,14 @@ class PacketEntityManager(private val plugin: Unique) {
                     Bukkit.getRegionScheduler().run(plugin, entity.location) {
                         try {
                             entity.tick()
-
                             // 死亡して一定時間経過したエンティティをマーク（設定可能）
-                            if (entity.isDead && entity.deathTick >= 0) {
-                                val ticksSinceDeath = entity.ticksLived - entity.deathTick
-                                if (ticksSinceDeath > config.deadEntityCleanupTicks) {
-                                    synchronized(toRemove) {
-                                        toRemove.add(entity)
-                                    }
+                            if (entity.isDead) {
+                                synchronized(toRemove) {
+                                    toRemove.add(entity)
+
                                 }
                             }
                         } catch (e: CancellationException) {
-                            // 正常なキャンセル - 再スロー
                             throw e
                         } catch (e: Exception) {
                             DebugLogger.error("Error ticking entity ${entity.entityId}", e)
@@ -276,8 +265,7 @@ class PacketEntityManager(private val plugin: Unique) {
                 }
             }
         }
-
-        plugin.launch(plugin.asyncDispatcher) {
+        Bukkit.getAsyncScheduler().runDelayed(plugin, {
             if (toRemove.isNotEmpty()) {
                 for (entity in toRemove) {
                     try {
@@ -290,10 +278,9 @@ class PacketEntityManager(private val plugin: Unique) {
                     }
                 }
             }
-
             val duration = (System.nanoTime() - startTime) / 1_000_000L
             DebugLogger.timing("Entity update batch (${entityList.size} entities, ${toRemove.size} removed)", duration)
-        }
+        }, 2000, TimeUnit.MICROSECONDS)
     }
 
     /**

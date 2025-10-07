@@ -127,7 +127,6 @@ class PacketMobCombat(private val mob: PacketMob) {
         // 死亡フラグを先に立てる（OnDeathスキル実行前）
         mob.isDead = true
         mob.health = 0.0
-        mob.deathTick = mob.ticksLived
 
         // 死亡イベント発火
         val deathEvent = PacketMobDeathEvent(mob, killer)
@@ -431,25 +430,20 @@ class PacketMobCombat(private val mob: PacketMob) {
     }
 
     /**
-     * ダメージからノックバックを適用
+     * ダメージからノックバックを適用（バニラ準拠）
      *
      * @param damager ダメージ元エンティティ
-     * @param damage ダメージ量
+     * @param damage ダメージ量（使用しない、バニラでは固定値）
      */
     private fun applyKnockbackFromDamage(damager: Entity, damage: Double) {
-        // ノックバック強度を計算（ダメージに応じて調整）
-        val baseKnockback = 0.4
-        val damageMultiplier = min(1.0, damage / 10.0)
-        val knockbackStrength = baseKnockback * (1.0 + damageMultiplier * 0.5)
-
-        // 垂直方向の強度
+        val horizontalStrength = 0.4
         val verticalStrength = 0.4
 
         // Physicsコンポーネントにノックバックを適用
         mob.getPhysicsComponent().applyKnockback(
             damager.location.x,
             damager.location.z,
-            knockbackStrength,
+            horizontalStrength,
             verticalStrength
         )
     }

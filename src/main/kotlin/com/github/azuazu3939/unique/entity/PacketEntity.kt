@@ -50,11 +50,6 @@ abstract class PacketEntity(
         protected set
 
     /**
-     * 死亡した時刻（tick）
-     */
-    var deathTick: Int = -1
-
-    /**
      * このエンティティを見ているプレイヤー
      */
     val viewers = ConcurrentHashMap.newKeySet<UUID>()!!
@@ -77,7 +72,7 @@ abstract class PacketEntity(
     /**
      * エンティティを削除（プレイヤーから非表示）
      */
-    abstract suspend fun despawn(player: Player)
+    abstract fun despawn(player: Player)
 
     /**
      * すべてのビューワーに対してスポーン
@@ -97,7 +92,7 @@ abstract class PacketEntity(
         }
     }
 
-    suspend fun despawnForAll(players: Set<UUID>) {
+    fun despawnForAll(players: Set<UUID>) {
         for (player in players) {
             val p = Bukkit.getPlayer(player) ?: continue
             despawn(p)
@@ -159,15 +154,8 @@ abstract class PacketEntity(
 
         isDead = true
         health = 0.0
-        deathTick = ticksLived  // 死亡時刻を記録
-
         // 死亡アニメーション
         playAnimation(EntityAnimation.DEATH)
-
-        // 注：activeJobsのキャンセルはcleanup()で行う
-        // これにより、OnDeathスキルなどが起動したジョブがキャンセルされるのを防ぐ
-
-        DebugLogger.debug("PacketEntity killed: $entityId ($entityType), deathTick=$deathTick")
     }
 
     /**
@@ -238,14 +226,13 @@ abstract class PacketEntity(
      * 更新処理（1tick毎に呼ばれる）
      */
     open fun tick() {
-        ticksLived++  // 死亡後もカウントを続ける（クリーンアップ判定に必要）
         if (isDead) return  // 死亡後はAI等の処理をスキップ
     }
 
     /**
      * クリーンアップ
      */
-    open suspend fun cleanup() {
+    open fun cleanup() {
         DebugLogger.info("Cleaning up PacketEntity: $entityId (type=$entityType, viewers=${viewers.size})")
 
         despawnForAll(viewers.toSet())

@@ -5,7 +5,7 @@ import com.github.azuazu3939.unique.entity.physics.AABB
 import com.github.azuazu3939.unique.entity.physics.CollisionDetector
 import org.bukkit.Bukkit
 import org.bukkit.util.Vector
-import kotlin.math.abs
+import kotlin.math.*
 
 /**
  * PacketMobの物理演算を担当するクラス
@@ -215,41 +215,60 @@ class PacketMobPhysics(private val mob: PacketMob) {
     }
 
     /**
-     * ノックバック効果を適用
+     * ノックバック効果を適用（バニラMinecraft準拠）
+     *
+     * バニラの実装:
+     * - 水平方向: 方向ベクトル * 0.4、既存の速度が小さい場合のみ上書き
+     * - 垂直方向: 0.4（地面にいる場合のみ）、既存の速度との最大値を取る
      *
      * @param sourceX ノックバック元のX位置
      * @param sourceZ ノックバック元のZ位置
-     * @param strength ノックバック強度
-     * @param verticalStrength 垂直方向の強度
+     * @param strength 水平方向のノックバック強度（デフォルト: 0.4）
+     * @param verticalStrength 垂直方向の強度（デフォルト: 0.4）
      */
-    fun applyKnockback(sourceX: Double, sourceZ: Double, strength: Double, verticalStrength: Double = 0.4) {
+    fun applyKnockback(sourceX: Double, sourceZ: Double, strength: Double = 0.4, verticalStrength: Double = 0.4) {
         // ノックバック方向を計算
         val dx = mob.location.x - sourceX
         val dz = mob.location.z - sourceZ
-        val distance = kotlin.math.sqrt(dx * dx + dz * dz)
+        val distance = sqrt(dx * dx + dz * dz)
+
+        var kbX: Double
+        var kbZ: Double
 
         if (distance < 0.001) {
             // 距離が0に近い場合はランダムな方向に
             val angle = Math.random() * 2 * Math.PI
-            addVelocity(
-                kotlin.math.cos(angle) * strength,
-                verticalStrength,
-                kotlin.math.sin(angle) * strength
-            )
+            kbX = cos(angle) * strength
+            kbZ = sin(angle) * strength
         } else {
-            // 正規化してノックバック
-            val normalizedX = dx / distance
-            val normalizedZ = dz / distance
-
-            addVelocity(
-                normalizedX * strength,
-                verticalStrength,
-                normalizedZ * strength
-            )
+            // 正規化してノックバック速度を計算
+            kbX = (dx / distance) * strength
+            kbZ = (dz / distance) * strength
         }
 
-        // ノックバック時は接地フラグをリセット
-        isOnGround = false
+        // 水平方向: 既存の速度の大きさと比較し、大きい方を採用（バニラ準拠）
+        val currentHorizontalSpeed = sqrt(velocityX * velocityX + velocityZ * velocityZ)
+        val knockbackHorizontalSpeed = sqrt(kbX * kbX + kbZ * kbZ)
+
+        if (knockbackHorizontalSpeed > currentHorizontalSpeed) {
+            velocityX = kbX
+            velocityZ = kbZ
+        }
+
+        // 垂直方向: 地面にいる場合のみ適用、既存の速度との最大値を取る（バニラ準拠）
+        if (isOnGround) {
+            velocityY = max(velocityY, verticalStrength)
+            isOnGround = false
+        }
+
+        // ノックバック耐性を適用
+        val resistance = mob.knockbackResistance.coerceIn(0.0, 1.0)
+        if (resistance > 0.0) {
+            val multiplier = 1.0 - resistance
+            velocityX *= multiplier
+            velocityY *= multiplier
+            velocityZ *= multiplier
+        }
     }
 
     /**
@@ -263,7 +282,7 @@ class PacketMobPhysics(private val mob: PacketMob) {
      * 外部からの速度（ノックバックなど）が有効かチェック
      */
     fun hasExternalVelocity(): Boolean {
-        val horizontalVelocity = kotlin.math.sqrt(velocityX * velocityX + velocityZ * velocityZ)
+        val horizontalVelocity = sqrt(velocityX * velocityX + velocityZ * velocityZ)
         return horizontalVelocity > 0.05
     }
 

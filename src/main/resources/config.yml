@@ -26,26 +26,11 @@ performance:
   # 非同期処理のデフォルト設定
   async_by_default: true
 
-  # パケットエンティティの更新間隔（tick）
-  packet_entity_update_interval: 1
-
   # スキル実行の最大同時実行数
   max_concurrent_skills: 100
 
   # パケットエンティティの可視距離（ブロック）
   view_distance: 64.0
-
-  # MobのAI更新間隔（tick）- この間隔でAIを実行
-  ai_tick_interval: 1
-
-  # 死亡エンティティをクリーンアップするまでの時間（tick）
-  # この時間が死亡アニメーション表示時間も兼ねる
-  # 20tick = 1秒、40tick = 2秒
-  dead_entity_cleanup_ticks: 4
-
-  # バッチクリーンアップの遅延（ミリ秒）
-  # 0-50を推奨。大きいほど負荷分散、小さいほど即座に削除
-  batch_cleanup_delay_ms: 50
 
   # 観察者がいない場合にAIをスキップするか
   skip_ai_when_no_viewers: true
