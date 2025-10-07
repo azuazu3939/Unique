@@ -221,7 +221,6 @@ class PacketEntityManager(private val plugin: Unique) {
     }
 
     private fun updateEntities() {
-        val startTime = System.nanoTime()
         val entityList = entities.values.toList()
 
         if (entityList.isEmpty()) return
@@ -233,8 +232,6 @@ class PacketEntityManager(private val plugin: Unique) {
         for (entity in entityList) {
             try {
                 entity.tick()
-
-                // 死亡エンティティをマーク
                 if (entity.isDead) {
                     toRemove.add(entity)
                 }
@@ -243,19 +240,16 @@ class PacketEntityManager(private val plugin: Unique) {
             }
         }
 
-        // 死亡エンティティを削除
-        for (entity in toRemove) {
-            try {
-                unregisterEntity(entity.uuid)
-            } catch (e: Exception) {
-                DebugLogger.error("Error removing entity ${entity.entityId}", e)
+        Bukkit.getAsyncScheduler().runDelayed(plugin, {
+            // 死亡エンティティを削除
+            for (entity in toRemove) {
+                try {
+                    unregisterEntity(entity.uuid)
+                } catch (e: Exception) {
+                    DebugLogger.error("Error removing entity ${entity.entityId}", e)
+                }
             }
-        }
-
-        val duration = (System.nanoTime() - startTime) / 1_000_000L
-        if (duration > 50) {
-            DebugLogger.timing("Entity update batch (${entityList.size} entities, ${toRemove.size} removed)", duration)
-        }
+        }, 40 * 50, TimeUnit.MILLISECONDS)
     }
 
     /**
