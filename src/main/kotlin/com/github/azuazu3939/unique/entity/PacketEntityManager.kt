@@ -222,6 +222,7 @@ class PacketEntityManager(private val plugin: Unique) {
     /**
      * 更新タスクを開始
      */
+
     private fun startUpdateTask() {
         try {
             val updateInterval = plugin.configManager.mainConfig.performance.packetEntityUpdateInterval
@@ -229,12 +230,12 @@ class PacketEntityManager(private val plugin: Unique) {
 
             // Foliaではglobal region dispatcherを使用
             DebugLogger.info("Launching update coroutine with global dispatcher...")
+
             updateTask = plugin.launch(plugin.globalRegionDispatcher) {
                 DebugLogger.info("Update coroutine started!")
-                while (true) {
-                    delay(updateInterval * 50L)  // tickをミリ秒に変換
-
+                while (true) { // tickをミリ秒に変換
                     try {
+                        delay(updateInterval.toLong())
                         updateEntities()
                     } catch (e: CancellationException) {
                         // 正常なキャンセル（リロードやシャットダウン時）- 再スローして終了
@@ -243,6 +244,8 @@ class PacketEntityManager(private val plugin: Unique) {
                     } catch (e: Exception) {
                         DebugLogger.error("Error during entity update", e)
                         e.printStackTrace()
+                    } finally {
+
                     }
                 }
             }

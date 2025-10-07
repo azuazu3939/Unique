@@ -137,17 +137,8 @@ class PacketMobPhysics(private val mob: PacketMob) {
             }
         }
 
-        // 重力と空気抵抗を適用（地面でも空中でも）
         if (mob.hasGravity) {
             velocityY = (velocityY - 0.08) * 0.98
-        } else if (velocityY != 0.0) {
-            velocityY *= 0.98
-        }
-
-        // 終端速度を制限
-        val terminalVelocity = 3.92
-        if (velocityY < -terminalVelocity) {
-            velocityY = -terminalVelocity
         }
 
         // 微小な速度はゼロにする
