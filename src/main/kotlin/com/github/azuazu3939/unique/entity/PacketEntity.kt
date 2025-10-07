@@ -226,6 +226,7 @@ abstract class PacketEntity(
      * 更新処理（1tick毎に呼ばれる）
      */
     open fun tick() {
+        ticksLived++
         if (isDead) return  // 死亡後はAI等の処理をスキップ
     }
 

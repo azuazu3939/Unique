@@ -1,14 +1,13 @@
 package com.github.azuazu3939.unique.entity
 
-import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.event.PacketMobTargetEvent
 import com.github.azuazu3939.unique.nms.distanceTo
 import com.github.azuazu3939.unique.nms.distanceToAsync
 import com.github.azuazu3939.unique.nms.getLocationAsync
 import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.EventUtil
+import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
-import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.entity.Entity
 import kotlin.math.atan2
@@ -55,7 +54,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
      * AI処理
      */
     fun tick() {
-        if (mob.ticksLived - lastTargetCheckTick >= mob.targetSearchInterval) {
+        if ((mob.ticksLived - lastTargetCheckTick) % mob.targetSearchInterval == 0) {
             searchTarget()
             lastTargetCheckTick = mob.ticksLived
         }
@@ -93,30 +92,22 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
         val followRange = mob.followRange
         val nearbyPlayers = world.getPlayersAsync()
             .filter { player ->
-                !player.isDead &&
-                        player.gameMode != GameMode.SPECTATOR &&
-                        player.gameMode != GameMode.CREATIVE &&
-                        player.world == world &&
+                        player.world.name == world.name &&
                         player.distanceToAsync(mob.location) <= followRange
             }
 
+        Bukkit.broadcast(Component.text("Searching for ${nearbyPlayers.size} nearby ${world.getPlayersAsync().size}"))
+
         if (nearbyPlayers.isNotEmpty()) {
             val newTarget = nearbyPlayers.minByOrNull { it.distanceToAsync(mob.location) }
+            EventUtil.callEventOrNull(
+                PacketMobTargetEvent(mob, PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER
+                )
+            ) ?: return
 
-            Bukkit.getGlobalRegionScheduler().run(Unique.instance) {
-                val targetEvent = EventUtil.callEventOrNull(
-                    PacketMobTargetEvent(
-                        mob,
-                        currentTarget,
-                        newTarget,
-                        PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER
-                    )
-                ) ?: return@run
-
-                currentTarget = targetEvent.newTarget
-                if (currentTarget != null) {
-                    aiState = AIState.TARGET
-                }
+            currentTarget = newTarget
+            if (currentTarget != null) {
+                aiState = AIState.TARGET
             }
         }
     }

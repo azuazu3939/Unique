@@ -163,10 +163,8 @@ class PacketMobAttackEvent(
  */
 class PacketMobTargetEvent(
     mob: PacketMob,
-    val oldTarget: Entity?,
-    var newTarget: Entity?,
     val reason: TargetReason = TargetReason.CLOSEST_PLAYER
-) : PacketMobEvent(mob), Cancellable {
+) : PacketMobEvent(mob, true), Cancellable {
 
     private var cancelled = false
 

@@ -96,7 +96,7 @@ fun Player.getLocationAsync(): Location {
  * @return 距離
  */
 fun Location.distanceTo(other: Location): Double {
-    if (this.world != other.world) {
+    if (this.world.name != other.world.name) {
         return Double.MAX_VALUE
     }
 
@@ -115,7 +115,7 @@ fun Location.distanceTo(other: Location): Double {
  * @return 水平距離
  */
 fun Location.horizontalDistanceTo(other: Location): Double {
-    if (this.world != other.world) {
+    if (this.world.name != other.world.name) {
         return Double.MAX_VALUE
     }
 
