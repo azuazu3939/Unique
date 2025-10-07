@@ -7,10 +7,7 @@ import com.github.azuazu3939.unique.nms.distanceToAsync
 import com.github.azuazu3939.unique.nms.getLocationAsync
 import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.EventUtil
-import com.github.shynixn.mccoroutine.folia.asyncDispatcher
-import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
-import com.github.shynixn.mccoroutine.folia.launch
-import kotlinx.coroutines.withContext
+import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.entity.Entity
@@ -58,43 +55,39 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
      * AI処理
      */
     fun tick() {
-        Unique.instance.launch(Unique.instance.asyncDispatcher) {
+        if (mob.ticksLived - lastTargetCheckTick >= mob.targetSearchInterval) {
+            searchTarget()
+            lastTargetCheckTick = mob.ticksLived
+        }
 
-            // ターゲット検索
-            if (mob.ticksLived - lastTargetCheckTick >= mob.targetSearchInterval) {
-                searchTarget()
-                lastTargetCheckTick = mob.ticksLived
+        // ターゲットの有効性チェック
+        if (currentTarget != null) {
+            if (currentTarget!!.isDead || !isInRange(currentTarget!!, mob.followRange)) {
+                currentTarget = null
+                aiState = AIState.IDLE
+                resetPitch()
             }
+        }
 
-            // ターゲットの有効性チェック
-            if (currentTarget != null) {
-                if (currentTarget!!.isDead || !isInRange(currentTarget!!, mob.followRange)) {
-                    currentTarget = null
-                    aiState = AIState.IDLE
-                    resetPitch()
-                }
-            }
+        // 状態に応じた処理
+        when (aiState) {
+            AIState.IDLE -> tickIdle()
+            AIState.TARGET -> tickTarget()
+            AIState.ATTACK -> tickAttack()
+            AIState.WANDER -> tickWander()
+        }
 
-            // 状態に応じた処理
-            when (aiState) {
-                AIState.IDLE -> tickIdle()
-                AIState.TARGET -> tickTarget()
-                AIState.ATTACK -> tickAttack()
-                AIState.WANDER -> tickWander()
-            }
-
-            // 定期的にbodyの向きをheadに合わせる
-            if (mob.ticksLived - lastBodySyncTick >= bodySyncInterval) {
-                syncBodyRotation()
-                lastBodySyncTick = mob.ticksLived
-            }
+        // 定期的にbodyの向きをheadに合わせる
+        if (mob.ticksLived - lastBodySyncTick >= bodySyncInterval) {
+            syncBodyRotation()
+            lastBodySyncTick = mob.ticksLived
         }
     }
 
     /**
      * ターゲット検索
      */
-    private suspend fun searchTarget() {
+    private fun searchTarget() {
         val world = mob.location.world ?: return
 
         val followRange = mob.followRange
@@ -110,10 +103,15 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
         if (nearbyPlayers.isNotEmpty()) {
             val newTarget = nearbyPlayers.minByOrNull { it.distanceToAsync(mob.location) }
 
-            withContext(Unique.instance.globalRegionDispatcher) {
+            Bukkit.getGlobalRegionScheduler().run(Unique.instance) {
                 val targetEvent = EventUtil.callEventOrNull(
-                    PacketMobTargetEvent(mob, currentTarget, newTarget, PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER)
-                ) ?: return@withContext
+                    PacketMobTargetEvent(
+                        mob,
+                        currentTarget,
+                        newTarget,
+                        PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER
+                    )
+                ) ?: return@run
 
                 currentTarget = targetEvent.newTarget
                 if (currentTarget != null) {
@@ -152,7 +150,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * 攻撃状態の処理
      */
-    private suspend fun tickAttack() {
+    private fun tickAttack() {
         val target = currentTarget ?: run {
             aiState = AIState.IDLE
             return

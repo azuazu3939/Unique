@@ -577,7 +577,7 @@ class PacketMob(
     /**
      * Internal method for AI class to perform attacks
      */
-    internal suspend fun performAttack(target: Entity) {
+    internal fun performAttack(target: Entity) {
         combat.performAttack(target)
     }
 

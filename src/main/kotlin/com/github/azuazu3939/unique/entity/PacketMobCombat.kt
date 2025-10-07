@@ -180,7 +180,7 @@ class PacketMobCombat(private val mob: PacketMob) {
     /**
      * 攻撃実行
      */
-    suspend fun performAttack(target: Entity) {
+    fun performAttack(target: Entity) {
         val instance = Unique.instance.mobManager.getMobInstance(mob)
         val damageStr = instance?.definition?.damage
         val damage = if (damageStr == null || damageStr.equals("null", ignoreCase = true)) {
@@ -190,8 +190,8 @@ class PacketMobCombat(private val mob: PacketMob) {
         }
 
         // 攻撃イベント発火＆キャンセルチェック
-        withContext(Unique.instance.regionDispatcher(target.location)) {
-            val attackEvent = EventUtil.callEventOrNull(PacketMobAttackEvent(mob, target, damage)) ?: return@withContext
+        Bukkit.getRegionScheduler().run(Unique.instance, target.location) {
+            val attackEvent = EventUtil.callEventOrNull(PacketMobAttackEvent(mob, target, damage)) ?: return@run
 
             // プレイヤーの場合、キル判定を行う
             if (target is Player) {
