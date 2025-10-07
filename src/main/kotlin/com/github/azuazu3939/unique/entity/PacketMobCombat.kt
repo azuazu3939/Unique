@@ -180,10 +180,7 @@ class PacketMobCombat(private val mob: PacketMob) {
     /**
      * 攻撃実行
      */
-    fun performAttack(target: Entity) {
-        DebugLogger.debug("${mob.mobName} attacks ${(target as? Player)?.name ?: target.type.name}")
-
-        // MobInstance取得
+    suspend fun performAttack(target: Entity) {
         val instance = Unique.instance.mobManager.getMobInstance(mob)
         val damageStr = instance?.definition?.damage
         val damage = if (damageStr == null || damageStr.equals("null", ignoreCase = true)) {
@@ -193,26 +190,26 @@ class PacketMobCombat(private val mob: PacketMob) {
         }
 
         // 攻撃イベント発火＆キャンセルチェック
-        val attackEvent = EventUtil.callEventOrNull(PacketMobAttackEvent(mob, target, damage)) ?: run {
-            return
-        }
+        withContext(Unique.instance.regionDispatcher(target.location)) {
+            val attackEvent = EventUtil.callEventOrNull(PacketMobAttackEvent(mob, target, damage)) ?: return@withContext
 
-        // プレイヤーの場合、キル判定を行う
-        if (target is Player) {
-            val playerHealthBefore = target.health
+            // プレイヤーの場合、キル判定を行う
+            if (target is Player) {
+                val playerHealthBefore = target.health
 
-            // ダメージを与える
-            target.damage(attackEvent.damage)
+                // ダメージを与える
+                target.damage(attackEvent.damage)
 
-            // プレイヤーが死んだかチェック
-            if (playerHealthBefore > 0.0 && target.health <= 0.0 || target.isDead) {
-                handlePlayerKill(target, instance)
-            }
-        } else {
-            // 通常のエンティティの場合はBukkitのダメージ
-            when (target) {
-                is LivingEntity -> {
-                    target.damage(attackEvent.damage)
+                // プレイヤーが死んだかチェック
+                if (playerHealthBefore > 0.0 && target.health <= 0.0 || target.isDead) {
+                    handlePlayerKill(target, instance)
+                }
+            } else {
+                // 通常のエンティティの場合はBukkitのダメージ
+                when (target) {
+                    is LivingEntity -> {
+                        target.damage(attackEvent.damage)
+                    }
                 }
             }
         }

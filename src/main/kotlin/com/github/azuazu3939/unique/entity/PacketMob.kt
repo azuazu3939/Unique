@@ -218,6 +218,18 @@ class PacketMob(
     var lookAtMovementDirection: Boolean = true
 
     /**
+     * Head（頭）のYaw（水平回転角度）
+     * AIの視線方向を表す
+     */
+    var headYaw: Float = 0f
+
+    /**
+     * Body（胴体）のYaw（水平回転角度）
+     * エンティティ全体の向きを表す
+     */
+    var bodyYaw: Float = 0f
+
+    /**
      * 乗り越えられる壁の高さ（ブロック数）
      * 旧名: wallClimbHeight
      */
@@ -565,14 +577,18 @@ class PacketMob(
     /**
      * Internal method for AI class to perform attacks
      */
-    internal fun performAttack(target: Entity) {
+    internal suspend fun performAttack(target: Entity) {
         combat.performAttack(target)
     }
 
     /**
      * Internal method for AI to update rotation
+     *
+     * Head（頭）の向きを更新し、全viewerにパケットを送信
      */
     internal fun updateRotation(yaw: Float, pitch: Float) {
+        // Head（頭）の向きを更新
+        headYaw = yaw
         location.yaw = yaw
         location.pitch = pitch
 
@@ -586,12 +602,19 @@ class PacketMob(
 
     /**
      * Internal method for AI to sync body rotation
+     *
+     * Body（胴体）の向きをHead（頭）の向きに同期させる
+     * 定期的に呼ばれることで、頭と胴体の向きのズレを修正
      */
-    internal suspend fun syncBodyRotation() {
-        // Send body rotation packet
+    internal fun syncBodyRotation() {
+        // BodyYawをHeadYawに同期
+        bodyYaw = headYaw
+        location.yaw = bodyYaw
+
+        // Send body rotation packet to all viewers
         viewers.forEach { uuid ->
             Bukkit.getPlayer(uuid)?.let { player ->
-                PacketSender.sendBodyRotationPacket(player, entityId, location.yaw)
+                PacketSender.sendBodyRotationPacket(player, entityId, bodyYaw)
             }
         }
     }
@@ -852,6 +875,10 @@ class PacketMob(
             mob.knockbackResistance = knockbackResistance
             mob.lookAtMovementDirection = lookAtMovementDirection
             mob.stepHeight = wallClimbHeight
+
+            // Rotation初期化（locationのyawを使用）
+            mob.headYaw = location.yaw
+            mob.bodyYaw = location.yaw
 
             return mob
         }

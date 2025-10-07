@@ -1,11 +1,16 @@
 package com.github.azuazu3939.unique.entity
 
+import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.event.PacketMobTargetEvent
 import com.github.azuazu3939.unique.nms.distanceTo
 import com.github.azuazu3939.unique.nms.distanceToAsync
 import com.github.azuazu3939.unique.nms.getLocationAsync
 import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.EventUtil
+import com.github.shynixn.mccoroutine.folia.asyncDispatcher
+import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
+import com.github.shynixn.mccoroutine.folia.launch
+import kotlinx.coroutines.withContext
 import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.entity.Entity
@@ -53,40 +58,43 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
      * AI処理
      */
     fun tick() {
-        // ターゲット検索
-        if (mob.ticksLived - lastTargetCheckTick >= mob.targetSearchInterval) {
-            searchTarget()
-            lastTargetCheckTick = mob.ticksLived
-        }
+        Unique.instance.launch(Unique.instance.asyncDispatcher) {
 
-        // ターゲットの有効性チェック
-        if (currentTarget != null) {
-            if (currentTarget!!.isDead || !isInRange(currentTarget!!, mob.followRange)) {
-                currentTarget = null
-                aiState = AIState.IDLE
-                resetPitch()
+            // ターゲット検索
+            if (mob.ticksLived - lastTargetCheckTick >= mob.targetSearchInterval) {
+                searchTarget()
+                lastTargetCheckTick = mob.ticksLived
             }
-        }
 
-        // 状態に応じた処理
-        when (aiState) {
-            AIState.IDLE -> tickIdle()
-            AIState.TARGET -> tickTarget()
-            AIState.ATTACK -> tickAttack()
-            AIState.WANDER -> tickWander()
-        }
+            // ターゲットの有効性チェック
+            if (currentTarget != null) {
+                if (currentTarget!!.isDead || !isInRange(currentTarget!!, mob.followRange)) {
+                    currentTarget = null
+                    aiState = AIState.IDLE
+                    resetPitch()
+                }
+            }
 
-        // 定期的にbodyの向きをheadに合わせる
-        if (mob.ticksLived - lastBodySyncTick >= bodySyncInterval) {
-            syncBodyRotation()
-            lastBodySyncTick = mob.ticksLived
+            // 状態に応じた処理
+            when (aiState) {
+                AIState.IDLE -> tickIdle()
+                AIState.TARGET -> tickTarget()
+                AIState.ATTACK -> tickAttack()
+                AIState.WANDER -> tickWander()
+            }
+
+            // 定期的にbodyの向きをheadに合わせる
+            if (mob.ticksLived - lastBodySyncTick >= bodySyncInterval) {
+                syncBodyRotation()
+                lastBodySyncTick = mob.ticksLived
+            }
         }
     }
 
     /**
      * ターゲット検索
      */
-    private fun searchTarget() {
+    private suspend fun searchTarget() {
         val world = mob.location.world ?: return
 
         val followRange = mob.followRange
@@ -102,13 +110,15 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
         if (nearbyPlayers.isNotEmpty()) {
             val newTarget = nearbyPlayers.minByOrNull { it.distanceToAsync(mob.location) }
 
-            val targetEvent = EventUtil.callEventOrNull(
-                PacketMobTargetEvent(mob, currentTarget, newTarget, PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER)
-            ) ?: return
+            withContext(Unique.instance.globalRegionDispatcher) {
+                val targetEvent = EventUtil.callEventOrNull(
+                    PacketMobTargetEvent(mob, currentTarget, newTarget, PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER)
+                ) ?: return@withContext
 
-            currentTarget = targetEvent.newTarget
-            if (currentTarget != null) {
-                aiState = AIState.TARGET
+                currentTarget = targetEvent.newTarget
+                if (currentTarget != null) {
+                    aiState = AIState.TARGET
+                }
             }
         }
     }
@@ -142,7 +152,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     /**
      * 攻撃状態の処理
      */
-    private fun tickAttack() {
+    private suspend fun tickAttack() {
         val target = currentTarget ?: run {
             aiState = AIState.IDLE
             return
@@ -234,10 +244,11 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
 
     /**
      * bodyの向きをheadに合わせる
+     *
+     * 定期的に呼ばれることで、頭と胴体の向きのズレを修正
      */
     private fun syncBodyRotation() {
-        // 現在のheadのyawをbodyにも適用（パケット送信は不要、次回の移動で自動的に同期）
-        // この処理は将来的にbodyRotationを独立管理する際に使用
+        mob.syncBodyRotation()
     }
 
     /**

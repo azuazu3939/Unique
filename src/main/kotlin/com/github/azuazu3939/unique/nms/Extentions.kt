@@ -2,6 +2,7 @@ package com.github.azuazu3939.unique.nms
 
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.level.chunk.status.ChunkStatus
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -260,34 +261,40 @@ fun World.getPlayersAsync(): List<Player> {
  * 指定座標のブロックタイプを非同期で取得
  *
  * 注意: このメソッドはasyncスケジューラで安全に呼び出せます。
- * NMS経由でブロック状態を取得するため、メインスレッドは不要です。
+ * ServerLevel.getBlockState(BlockPos)は非同期スレッドからアクセスすると
+ * getCurrentWorldData()がnullになるため、直接チャンクからブロック状態を取得します。
  *
- * @param x X座標
- * @param y Y座標
- * @param z Z座標
+ * @param x ワールドX座標
+ * @param y ワールドY座標
+ * @param z ワールドZ座標
  * @return ブロックのMaterial
  */
 fun World.getBlockTypeAsync(x: Int, y: Int, z: Int): Material {
     val nmsLevel = this.toNMS()
-    val blockPos = BlockPos(x, y, z)
-    val blockState = nmsLevel.getBlockState(blockPos)
-    return CraftMagicNumbers.getMaterial(blockState.block)
+    val chunk = nmsLevel.getChunk(x shr 4, z shr 4, ChunkStatus.FULL, true)
+    // チャンク内相対座標に変換（0-15）
+    val blockPos = BlockPos(x and 15, y, z and 15)
+    val blockState = chunk?.getBlockState(blockPos)
+    return CraftMagicNumbers.getMaterial(blockState?.block)
 }
 
 /**
  * 指定座標のブロックがソリッドか非同期で判定
  *
  * 注意: このメソッドはasyncスケジューラで安全に呼び出せます。
- * NMS経由でブロック状態を取得するため、メインスレッドは不要です。
+ * ServerLevel.getBlockState(BlockPos)は非同期スレッドからアクセスすると
+ * getCurrentWorldData()がnullになるため、直接チャンクからブロック状態を取得します。
  *
- * @param x X座標
- * @param y Y座標
- * @param z Z座標
+ * @param x ワールドX座標
+ * @param y ワールドY座標
+ * @param z ワールドZ座標
  * @return ソリッドブロックの場合true
  */
 fun World.isBlockSolidAsync(x: Int, y: Int, z: Int): Boolean {
     val nmsLevel = this.toNMS()
-    val blockPos = BlockPos(x, y, z)
-    val blockState = nmsLevel.getBlockState(blockPos)
-    return blockState.isSolidRender
+    val chunk = nmsLevel.getChunk(x shr 4, z shr 4, ChunkStatus.FULL, true)
+    // チャンク内相対座標に変換（0-15）
+    val blockPos = BlockPos(x and 15, y, z and 15)
+    val blockState = chunk?.getBlockState(blockPos)
+    return blockState?.isSolidRender ?: false
 }
