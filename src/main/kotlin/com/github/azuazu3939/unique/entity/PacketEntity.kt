@@ -117,7 +117,7 @@ abstract class PacketEntity(
     /**
      * アニメーションを再生
      */
-    abstract suspend fun playAnimation(animation: EntityAnimation)
+    abstract fun playAnimation(animation: EntityAnimation)
 
     /**
      * ダメージを受ける

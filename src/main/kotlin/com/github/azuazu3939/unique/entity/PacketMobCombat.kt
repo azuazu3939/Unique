@@ -7,8 +7,12 @@ import com.github.azuazu3939.unique.entity.EntityAnimation.DEATH
 import com.github.azuazu3939.unique.entity.packet.PacketSender
 import com.github.azuazu3939.unique.event.*
 import com.github.azuazu3939.unique.mob.MobInstance
+import com.github.azuazu3939.unique.nms.distanceToAsync
+import com.github.azuazu3939.unique.nms.getPlayerByUUID
+import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.EventUtil
+import com.github.shynixn.mccoroutine.folia.asyncDispatcher
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
@@ -134,7 +138,7 @@ class PacketMobCombat(private val mob: PacketMob) {
         // ドロップアイテムを計算してイベントに追加
         val instance = Unique.instance.mobManager.getMobInstance(mob)
         if (instance != null && killer != null) {
-            withContext(Unique.instance.regionDispatcher(mob.location)) {
+            withContext(Unique.instance.asyncDispatcher) {
                 val drops = Unique.instance.mobManager.calculateDropItems(instance.definition, killer, mob.location)
                 deathEvent.drops.addAll(drops)
             }
@@ -142,7 +146,7 @@ class PacketMobCombat(private val mob: PacketMob) {
 
         EventUtil.callEvent(deathEvent)
 
-        // イベントで追加/変更されたドロップをワールドに生成
+        // worldにドロップアイテムをspawnさせるためここはリージョンスケジューラを使用しなくてはならない
         withContext(Unique.instance.regionDispatcher(mob.location)) {
             Unique.instance.mobManager.dropItemsInWorld(mob.location, deathEvent.drops)
         }
@@ -275,15 +279,15 @@ class PacketMobCombat(private val mob: PacketMob) {
         val message = buildString {
             appendLine("§6========== ${mob.mobName} Damage Ranking ==========")
             sortedDamage.forEachIndexed { index, entry ->
-                val player = Bukkit.getPlayer(entry.key)
+                val player = getPlayerByUUID(entry.key)
                 val playerName = player?.name ?: "Unknown"
                 appendLine("§e${index + 1}. §f$playerName: §c${String.format("%.1f", entry.value)} damage")
             }
             append("§6================================================")
         }
 
-        mob.location.world?.players?.forEach { player ->
-            if (player.location.distance(mob.location) <= 64.0) {
+        mob.location.world?.getPlayersAsync()?.forEach { player ->
+            if (player.distanceToAsync(mob.location) <= 64.0) {
                 player.sendMessage(message)
             }
         }
@@ -409,8 +413,8 @@ class PacketMobCombat(private val mob: PacketMob) {
             val deathMessage = "§c${player.name} §7was slain by §e${mob.mobName}"
 
             // ブロードキャスト
-            player.world.players.forEach { p ->
-                if (p.location.distance(player.location) <= 64.0) {
+            player.world.getPlayersAsync().forEach { p ->
+                if (p.distanceToAsync(player) <= 64.0) {
                     p.sendMessage(deathMessage)
                 }
             }

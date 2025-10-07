@@ -173,18 +173,10 @@ class SummonSkill(
     ) {
         val world = location.world ?: return
 
-        if (meta.sync) {
-            // 同期処理
-            withContext(plugin.globalRegionDispatcher) {
-                val entity = world.spawnEntity(location, type)
-                configureEntity(plugin, entity, source, durationValue)
-            }
-        } else {
-            // 非同期処理（地域スケジューラ使用）
-            plugin.launch(plugin.globalRegionDispatcher) {
-                val entity = world.spawnEntity(location, type)
-                configureEntity(plugin, entity, source, durationValue)
-            }
+        // asyncスレッドで実行
+        withContext(plugin.globalRegionDispatcher) {
+            val entity = world.spawnEntity(location, type)
+            configureEntity(plugin, entity, source, durationValue)
         }
     }
 

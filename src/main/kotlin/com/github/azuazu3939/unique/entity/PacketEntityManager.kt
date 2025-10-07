@@ -1,8 +1,11 @@
 package com.github.azuazu3939.unique.entity
 
 import com.github.azuazu3939.unique.Unique
+import com.github.azuazu3939.unique.nms.distanceTo
+import com.github.azuazu3939.unique.nms.distanceToAsync
+import com.github.azuazu3939.unique.nms.getLocationAsync
+import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.DebugLogger
-import kotlinx.coroutines.CancellationException
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.EntityType
@@ -71,10 +74,6 @@ class PacketEntityManager(private val plugin: Unique) {
         DebugLogger.info("PacketEntityManager shut down (${entityList.size} entities cleaned)")
     }
 
-    /**
-     * エンティティを登録
-     * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
-     */
     suspend fun registerEntity(entity: PacketEntity) {
         entities[entity.uuid] = entity
         entityIdToUuid[entity.entityId] = entity.uuid
@@ -90,8 +89,9 @@ class PacketEntityManager(private val plugin: Unique) {
 
         // 設定から可視距離を取得
         val viewDistance = plugin.configManager.mainConfig.performance.viewDistance
-        val nearbyPlayers = world.players.filter { player ->
-            player.location.distance(entity.location) <= viewDistance
+        val nearbyPlayers = world.getPlayersAsync().filter { player ->
+            // NMS拡張関数を使用してメインスレッド外でも安全に距離を計算
+            player.distanceToAsync(entity.location) <= viewDistance
         }
 
         for (player in nearbyPlayers) {
@@ -162,10 +162,9 @@ class PacketEntityManager(private val plugin: Unique) {
      * 範囲内のエンティティを取得
      */
     fun getEntitiesInRange(location: Location, range: Double): List<PacketEntity> {
-        val rangeSquared = range * range
         return entities.values.filter { entity ->
             entity.location.world == location.world &&
-                    entity.location.distanceSquared(location) <= rangeSquared
+                    entity.location.distanceTo(location) <= range
         }
     }
 
@@ -173,7 +172,7 @@ class PacketEntityManager(private val plugin: Unique) {
      * プレイヤーの視界内のエンティティを取得
      */
     fun getEntitiesInView(player: Player, range: Double): List<PacketEntity> {
-        return getEntitiesInRange(player.location, range).filter { entity ->
+        return getEntitiesInRange(player.getLocationAsync(), range).filter { entity ->
             entity.isViewer(player)
         }
     }
@@ -212,82 +211,58 @@ class PacketEntityManager(private val plugin: Unique) {
 
     private fun startUpdateTask() {
         try {
-            Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, {
+            Bukkit.getAsyncScheduler().runAtFixedRate(plugin, { _ ->
                 updateEntities()
-            }, 1, 1)
+            }, 50L, 50L, TimeUnit.MILLISECONDS)
         } catch (e: Exception) {
             DebugLogger.error("Failed in startUpdateTask", e)
             e.printStackTrace()
         }
     }
 
-    /**
-     * すべてのエンティティを更新
-     * 最適化：エンティティごとに並列処理、バッチ削除
-     */
     private fun updateEntities() {
         val startTime = System.nanoTime()
         val entityList = entities.values.toList()
 
         if (entityList.isEmpty()) return
 
-        // エンティティをワールドごとにグループ化して効率化
-        val entitiesByWorld = entityList.groupBy { it.location.world }
-
         // 死亡エンティティのリスト
-        val toRemove = ConcurrentHashMap.newKeySet<PacketEntity>()
+        val toRemove = mutableListOf<PacketEntity>()
 
-        for ((world, worldEntities) in entitiesByWorld) {
-            if (world == null) continue
+        // メインスレッドで全エンティティを更新
+        for (entity in entityList) {
+            try {
+                entity.tick()
 
-            // 各エンティティを並列で更新（それぞれのregionで実行）
-            for (entity in worldEntities) {
-                try {
-                    // 非同期で更新開始
-                    Bukkit.getRegionScheduler().run(plugin, entity.location) {
-                        try {
-                            entity.tick()
-                            // 死亡して一定時間経過したエンティティをマーク（設定可能）
-                            if (entity.isDead) {
-                                synchronized(toRemove) {
-                                    toRemove.add(entity)
-
-                                }
-                            }
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            DebugLogger.error("Error ticking entity ${entity.entityId}", e)
-                        }
-                    }
-                } catch (e: Exception) {
-                    throw e
+                // 死亡エンティティをマーク
+                if (entity.isDead) {
+                    toRemove.add(entity)
                 }
+            } catch (e: Exception) {
+                DebugLogger.error("Error ticking entity ${entity.entityId}", e)
             }
         }
-        Bukkit.getAsyncScheduler().runDelayed(plugin, {
-            if (toRemove.isNotEmpty()) {
-                for (entity in toRemove) {
-                    try {
-                        unregisterEntity(entity.uuid)
-                    } catch (e: CancellationException) {
-                        // 正常なキャンセル - 再スロー
-                        throw e
-                    } catch (e: Exception) {
-                        DebugLogger.error("Error removing entity ${entity.entityId}", e)
-                    }
-                }
+
+        // 死亡エンティティを削除
+        for (entity in toRemove) {
+            try {
+                unregisterEntity(entity.uuid)
+            } catch (e: Exception) {
+                DebugLogger.error("Error removing entity ${entity.entityId}", e)
             }
-            val duration = (System.nanoTime() - startTime) / 1_000_000L
+        }
+
+        val duration = (System.nanoTime() - startTime) / 1_000_000L
+        if (duration > 50) {
             DebugLogger.timing("Entity update batch (${entityList.size} entities, ${toRemove.size} removed)", duration)
-        }, 1000, TimeUnit.MILLISECONDS)
+        }
     }
 
     /**
      * プレイヤー周辺のエンティティを自動スポーン
      */
     suspend fun autoSpawnForPlayer(player: Player, range: Double) {
-        val nearbyEntities = getEntitiesInRange(player.location, range)
+        val nearbyEntities = getEntitiesInRange(player.getLocationAsync(), range)
 
         for (entity in nearbyEntities) {
             if (!entity.isViewer(player) && !entity.isDead) {
@@ -304,7 +279,7 @@ class PacketEntityManager(private val plugin: Unique) {
 
         for (entity in viewedEntities) {
             if (entity.location.world != player.world ||
-                entity.location.distanceSquared(player.location) > range * range) {
+                entity.location.distanceTo(player.getLocationAsync()) > range) {
                 entity.despawn(player)
             }
         }

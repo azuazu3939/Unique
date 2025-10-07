@@ -7,11 +7,9 @@ import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketEntity
 import com.github.azuazu3939.unique.targeter.Targeter
 import com.github.azuazu3939.unique.util.DebugLogger
-import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.withContext
 import org.bukkit.entity.Entity
 import org.bukkit.plugin.Plugin
 import kotlin.time.Duration
@@ -150,17 +148,9 @@ class BasicSkill(
                 return
             }
 
-            // エフェクト適用（sync設定に応じて切り替え）
+            // エフェクト適用
             for (target in targets) {
-                if (effect.sync || meta.sync) {
-                    // 同期実行
-                    withContext(plugin.globalRegionDispatcher) {
-                        effect.apply(source, target)
-                    }
-                } else {
-                    // 非同期実行
-                    effect.apply(source, target)
-                }
+                effect.apply(source, target)
             }
         }
 
@@ -212,17 +202,9 @@ class BasicSkill(
                 return
             }
 
-            // エフェクト適用（sync設定に応じて切り替え）
+            // エフェクト適用
             for (target in targets) {
-                if (effect.sync || meta.sync) {
-                    // 同期実行
-                    withContext(plugin.globalRegionDispatcher) {
-                        effect.apply(source, target)
-                    }
-                } else {
-                    // 非同期実行
-                    effect.apply(source, target)
-                }
+                effect.apply(source, target)
             }
         }
 

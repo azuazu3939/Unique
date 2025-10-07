@@ -186,7 +186,7 @@ class ProjectileSkill(
             return
         }
 
-        // 実エンティティ発射体を発射
+        // 実エンティティ発射体を発射（asyncスレッド）
         withContext(plugin.globalRegionDispatcher) {
             val projectile = spawnProjectileEntity(source, startLocation, direction, speedValue)
             if (projectile != null) {
@@ -234,7 +234,7 @@ class ProjectileSkill(
             return
         }
 
-        // 実エンティティ発射体（PacketEntityからはSourceなしで発射）
+        // 実エンティティ発射体（PacketEntityからはSourceなしで発射、asyncスレッド）
         withContext(plugin.globalRegionDispatcher) {
             val world = startLocation.world ?: return@withContext
             val projectile = world.spawn(startLocation, getProjectileClass())
@@ -505,22 +505,12 @@ class ProjectileSkill(
             target.location.world?.playSound(target.location, it, 1.0f, 1.0f)
         }
 
-        // エフェクト適用
+        // エフェクト適用（メインスレッド）
         for (effect in hitEffects) {
-            if (effect.sync || meta.sync) {
-                withContext(plugin.globalRegionDispatcher) {
-                    if (sourceEntity != null) {
-                        effect.apply(sourceEntity, target)
-                    } else if (sourcePacket != null) {
-                        effect.apply(sourcePacket, target)
-                    }
-                }
-            } else {
-                if (sourceEntity != null) {
-                    effect.apply(sourceEntity, target)
-                } else if (sourcePacket != null) {
-                    effect.apply(sourcePacket, target)
-                }
+            if (sourceEntity != null) {
+                effect.apply(sourceEntity, target)
+            } else if (sourcePacket != null) {
+                effect.apply(sourcePacket, target)
             }
         }
     }
@@ -533,21 +523,12 @@ class ProjectileSkill(
         sourceEntity: Entity?,
         sourcePacket: PacketEntity?
     ) {
+        // メインスレッドで実行
         for (effect in tickEffects) {
-            if (effect.sync || meta.sync) {
-                withContext(plugin.globalRegionDispatcher) {
-                    if (sourceEntity != null) {
-                        effect.apply(sourceEntity, sourceEntity)
-                    } else if (sourcePacket != null) {
-                        effect.apply(sourcePacket, sourcePacket)
-                    }
-                }
-            } else {
-                if (sourceEntity != null) {
-                    effect.apply(sourceEntity, sourceEntity)
-                } else if (sourcePacket != null) {
-                    effect.apply(sourcePacket, sourcePacket)
-                }
+            if (sourceEntity != null) {
+                effect.apply(sourceEntity, sourceEntity)
+            } else if (sourcePacket != null) {
+                effect.apply(sourcePacket, sourcePacket)
             }
         }
     }

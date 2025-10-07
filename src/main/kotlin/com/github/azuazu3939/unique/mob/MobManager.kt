@@ -8,17 +8,23 @@ import com.github.azuazu3939.unique.entity.PacketMob
 import com.github.azuazu3939.unique.event.PacketMobDamageEvent
 import com.github.azuazu3939.unique.event.PacketMobSkillEvent
 import com.github.azuazu3939.unique.event.PacketMobSpawnEvent
+import com.github.azuazu3939.unique.nms.distanceToAsync
+import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.skill.BasicSkill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.*
 import com.github.azuazu3939.unique.util.*
+import com.github.shynixn.mccoroutine.folia.asyncDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.withContext
 import org.bukkit.*
 import org.bukkit.configuration.ConfigurationSection
+import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -70,7 +76,7 @@ class MobManager(private val plugin: Unique) {
         for (file in yamlFiles) {
             try {
                 // YamlConfigurationで読み込み
-                val yaml = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file)
+                val yaml = YamlConfiguration.loadConfiguration(file)
 
                 // トップレベルのキーを取得（Mob名）
                 val mobNames = yaml.getKeys(false)
@@ -217,6 +223,7 @@ class MobManager(private val plugin: Unique) {
                         // シンプルな文字列形式: "DIAMOND"
                         drops.add(DropDefinition(item = dropEntry))
                     }
+
                     is Map<*, *> -> {
                         // マップ形式の場合
                         @Suppress("UNCHECKED_CAST")
@@ -227,12 +234,14 @@ class MobManager(private val plugin: Unique) {
                         val chance = (dropMap["chance"] as? Number)?.toDouble() ?: 1.0
                         val condition = dropMap["condition"] as? String ?: "true"
 
-                        drops.add(DropDefinition(
-                            item = item,
-                            amount = amount,
-                            chance = chance.toString(),
-                            condition = condition
-                        ))
+                        drops.add(
+                            DropDefinition(
+                                item = item,
+                                amount = amount,
+                                chance = chance.toString(),
+                                condition = condition
+                            )
+                        )
                     }
                 }
             }
@@ -251,12 +260,14 @@ class MobManager(private val plugin: Unique) {
                     val chance = dropSection.getString("chance") ?: dropSection.getDouble("chance", 1.0).toString()
                     val condition = dropSection.getString("condition") ?: "true"
 
-                    drops.add(DropDefinition(
-                        item = item,
-                        amount = amount,
-                        chance = chance,
-                        condition = condition
-                    ))
+                    drops.add(
+                        DropDefinition(
+                            item = item,
+                            amount = amount,
+                            chance = chance,
+                            condition = condition
+                        )
+                    )
                 } else {
                     // 直接値の場合（キーがアイテム名）
                     when (val value = section.get(key)) {
@@ -264,10 +275,12 @@ class MobManager(private val plugin: Unique) {
                             // amount指定
                             drops.add(DropDefinition(item = key, amount = value))
                         }
+
                         is Number -> {
                             // chance指定
                             drops.add(DropDefinition(item = key, chance = value.toString()))
                         }
+
                         else -> {
                             // デフォルト
                             drops.add(DropDefinition(item = key))
@@ -299,50 +312,60 @@ class MobManager(private val plugin: Unique) {
      * Mobをスポーン
      */
     suspend fun spawnMob(mobName: String, location: Location): PacketMob? {
-        val definition = mobDefinitions[mobName]
-        if (definition == null) {
-            DebugLogger.error("Mob definition not found: $mobName")
-            return null
+        var mob: PacketMob? = null
+        var uuid: UUID? = null
+        var definition: MobDefinition? = null
+        withContext(plugin.asyncDispatcher) {
+
+            definition = mobDefinitions[mobName]
+            if (definition == null) {
+                DebugLogger.error("Mob definition not found: $mobName")
+                return@withContext
+            }
+
+            // CEL評価用のコンテキストを構築
+            val context = buildMobSpawnContext(location)
+
+            // Health, Damage, Armor, ArmorToughnessを動的に評価
+            val evaluatedHealth = evaluateHealth(definition.health, context)
+            val evaluatedDamage = evaluateDamage(definition.damage, context)
+            val evaluatedArmor = evaluateArmor(definition.armor, context)
+            val evaluatedArmorToughness = evaluateArmorToughness(definition.armorToughness, context)
+
+            // PacketMobを生成
+            val entityId = plugin.packetEntityManager.generateEntityId()
+            uuid = plugin.packetEntityManager.generateUUID()
+
+            mob = PacketMob.builder(
+                entityId = entityId,
+                uuid = uuid,
+                entityType = definition.getEntityType(),
+                location = location,
+                mobName = definition.getDisplayName()
+            )
+                .health(evaluatedHealth)
+                .maxHealth(evaluatedHealth)
+                .damage(evaluatedDamage)
+                .armor(evaluatedArmor)
+                .armorToughness(evaluatedArmorToughness)
+                .damageFormula(definition.damageFormula)
+                .customNameVisible(definition.appearance.customNameVisible)
+                .hasAI(definition.ai.hasAI)
+                .hasGravity(definition.ai.hasGravity)
+                .glowing(definition.appearance.glowing)
+                .invisible(definition.appearance.invisible)
+                .options(definition.options)
+                .movementSpeed(definition.ai.movementSpeed)
+                .followRange(definition.ai.followRange)
+                .knockbackResistance(definition.ai.knockbackResistance)
+                .lookAtMovementDirection(definition.ai.lookAtMovementDirection)
+                .wallClimbHeight(definition.ai.wallClimbHeight)
+                .build()
         }
 
-        // CEL評価用のコンテキストを構築
-        val context = buildMobSpawnContext(location)
-
-        // Health, Damage, Armor, ArmorToughnessを動的に評価
-        val evaluatedHealth = evaluateHealth(definition.health, context)
-        val evaluatedDamage = evaluateDamage(definition.damage, context)
-        val evaluatedArmor = evaluateArmor(definition.armor, context)
-        val evaluatedArmorToughness = evaluateArmorToughness(definition.armorToughness, context)
-
-        // PacketMobを生成
-        val entityId = plugin.packetEntityManager.generateEntityId()
-        val uuid = plugin.packetEntityManager.generateUUID()
-
-        val mob = PacketMob.builder(
-            entityId = entityId,
-            uuid = uuid,
-            entityType = definition.getEntityType(),
-            location = location,
-            mobName = definition.getDisplayName()
-        )
-            .health(evaluatedHealth)
-            .maxHealth(evaluatedHealth)
-            .damage(evaluatedDamage)
-            .armor(evaluatedArmor)
-            .armorToughness(evaluatedArmorToughness)
-            .damageFormula(definition.damageFormula)
-            .customNameVisible(definition.appearance.customNameVisible)
-            .hasAI(definition.ai.hasAI)
-            .hasGravity(definition.ai.hasGravity)
-            .glowing(definition.appearance.glowing)
-            .invisible(definition.appearance.invisible)
-            .options(definition.options)
-            .movementSpeed(definition.ai.movementSpeed)
-            .followRange(definition.ai.followRange)
-            .knockbackResistance(definition.ai.knockbackResistance)
-            .lookAtMovementDirection(definition.ai.lookAtMovementDirection)
-            .wallClimbHeight(definition.ai.wallClimbHeight)
-            .build()
+        if (mob == null || uuid == null || definition == null) {
+            return null
+        }
 
         // スポーンイベント発火（キャンセルされた場合はnullを返す）
         if (EventUtil.callEvent(PacketMobSpawnEvent(mob, location, mobName))) {
@@ -350,12 +373,13 @@ class MobManager(private val plugin: Unique) {
             return null
         }
 
-        // エンティティマネージャーに登録
-        plugin.packetEntityManager.registerEntity(mob)
+        withContext(plugin.asyncDispatcher) {
+            plugin.packetEntityManager.registerEntity(mob)
 
-        // MobInstanceを作成
-        val instance = MobInstance(mobName, mob, definition)
-        activeMobs[uuid.toString()] = instance
+            // MobInstanceを作成
+            val instance = MobInstance(mobName, mob, definition)
+            activeMobs[uuid.toString()] = instance
+        }
 
         // OnSpawnスキルを実行
         executeSkillTriggers(mob, definition.skills.onSpawn, PacketMobSkillEvent.SkillTriggerType.ON_SPAWN)
@@ -567,7 +591,7 @@ class MobManager(private val plugin: Unique) {
     /**
      * UUIDからMobInstanceを取得
      */
-    fun getMobInstance(uuid: java.util.UUID): MobInstance? {
+    fun getMobInstance(uuid: UUID): MobInstance? {
         return activeMobs[uuid.toString()]
     }
 
@@ -590,7 +614,7 @@ class MobManager(private val plugin: Unique) {
     /**
      * MobInstanceを削除
      */
-    fun removeMobInstance(uuid: java.util.UUID) {
+    fun removeMobInstance(uuid: UUID) {
         activeMobs.remove(uuid.toString())?.let {
             DebugLogger.debug("Removed MobInstance: ${it.definitionName}")
         }
@@ -604,14 +628,14 @@ class MobManager(private val plugin: Unique) {
      * @param location ドロップ位置
      * @return ドロップアイテムのリスト
      */
-    suspend fun calculateDropItems(
+    fun calculateDropItems(
         definition: MobDefinition,
         killer: Player,
         location: Location
-    ): List<org.bukkit.inventory.ItemStack> {
+    ): List<ItemStack> {
         if (definition.drops.isEmpty()) return emptyList()
 
-        val drops = mutableListOf<org.bukkit.inventory.ItemStack>()
+        val drops = mutableListOf<ItemStack>()
         val context = buildDropContext(killer, location)
 
         // 定義からのドロップ処理
@@ -640,7 +664,7 @@ class MobManager(private val plugin: Unique) {
      */
     suspend fun dropItemsInWorld(
         location: Location,
-        items: List<org.bukkit.inventory.ItemStack>
+        items: List<ItemStack>
     ) {
         if (items.isEmpty()) return
 
@@ -665,14 +689,15 @@ class MobManager(private val plugin: Unique) {
         definition: MobDefinition,
         location: Location,
         killer: Player,
-        eventDrops: MutableList<org.bukkit.inventory.ItemStack>
+        eventDrops: MutableList<ItemStack>
     ) {
-        // region dispatcherのコンテキスト内で実行
-        withContext(plugin.regionDispatcher(location)) {
-            // 定義からドロップを計算
+        withContext(plugin.asyncDispatcher) {
             val calculatedDrops = calculateDropItems(definition, killer, location)
             eventDrops.addAll(calculatedDrops)
+        }
 
+        // worldにドロップアイテムをspawnさせるためここはリージョンスケジューラを使用しなくてはならない
+        withContext(plugin.regionDispatcher(location)) {
             // ワールドにドロップ
             dropItemsInWorld(location, eventDrops)
         }
@@ -704,7 +729,7 @@ class MobManager(private val plugin: Unique) {
     /**
      * ドロップアイテムを作成
      */
-    private fun createDropItem(drop: DropDefinition, context: Map<String, Any>): org.bukkit.inventory.ItemStack? {
+    private fun createDropItem(drop: DropDefinition, context: Map<String, Any>): ItemStack? {
         val material = Material.getMaterial(drop.item.uppercase())
         if (material == null) {
             DebugLogger.error("Invalid drop material: ${drop.item}")
@@ -713,21 +738,15 @@ class MobManager(private val plugin: Unique) {
 
         val amount = evaluateDropAmount(drop.amount, context)
         DebugLogger.debug("Added drop: ${amount}x ${drop.item}")
-        return org.bukkit.inventory.ItemStack(material, amount)
+        return ItemStack(material, amount)
     }
 
-    /**
-     * ドロップコンテキストを構築
-     * 注：この関数は既にregion dispatcherのコンテキスト内で呼ばれることを前提とする
-     * 最適化：getNearbyEntitiesの代わりにworld.playersを使用
-     */
     private fun buildDropContext(killer: Player, location: Location): Map<String, Any> {
-        // 最適化：getNearbyEntitiesは重いので、world.playersから距離チェック
         val world = location.world
         val searchRange = plugin.configManager.mainConfig.performance.contextSearchRange
         val searchRangeSquared = searchRange * searchRange
-        val nearbyPlayers = world?.players
-            ?.filter { it.location.world == world && it.location.distanceSquared(location) <= searchRangeSquared }
+        val nearbyPlayers = world?.getPlayersAsync()
+            ?.filter { it.world.name == world.name && it.distanceToAsync(location) <= searchRangeSquared }
             ?: emptyList()
 
         val baseContext = buildMap {

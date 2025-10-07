@@ -292,7 +292,7 @@ class SpawnManager(private val plugin: Unique) {
         DebugLogger.info("Starting spawn tasks...")
 
         for ((name, definition) in spawnDefinitions) {
-            // Foliaではglobal region dispatcherを使用
+            // globalRegionDispatcherでスポーンタスクを開始
             val job = plugin.launch(plugin.globalRegionDispatcher) {
                 DebugLogger.info("Spawn task started for: $name")
                 runSpawnTask(name, definition)
@@ -320,7 +320,7 @@ class SpawnManager(private val plugin: Unique) {
 
                 val targetPlayer = players.random()
 
-                // 実際のスポーン処理はプレイヤーのregion dispatcherで実行
+                // 実際のスポーン処理をasyncスレッドで実行
                 plugin.launch(plugin.regionDispatcher(targetPlayer.location)) {
                     attemptSpawnForPlayer(name, definition, targetPlayer)
                 }
@@ -363,7 +363,7 @@ class SpawnManager(private val plugin: Unique) {
         // 仮の位置を作成
         val tempLocation = Location(targetPlayer.world, x, 64.0, z)
 
-        // スポーン位置のregion dispatcherで実際のY座標を取得してスポーン
+        // スポーン位置のregion dispatcherで実際のY座標を取得してスポーン（asyncスレッド）
         withContext(plugin.regionDispatcher(tempLocation)) {
             // 地面の高さを取得
             val y = targetPlayer.world.getHighestBlockYAt(x.toInt(), z.toInt()).toDouble() + 1

@@ -301,7 +301,7 @@ class PacketMob(
     /**
      * アニメーション再生
      */
-    override suspend fun playAnimation(animation: EntityAnimation) {
+    override fun playAnimation(animation: EntityAnimation) {
         // 死亡時はDEATHアニメーションのみ再生可能
         if (isDead && animation != DEATH) {
             DebugLogger.verbose("Skipping animation $animation for $mobName (isDead=true)")

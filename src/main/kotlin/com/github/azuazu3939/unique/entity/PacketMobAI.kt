@@ -1,6 +1,10 @@
 package com.github.azuazu3939.unique.entity
 
 import com.github.azuazu3939.unique.event.PacketMobTargetEvent
+import com.github.azuazu3939.unique.nms.distanceTo
+import com.github.azuazu3939.unique.nms.distanceToAsync
+import com.github.azuazu3939.unique.nms.getLocationAsync
+import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.EventUtil
 import org.bukkit.GameMode
 import org.bukkit.Location
@@ -85,18 +89,18 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     private fun searchTarget() {
         val world = mob.location.world ?: return
 
-        val followRangeSquared = mob.followRange * mob.followRange
-        val nearbyPlayers = world.players
+        val followRange = mob.followRange
+        val nearbyPlayers = world.getPlayersAsync()
             .filter { player ->
                 !player.isDead &&
                         player.gameMode != GameMode.SPECTATOR &&
                         player.gameMode != GameMode.CREATIVE &&
-                        player.location.world == world &&
-                        player.location.distanceSquared(mob.location) <= followRangeSquared
+                        player.world == world &&
+                        player.distanceToAsync(mob.location) <= followRange
             }
 
         if (nearbyPlayers.isNotEmpty()) {
-            val newTarget = nearbyPlayers.minByOrNull { it.location.distance(mob.location) }
+            val newTarget = nearbyPlayers.minByOrNull { it.distanceToAsync(mob.location) }
 
             val targetEvent = EventUtil.callEventOrNull(
                 PacketMobTargetEvent(mob, currentTarget, newTarget, PacketMobTargetEvent.TargetReason.CLOSEST_PLAYER)
@@ -125,14 +129,14 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     private fun tickTarget() {
         val target = currentTarget ?: return
 
-        val distance = mob.location.distance(target.location)
+        val distance = mob.location.distanceTo(target.getLocationAsync())
 
         if (distance <= mob.attackRange) {
             aiState = AIState.ATTACK
             return
         }
 
-        moveTowards(target.location)
+        moveTowards(target.getLocationAsync())
     }
 
     /**
@@ -144,7 +148,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
             return
         }
 
-        val distance = mob.location.distance(target.location)
+        val distance = mob.location.distanceTo(target.getLocationAsync())
 
         if (distance > mob.attackRange) {
             aiState = AIState.TARGET
@@ -165,7 +169,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
     private fun tickWander() {
         val wander = wanderTarget
 
-        if (wander == null || mob.location.distance(wander) < 1.0) {
+        if (wander == null || mob.location.distanceTo(wander) < 1.0) {
             aiState = AIState.IDLE
             wanderTarget = null
             return
@@ -249,6 +253,6 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
      * 範囲内判定
      */
     private fun isInRange(entity: Entity, range: Double): Boolean {
-        return mob.location.distance(entity.location) <= range
+        return mob.location.distanceTo(entity.getLocationAsync()) <= range
     }
 }

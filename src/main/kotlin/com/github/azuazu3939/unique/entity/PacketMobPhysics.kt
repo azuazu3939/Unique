@@ -3,7 +3,7 @@ package com.github.azuazu3939.unique.entity
 import com.github.azuazu3939.unique.entity.packet.PacketSender
 import com.github.azuazu3939.unique.entity.physics.AABB
 import com.github.azuazu3939.unique.entity.physics.CollisionDetector
-import org.bukkit.Bukkit
+import com.github.azuazu3939.unique.nms.getPlayerByUUID
 import org.bukkit.util.Vector
 import kotlin.math.*
 
@@ -301,7 +301,7 @@ class PacketMobPhysics(private val mob: PacketMob) {
      */
     private fun sendMovementPackets() {
         mob.viewers.forEach { uuid ->
-            Bukkit.getPlayer(uuid)?.let { player ->
+            getPlayerByUUID(uuid)?.let { player ->
                 PacketSender.sendTeleportPacket(player, mob.entityId, mob.location)
             }
         }
