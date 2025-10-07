@@ -202,7 +202,7 @@ class PacketDisplayEntity(
     /**
      * アニメーション再生（Display Entityは未サポート）
      */
-    override suspend fun playAnimation(animation: EntityAnimation) {
+    override fun playAnimation(animation: EntityAnimation) {
         // Display Entityはアニメーションをサポートしない
         DebugLogger.verbose("Animation not supported for display entities")
     }

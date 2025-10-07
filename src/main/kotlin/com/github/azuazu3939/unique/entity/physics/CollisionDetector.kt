@@ -1,5 +1,6 @@
 package com.github.azuazu3939.unique.entity.physics
 
+import com.github.azuazu3939.unique.nms.isBlockSolidAsync
 import org.bukkit.World
 import org.bukkit.util.Vector
 import kotlin.math.ceil
@@ -9,12 +10,16 @@ import kotlin.math.floor
  * CollisionDetector - スウィープテストを使った連続的な衝突検出
  *
  * MinecraftのエンティティとBlockの衝突を正確に検出
+ *
+ * NMS拡張関数を使用しているため、asyncスケジューラでも安全に実行可能
  */
 object CollisionDetector {
 
     /**
      * 移動による衝突を検出し、実際に移動可能な量を計算（スウィープテスト）
      * VanillaSource実装に基づく処理順序
+     *
+     * NMS拡張関数を使用しているため、asyncスケジューラでも安全に実行可能
      *
      * @param world ワールド
      * @param entityAABB エンティティの境界ボックス
@@ -112,6 +117,8 @@ object CollisionDetector {
 
     /**
      * 指定範囲内のブロックAABBを取得
+     *
+     * NMS拡張関数を使用してasyncスケジューラでも安全に実行可能
      */
     private fun getBlockAABBsInRange(world: World, aabb: AABB): List<AABB> {
         val blockAABBs = mutableListOf<AABB>()
@@ -126,8 +133,8 @@ object CollisionDetector {
         for (x in minX until maxX) {
             for (y in minY until maxY) {
                 for (z in minZ until maxZ) {
-                    val block = world.getBlockAt(x, y, z)
-                    if (block.type.isSolid) {
+                    // NMS拡張関数を使用（asyncスケジューラで安全）
+                    if (world.isBlockSolidAsync(x, y, z)) {
                         blockAABBs.add(AABB.fromBlock(x, y, z))
                     }
                 }
@@ -139,6 +146,8 @@ object CollisionDetector {
 
     /**
      * エンティティが地面にいるか判定
+     *
+     * NMS拡張関数を使用しているため、asyncスケジューラでも安全に実行可能
      *
      * @param world ワールド
      * @param entityAABB エンティティの境界ボックス
@@ -160,6 +169,8 @@ object CollisionDetector {
 
     /**
      * エンティティがブロックに埋まっているか判定
+     *
+     * NMS拡張関数を使用しているため、asyncスケジューラでも安全に実行可能
      *
      * @param world ワールド
      * @param entityAABB エンティティの境界ボックス
@@ -184,6 +195,8 @@ object CollisionDetector {
 
     /**
      * エンティティが壁を登れるか判定（段差判定）
+     *
+     * NMS拡張関数を使用しているため、asyncスケジューラでも安全に実行可能
      *
      * @param world ワールド
      * @param entityAABB エンティティの境界ボックス

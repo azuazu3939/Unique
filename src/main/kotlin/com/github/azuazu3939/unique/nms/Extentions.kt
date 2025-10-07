@@ -1,13 +1,16 @@
 package com.github.azuazu3939.unique.nms
 
+import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerPlayer
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.craftbukkit.CraftServer
 import org.bukkit.craftbukkit.CraftWorld
 import org.bukkit.craftbukkit.entity.CraftEntity
 import org.bukkit.craftbukkit.entity.CraftPlayer
+import org.bukkit.craftbukkit.util.CraftMagicNumbers
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import java.util.*
@@ -251,4 +254,40 @@ fun getOnlinePlayersAsync(): List<Player> {
 fun World.getPlayersAsync(): List<Player> {
     val nmsLevel = this.toNMS()
     return nmsLevel.players().map { it.bukkitEntity as Player }
+}
+
+/**
+ * 指定座標のブロックタイプを非同期で取得
+ *
+ * 注意: このメソッドはasyncスケジューラで安全に呼び出せます。
+ * NMS経由でブロック状態を取得するため、メインスレッドは不要です。
+ *
+ * @param x X座標
+ * @param y Y座標
+ * @param z Z座標
+ * @return ブロックのMaterial
+ */
+fun World.getBlockTypeAsync(x: Int, y: Int, z: Int): Material {
+    val nmsLevel = this.toNMS()
+    val blockPos = BlockPos(x, y, z)
+    val blockState = nmsLevel.getBlockState(blockPos)
+    return CraftMagicNumbers.getMaterial(blockState.block)
+}
+
+/**
+ * 指定座標のブロックがソリッドか非同期で判定
+ *
+ * 注意: このメソッドはasyncスケジューラで安全に呼び出せます。
+ * NMS経由でブロック状態を取得するため、メインスレッドは不要です。
+ *
+ * @param x X座標
+ * @param y Y座標
+ * @param z Z座標
+ * @return ソリッドブロックの場合true
+ */
+fun World.isBlockSolidAsync(x: Int, y: Int, z: Int): Boolean {
+    val nmsLevel = this.toNMS()
+    val blockPos = BlockPos(x, y, z)
+    val blockState = nmsLevel.getBlockState(blockPos)
+    return blockState.isSolidRender
 }
