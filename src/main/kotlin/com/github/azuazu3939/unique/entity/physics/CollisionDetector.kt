@@ -3,6 +3,7 @@ package com.github.azuazu3939.unique.entity.physics
 import com.github.azuazu3939.unique.nms.isBlockSolidAsync
 import org.bukkit.World
 import org.bukkit.util.Vector
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -47,7 +48,7 @@ object CollisionDetector {
         if (deltaY != 0.0) {
             val originalDeltaY = deltaY
             for (blockAABB in blockAABBs) {
-                if (kotlin.math.abs(deltaY) < 1.0E-7) break
+                if (abs(deltaY) < 1.0E-7) break
                 deltaY = blockAABB.calculateYOffset(currentAABB, deltaY)
             }
             if (originalDeltaY != deltaY) {
@@ -59,13 +60,13 @@ object CollisionDetector {
         }
 
         // VanillaSource方式: X軸とZ軸のうち、移動量が小さい方を先に処理
-        val xSmaller = kotlin.math.abs(deltaX) < kotlin.math.abs(deltaZ)
+        val xSmaller = abs(deltaX) < abs(deltaZ)
 
         // 最初の水平軸を処理（小さい方）
         if (xSmaller && deltaZ != 0.0) {
             val originalDeltaZ = deltaZ
             for (blockAABB in blockAABBs) {
-                if (kotlin.math.abs(deltaZ) < 1.0E-7) break
+                if (abs(deltaZ) < 1.0E-7) break
                 deltaZ = blockAABB.calculateZOffset(currentAABB, deltaZ)
             }
             if (originalDeltaZ != deltaZ) {
@@ -80,7 +81,7 @@ object CollisionDetector {
         if (deltaX != 0.0) {
             val originalDeltaX = deltaX
             for (blockAABB in blockAABBs) {
-                if (kotlin.math.abs(deltaX) < 1.0E-7) break
+                if (abs(deltaX) < 1.0E-7) break
                 deltaX = blockAABB.calculateXOffset(currentAABB, deltaX)
             }
             if (originalDeltaX != deltaX) {
@@ -95,7 +96,7 @@ object CollisionDetector {
         if (!xSmaller && deltaZ != 0.0) {
             val originalDeltaZ = deltaZ
             for (blockAABB in blockAABBs) {
-                if (kotlin.math.abs(deltaZ) < 1.0E-7) break
+                if (abs(deltaZ) < 1.0E-7) break
                 deltaZ = blockAABB.calculateZOffset(currentAABB, deltaZ)
             }
             if (originalDeltaZ != deltaZ) {
@@ -228,14 +229,57 @@ object CollisionDetector {
             val stepResult = sweepTest(world, entityAABB, stepUpMotion)
 
             // 登れる場合
-            if (kotlin.math.abs(stepResult.motion.x - motion.x) < 0.001 &&
-                kotlin.math.abs(stepResult.motion.z - motion.z) < 0.001
+            if (abs(stepResult.motion.x - motion.x) < 0.001 &&
+                abs(stepResult.motion.z - motion.z) < 0.001
             ) {
                 return stepHeight
             }
         }
 
         return null
+    }
+
+    /**
+     * ジャンプが必要かどうかを判定（バニラ準拠）
+     *
+     * 移動方向に障害物があり、stepHeightより高い場合にジャンプが必要と判定
+     *
+     * @param world ワールド
+     * @param entityAABB エンティティの境界ボックス
+     * @param motion 移動ベクトル（水平方向）
+     * @param stepHeight 自動で登れる段差の高さ
+     * @param jumpStrength ジャンプ強度（最大到達高度の計算に使用、デフォルト0.6）
+     * @return ジャンプが必要な場合true
+     */
+    fun shouldJump(
+        world: World,
+        entityAABB: AABB,
+        motion: Vector,
+        stepHeight: Double,
+        jumpStrength: Double = 0.5
+    ): Boolean {
+        // 水平方向のみの移動
+        val horizontalMotion = Vector(motion.x, 0.0, motion.z)
+        if (horizontalMotion.lengthSquared() < 0.001) return false
+
+        // 通常の移動をテスト
+        val normalResult = sweepTest(world, entityAABB, horizontalMotion)
+
+        // 衝突していない場合はジャンプ不要
+        if (!normalResult.collidedX && !normalResult.collidedZ) return false
+
+        // stepHeight以下の段差は自動で登れるのでジャンプ不要
+        val canStepUp = calculateStepHeight(world, entityAABB, motion, stepHeight)
+        if (canStepUp != null) return false
+
+        // ジャンプで登れるか確認（jumpStrengthから最大到達高度を計算、約2倍）
+        val jumpHeight = jumpStrength * 2
+        val jumpMotion = Vector(motion.x, jumpHeight, motion.z)
+        val jumpResult = sweepTest(world, entityAABB, jumpMotion)
+
+        // ジャンプで登れる場合のみtrueを返す
+        return abs(jumpResult.motion.x - motion.x) < 0.1 &&
+               abs(jumpResult.motion.z - motion.z) < 0.1
     }
 
     /**

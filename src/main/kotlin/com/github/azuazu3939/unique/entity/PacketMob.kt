@@ -232,8 +232,15 @@ class PacketMob(
     /**
      * 乗り越えられる壁の高さ（ブロック数）
      * 旧名: wallClimbHeight
+     * デフォルト値はエンティティタイプに応じて自動設定される
      */
-    var stepHeight: Double = 1.0
+    var stepHeight: Double = 0.6
+
+    /**
+     * ジャンプ強度（Y軸の初速度）
+     * バニラと同じデフォルト値0.42
+     */
+    var jumpStrength: Double = 0.42
 
     /**
      * エンティティをスポーン
@@ -822,7 +829,8 @@ class PacketMob(
         private var targetSearchInterval: Int = 20
         private var knockbackResistance: Double = 0.0
         private var lookAtMovementDirection: Boolean = true
-        private var wallClimbHeight: Double = 1.0
+        private var wallClimbHeight: Double = 0.6
+        private var jumpStrength: Double = 0.42
 
         fun health(health: Double) = apply { this.health = health }
         fun maxHealth(maxHealth: Double) = apply { this.maxHealth = maxHealth }
@@ -848,6 +856,7 @@ class PacketMob(
         fun knockbackResistance(resistance: Double) = apply { this.knockbackResistance = resistance }
         fun lookAtMovementDirection(enabled: Boolean) = apply { this.lookAtMovementDirection = enabled }
         fun wallClimbHeight(height: Double) = apply { this.wallClimbHeight = height.coerceAtLeast(0.0) }
+        fun jumpStrength(strength: Double) = apply { this.jumpStrength = strength.coerceAtLeast(0.0) }
 
         fun build(): PacketMob {
             val mob = PacketMob(entityId, uuid, entityType, location, mobName)
@@ -875,6 +884,7 @@ class PacketMob(
             mob.knockbackResistance = knockbackResistance
             mob.lookAtMovementDirection = lookAtMovementDirection
             mob.stepHeight = wallClimbHeight
+            mob.jumpStrength = jumpStrength
 
             // Rotation初期化（locationのyawを使用）
             mob.headYaw = location.yaw
@@ -897,6 +907,30 @@ class PacketMob(
             mobName: String
         ): Builder {
             return Builder(entityId, uuid, entityType, location, mobName)
+        }
+
+        /**
+         * エンティティタイプごとのデフォルトstepHeightを取得（バニラ準拠）
+         *
+         * フルブロックをジャンプせずに飛び越えられるMob: 1.0
+         * その他のMob: 0.6
+         */
+        fun getDefaultStepHeight(entityType: EntityType): Double {
+            return when (entityType) {
+                // フルブロックをジャンプせずに飛び越えられるMob（バニラWiki準拠）
+                EntityType.HORSE, EntityType.DONKEY, EntityType.MULE,
+                EntityType.SKELETON_HORSE, EntityType.ZOMBIE_HORSE,
+                EntityType.IRON_GOLEM,
+                EntityType.ENDERMAN,
+                EntityType.STRIDER,
+                EntityType.LLAMA, EntityType.TRADER_LLAMA,
+                EntityType.RAVAGER,
+                EntityType.DROWNED,
+                EntityType.TURTLE -> 1.0
+
+                // その他のMob（通常の段差登り）
+                else -> 0.6
+            }
         }
     }
 }

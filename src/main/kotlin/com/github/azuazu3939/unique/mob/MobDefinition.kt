@@ -91,7 +91,12 @@ data class MobAI(
     val lookAtMovementDirection: Boolean = true,
 
     // 乗り越えられる壁の高さ（ブロック数）
-    val wallClimbHeight: Double = 1.0
+    // nullの場合はエンティティタイプのデフォルト値を使用
+    val wallClimbHeight: Double? = null,
+
+    // ジャンプ強度（初速度、バニラは0.42）
+    // nullの場合はデフォルト値0.42を使用
+    val jumpStrength: Double? = null
 )
 
 /**

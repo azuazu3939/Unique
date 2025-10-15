@@ -1,5 +1,7 @@
 package com.github.azuazu3939.unique.entity
 
+import com.github.azuazu3939.unique.entity.physics.AABB
+import com.github.azuazu3939.unique.entity.physics.CollisionDetector
 import com.github.azuazu3939.unique.event.PacketMobTargetEvent
 import com.github.azuazu3939.unique.nms.distanceTo
 import com.github.azuazu3939.unique.nms.distanceToAsync
@@ -8,6 +10,7 @@ import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.EventUtil
 import org.bukkit.Location
 import org.bukkit.entity.Entity
+import org.bukkit.util.Vector
 import kotlin.math.atan2
 import kotlin.math.sqrt
 
@@ -199,11 +202,36 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
         }
 
         // AI移動速度を物理演算に追加
-        val moveX = direction.x * mob.movementSpeed
-        val moveZ = direction.z * mob.movementSpeed
+        var moveX = direction.x * mob.movementSpeed
+        var moveZ = direction.z * mob.movementSpeed
+
+        // ジャンプ判定（地面にいて、障害物があり、stepHeightより高い場合）
+        if (mob.stepHeight >= 0.0 && physics.isOnGround && checkAndJump(Vector(moveX, 0.0, moveZ))) {
+            moveX /= 2
+            moveZ /= 2
+        }
 
         // 現在の速度に上書き（AI移動は速度を直接設定）
         physics.setAIVelocity(moveX, moveZ)
+    }
+
+    /**
+     * ジャンプが必要かチェックし、必要な場合はジャンプする
+     */
+    private fun checkAndJump(motion: Vector): Boolean {
+        val world = mob.location.world ?: return false
+
+        // 現在のAABBを取得
+        val width = mob.getEntityHitboxWidth()
+        val height = mob.getEntityHitboxHeight()
+        val entityAABB = AABB.fromLocation(mob.location, width, height)
+
+        // ジャンプが必要かチェック（stepHeightとjumpStrengthを渡す）
+        if (CollisionDetector.shouldJump(world, entityAABB, motion, mob.stepHeight, mob.jumpStrength)) {
+            physics.jump()
+            return true
+        }
+        return false
     }
 
     /**

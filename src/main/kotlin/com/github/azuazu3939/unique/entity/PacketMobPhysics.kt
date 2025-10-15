@@ -62,6 +62,19 @@ class PacketMobPhysics(private val mob: PacketMob) {
     }
 
     /**
+     * ジャンプ処理
+     *
+     * 地面にいる場合のみジャンプ可能
+     * jumpStrengthの値を使用（デフォルト0.42、バニラと同じ）
+     */
+    fun jump() {
+        if (isOnGround && mob.hasGravity) {
+            velocityY = mob.jumpStrength
+            isOnGround = false
+        }
+    }
+
+    /**
      * AI移動速度を設定（水平方向のみ）
      * 外部速度（ノックバックなど）がある場合は上書きしない
      * 現在の速度に目標速度へ近づける加速度を適用（滑らかな移動）
@@ -202,15 +215,66 @@ class PacketMobPhysics(private val mob: PacketMob) {
         // move関数を使用して移動
         val result = move(motion)
 
-        // 衝突した場合、その軸の速度をリセット
-        if (result.collidedX) {
-            velocityX = 0.0
+        // 水平方向に衝突し、地面にいる場合は段差登りを試みる
+        if ((result.collidedX || result.collidedZ) && result.isOnGround && mob.stepHeight > 0.0) {
+            tryStepUp(motion)
+        } else {
+            // 段差登りができない場合、衝突した軸の速度をリセット
+            if (result.collidedX) {
+                velocityX = 0.0
+            }
+            if (result.collidedY) {
+                velocityY = 0.0
+            }
+            if (result.collidedZ) {
+                velocityZ = 0.0
+            }
         }
-        if (result.collidedY) {
-            velocityY = 0.0
-        }
-        if (result.collidedZ) {
-            velocityZ = 0.0
+    }
+
+    /**
+     * 段差を登る処理（バニラ準拠）
+     *
+     * 水平方向に衝突した場合、stepHeight以下の段差を登れるかチェックし、
+     * 登れる場合は段差の高さ分だけY座標を上げる
+     */
+    private fun tryStepUp(originalMotion: Vector) {
+        val world = mob.location.world ?: return
+
+        // 現在のAABBを取得
+        val entityAABB = getEntityAABB()
+
+        // 段差の高さを計算
+        val stepHeight = CollisionDetector.calculateStepHeight(
+            world,
+            entityAABB,
+            originalMotion,
+            mob.stepHeight
+        )
+
+        if (stepHeight != null && stepHeight > 0.0) {
+            // 段差を登る：Y座標を段差の高さ分だけ上げて、水平方向に移動
+            val stepMotion = Vector(originalMotion.x, stepHeight, originalMotion.z)
+            val stepResult = move(stepMotion)
+
+            // 段差登りに成功した場合、速度をリセット（Y方向のみ、水平方向は維持）
+            if (stepResult.collidedY) {
+                velocityY = 0.0
+            }
+            if (stepResult.collidedX) {
+                velocityX = 0.0
+            }
+            if (stepResult.collidedZ) {
+                velocityZ = 0.0
+            }
+        } else {
+            // 段差登りができない場合、水平方向の速度をリセット
+            if (originalMotion.x != 0.0) {
+                velocityX = 0.0
+            }
+            if (originalMotion.z != 0.0) {
+                velocityZ = 0.0
+            }
         }
     }
 

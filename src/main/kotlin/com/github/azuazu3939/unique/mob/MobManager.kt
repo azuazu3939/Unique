@@ -359,7 +359,8 @@ class MobManager(private val plugin: Unique) {
                 .followRange(definition.ai.followRange)
                 .knockbackResistance(definition.ai.knockbackResistance)
                 .lookAtMovementDirection(definition.ai.lookAtMovementDirection)
-                .wallClimbHeight(definition.ai.wallClimbHeight)
+                .wallClimbHeight(definition.ai.wallClimbHeight ?: PacketMob.getDefaultStepHeight(definition.getEntityType()))
+                .jumpStrength(definition.ai.jumpStrength ?: 0.5)
                 .build()
         }
 
