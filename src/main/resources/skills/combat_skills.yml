@@ -76,3 +76,21 @@ GreatHeal:
   - particle{type=HEART;count=30}
   - particle{type=TOTEM_OF_UNDYING;count=20}
   - sound{type=ITEM_TOTEM_USE;volume=1.0;pitch=1.0}
+
+# 投げ飛ばし
+ThrowAttack:
+  - throw{velocity=2.0;velocityY=1.5;mode=AWAY}
+  - particle{type=SWEEP_ATTACK;count=15}
+  - sound{type=ENTITY_IRON_GOLEM_ATTACK;volume=1.0;pitch=0.8}
+
+# 上空投げ
+ThrowUp:
+  - throw{velocity=1.0;velocityY=2.5;mode=UP}
+  - particle{type=CLOUD;count=20}
+  - sound{type=ENTITY_BAT_TAKEOFF;volume=1.0;pitch=0.7}
+
+# 前方投げ
+ThrowForward:
+  - throw{velocity=3.0;velocityY=1.0;mode=FORWARD}
+  - particle{type=SWEEP_ATTACK;count=10}
+  - sound{type=ENTITY_PLAYER_ATTACK_KNOCKBACK;volume=1.0;pitch=0.9}

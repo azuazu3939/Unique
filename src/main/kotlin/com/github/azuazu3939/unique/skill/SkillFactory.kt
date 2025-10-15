@@ -6,6 +6,7 @@ import com.github.azuazu3939.unique.mob.SkillReference
 import com.github.azuazu3939.unique.skill.types.AuraSkill
 import com.github.azuazu3939.unique.skill.types.BeamSkill
 import com.github.azuazu3939.unique.skill.types.ProjectileSkill
+import com.github.azuazu3939.unique.skill.types.ThrowSkill
 import com.github.azuazu3939.unique.targeter.TargeterFactory
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.ResourceKeyResolver
@@ -39,6 +40,7 @@ object SkillFactory {
                 "branch", "branchskill" -> createBranchSkill(reference)
                 "beam" -> createBeamSkill(reference)
                 "aura" -> createAuraSkill(reference)
+                "throw" -> createThrowSkill(reference)
 
                 else -> {
                     DebugLogger.warn("Unknown skill type: ${reference.type}, defaulting to Basic")
@@ -213,6 +215,24 @@ object SkillFactory {
         )
     }
 
+    private fun createThrowSkill(ref: SkillReference): ThrowSkill {
+        val mode = when (ref.throwMode?.uppercase()) {
+            "UP" -> ThrowSkill.ThrowMode.UP
+            "FORWARD" -> ThrowSkill.ThrowMode.FORWARD
+            "BACKWARD" -> ThrowSkill.ThrowMode.BACKWARD
+            "AWAY" -> ThrowSkill.ThrowMode.AWAY
+            else -> ThrowSkill.ThrowMode.UP
+        }
+
+        return ThrowSkill(
+            id = ref.skill,
+            meta = parseSkillMeta(ref.meta),
+            velocity = ref.throwVelocity ?: "1.0",
+            velocityY = ref.throwVelocityY ?: "1.0",
+            mode = mode
+        )
+    }
+
     // ========================================
     // ヘルパーメソッド
     // ========================================
@@ -296,7 +316,7 @@ object SkillFactory {
      */
     fun isValidSkillType(type: String): Boolean {
         return type.lowercase() in listOf(
-            "basic", "projectile", "meta", "metaskill", "branch", "branchskill", "beam", "aura"
+            "basic", "projectile", "meta", "metaskill", "branch", "branchskill", "beam", "aura", "throw"
         )
     }
 
@@ -305,7 +325,7 @@ object SkillFactory {
      */
     fun getAvailableSkillTypes(): List<String> {
         return listOf(
-            "basic", "projectile", "meta", "branch", "beam", "aura"
+            "basic", "projectile", "meta", "branch", "beam", "aura", "throw"
         )
     }
 

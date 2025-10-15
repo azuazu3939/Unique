@@ -1,6 +1,22 @@
 package com.github.azuazu3939.unique.targeter
 
+// Basic targeters
+
+// Player targeters
+
+// Entity targeters
+
+// Sorting targeters
+
+// Advanced targeters
 import com.github.azuazu3939.unique.mob.TargeterDefinition
+import com.github.azuazu3939.unique.targeter.types.advanced.*
+import com.github.azuazu3939.unique.targeter.types.basic.SelfTargeter
+import com.github.azuazu3939.unique.targeter.types.entity.LineOfSightTargeter
+import com.github.azuazu3939.unique.targeter.types.entity.RadiusEntitiesTargeter
+import com.github.azuazu3939.unique.targeter.types.player.NearestPlayerTargeter
+import com.github.azuazu3939.unique.targeter.types.player.RadiusPlayersTargeter
+import com.github.azuazu3939.unique.targeter.types.sorting.*
 import com.github.azuazu3939.unique.util.DebugLogger
 
 /**

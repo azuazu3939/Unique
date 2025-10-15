@@ -92,3 +92,24 @@ TankGolem:
     - Pull @Self ~onTimer:300
     # 死亡時に大爆発
     - AreaExplosion @Self ~onDeath
+
+# 相撲戦士
+SumoWarrior:
+  Type: RAVAGER
+  Display: "&6&l相撲戦士"
+  Health: "150"
+  Damage: "20"
+  Armor: "10"
+  AI:
+    MovementSpeed: 0.3
+    FollowRange: 20.0
+    KnockbackResistance: 0.6
+  Skills:
+    # 攻撃時に敵を投げ飛ばす
+    - ThrowAttack @TL ~onAttack
+    # 5秒ごとに周囲の敵を上空に投げる
+    - ThrowUp @NP{r=5} ~onTimer:100
+    # ダメージ時に前方に投げる
+    - ThrowForward @TL ~onDamaged
+    # 10秒ごとに自己強化
+    - DeployShield @Self ~onTimer:200

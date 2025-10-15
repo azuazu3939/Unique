@@ -6,6 +6,7 @@ import com.github.azuazu3939.unique.condition.Condition
 import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketEntity
 import com.github.azuazu3939.unique.targeter.Targeter
+import com.github.azuazu3939.unique.targeter.types.basic.SelfTargeter
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.shynixn.mccoroutine.folia.launch
 import kotlinx.coroutines.delay
@@ -150,7 +151,7 @@ class BasicSkill(
 
             // エフェクト適用
             for (target in targets) {
-                effect.apply(source, target)
+                effect.applyWithContext(source, target)
             }
         }
 
@@ -186,7 +187,7 @@ class BasicSkill(
         val targets = targeter.getTargets(source)
 
         // SelfTargeterの場合、PacketEntity自身をターゲットとして扱う
-        if (targeter is com.github.azuazu3939.unique.targeter.SelfTargeter) {
+        if (targeter is SelfTargeter) {
             if (targets.isEmpty()) {
                 DebugLogger.debug("Skill $id (PacketEntity) targeting self")
 
@@ -204,7 +205,7 @@ class BasicSkill(
                     }
 
                     // PacketEntity to PacketEntity
-                    effect.apply(source, source)
+                    effect.applyWithContext(source, source)
                 }
 
                 val duration = System.currentTimeMillis() - startTime
@@ -231,7 +232,7 @@ class BasicSkill(
 
             // エフェクト適用
             for (target in targets) {
-                effect.apply(source, target)
+                effect.applyWithContext(source, target)
             }
         }
 

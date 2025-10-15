@@ -13,6 +13,7 @@ import com.github.azuazu3939.unique.targeter.Targeter
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -166,9 +167,11 @@ class ProjectileSkill(
         val startLocation = source.location.clone().add(0.0, 1.5, 0.0)
         val direction = initialTarget.location.toVector().subtract(startLocation.toVector()).normalize()
 
-        // 発射サウンド
-        launchSound?.let {
-            startLocation.world?.playSound(startLocation, it, 1.0f, 1.0f)
+        // 発射サウンド（同期処理）
+        launchSound?.let { sound ->
+            withContext(plugin.regionDispatcher(startLocation)) {
+                startLocation.world?.playSound(startLocation, sound, 1.0f, 1.0f)
+            }
         }
 
         // パーティクルタイプの場合は独自実装
@@ -214,9 +217,11 @@ class ProjectileSkill(
         val startLocation = source.location.clone().add(0.0, 1.5, 0.0)
         val direction = initialTarget.location.toVector().subtract(startLocation.toVector()).normalize()
 
-        // 発射サウンド
-        launchSound?.let {
-            startLocation.world?.playSound(startLocation, it, 1.0f, 1.0f)
+        // 発射サウンド（同期処理）
+        launchSound?.let { sound ->
+            withContext(plugin.regionDispatcher(startLocation)) {
+                startLocation.world?.playSound(startLocation, sound, 1.0f, 1.0f)
+            }
         }
 
         // パーティクルタイプの場合
@@ -336,9 +341,11 @@ class ProjectileSkill(
                 currentLocation.add(velocity)
                 traveledDistance += velocity.length()
 
-                // パーティクル表示
+                // パーティクル表示（同期処理）
                 val particle = getParticleType()
-                currentLocation.world?.spawnParticle(particle, currentLocation, 2, 0.05, 0.05, 0.05, 0.0)
+                withContext(plugin.regionDispatcher(currentLocation)) {
+                    currentLocation.world?.spawnParticle(particle, currentLocation, 2, 0.05, 0.05, 0.05, 0.0)
+                }
 
                 // Tick エフェクト
                 applyTickEffects(plugin, sourceEntity, sourcePacket)

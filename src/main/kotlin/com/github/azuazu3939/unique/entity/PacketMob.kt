@@ -4,9 +4,14 @@ import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.entity.EntityAnimation.DEATH
 import com.github.azuazu3939.unique.entity.packet.PacketSender
 import com.github.azuazu3939.unique.mob.MobOptions
+import com.github.azuazu3939.unique.nms.distanceToAsync
+import com.github.azuazu3939.unique.nms.getBlockTypeAsync
 import com.github.azuazu3939.unique.util.DebugLogger
+import com.github.shynixn.mccoroutine.folia.asyncDispatcher
+import com.github.shynixn.mccoroutine.folia.launch
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.entity.Entity
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
@@ -200,7 +205,7 @@ class PacketMob(
     /**
      * 攻撃範囲
      */
-    var attackRange: Double = 2.0
+    var attackRange: Double = 1.5
 
     /**
      * 攻撃クールダウン（tick）
@@ -389,9 +394,19 @@ class PacketMob(
             combat.clearDamageMemory()
         }
 
+        // 距離によるDespawnチェック（設定で無効化されていない場合）
+        if (!options.preventDespawn && options.despawnDistance > 0.0) {
+            checkDespawnDistance()
+        }
+
         // 物理処理（重力、速度、埋まりチェック、摩擦を一括処理）
         if (!isDead) {
             physics.tick()
+        }
+
+        // 環境ダメージ処理
+        if (!isDead && options.canTakeDamage) {
+            checkEnvironmentalDamage()
         }
 
         // AI処理（最適化：周囲にプレイヤーがいない場合はスキップ）
@@ -831,9 +846,9 @@ class PacketMob(
         private var options: MobOptions = MobOptions()
 
         // AI関連
-        private var movementSpeed: Double = 0.1  // 2ブロック/秒（0.1 * 20tick/秒）
+        private var movementSpeed: Double = 0.2  // 4ブロック/秒（0.2 * 20tick/秒）
         private var followRange: Double = 16.0
-        private var attackRange: Double = 2.0
+        private var attackRange: Double = 1.5
         private var attackCooldown: Int = 20
         private var targetSearchInterval: Int = 20
         private var knockbackResistance: Double = 0.0
@@ -903,6 +918,137 @@ class PacketMob(
         }
     }
 
+
+    // ========================================
+    // Environmental Damage
+    // ========================================
+
+    // 落下距離追跡用
+    private var fallDistance: Double = 0.0
+    private var lastGroundY: Double = location.y
+
+    // 溺死タイマー（20tick = 1秒、300tick = 15秒で溺死開始）
+    private var airTicks: Int = 300
+
+    // 火ダメージタイマー
+    private var fireTicks: Int = 0
+
+    /**
+     * 環境ダメージをチェック
+     */
+    private fun checkEnvironmentalDamage() {
+        val world = location.world ?: return
+
+        // Voidダメージ（Y < -64）
+        if (location.y < -64.0) {
+            Unique.instance.launch(Unique.instance.asyncDispatcher) {
+                combat.damage(4.0, null)
+            }
+            return
+        }
+
+        // 非同期安全なブロック取得
+        val feetBlockType = world.getBlockTypeAsync(location.blockX, location.blockY, location.blockZ)
+        val headBlockType = world.getBlockTypeAsync(location.blockX, (location.blockY + 1.0).toInt(), location.blockZ)
+
+        // 火/溶岩ダメージ
+        if (!options.immuneToFire) {
+            val isInFire = feetBlockType == Material.FIRE ||
+                          headBlockType == Material.FIRE ||
+                          feetBlockType == Material.LAVA ||
+                          headBlockType == Material.LAVA
+
+            if (isInFire) {
+                fireTicks++
+                if (fireTicks >= 20) { // 1秒ごとにダメージ
+                    Unique.instance.launch(Unique.instance.asyncDispatcher) {
+                        val damage = if (feetBlockType == Material.LAVA) 4.0 else 1.0
+                        combat.damage(damage, null)
+                    }
+                    fireTicks = 0
+                }
+            } else {
+                fireTicks = 0
+            }
+        }
+
+        // 溺死ダメージ
+        if (!options.immuneToDrowning) {
+            val feetIsLiquid = feetBlockType == Material.WATER || feetBlockType == Material.LAVA
+            val headIsLiquid = headBlockType == Material.WATER || headBlockType == Material.LAVA
+
+            if ((feetIsLiquid || headIsLiquid) && feetBlockType == Material.WATER) {
+                airTicks--
+                if (airTicks <= 0) {
+                    // 2秒ごとにダメージ
+                    if (airTicks % 40 == 0) {
+                        Unique.instance.launch(Unique.instance.asyncDispatcher) {
+                            combat.damage(2.0, null)
+                        }
+                    }
+                }
+            } else {
+                // 水から出たら酸素回復
+                if (airTicks < 300) {
+                    airTicks += 5
+                    if (airTicks > 300) airTicks = 300
+                }
+            }
+        }
+
+        // 落下ダメージ
+        if (!options.immuneToFall && hasGravity) {
+            if (physics.isOnGround) {
+                // 地面に着地した
+                if (fallDistance > 3.0) { // 3ブロック以上の落下でダメージ
+                    val damage = (fallDistance - 3.0).coerceAtLeast(0.0)
+                    if (damage > 0.0) {
+                        Unique.instance.launch(Unique.instance.asyncDispatcher) {
+                            combat.damage(damage, null)
+                        }
+                    }
+                }
+                fallDistance = 0.0
+                lastGroundY = location.y
+            } else {
+                // 空中にいる
+                val deltaY = lastGroundY - location.y
+                if (deltaY > 0) {
+                    fallDistance = deltaY
+                }
+            }
+        }
+    }
+
+    /**
+     * Despawn距離チェック
+     * プレイヤーがdespawnDistance以上離れている場合、そのプレイヤーからDespawn
+     * すべてのviewerがいなくなった場合、エンティティを削除
+     */
+    private fun checkDespawnDistance() {
+        val viewerList = viewers.toList()
+
+        for (playerUuid in viewerList) {
+            val player = Bukkit.getPlayer(playerUuid) ?: continue
+
+            // 異なるワールドにいる場合
+            if (player.world != location.world) {
+                despawn(player)
+                continue
+            }
+
+            // 距離チェック
+            val distance = player.distanceToAsync(location)
+            if (distance > options.despawnDistance) {
+                despawn(player)
+            }
+        }
+
+        // すべてのviewerがいなくなったらエンティティを削除
+        if (viewers.isEmpty()) {
+            Unique.instance.packetEntityManager.unregisterEntity(uuid)
+        }
+    }
 
     companion object {
         /**

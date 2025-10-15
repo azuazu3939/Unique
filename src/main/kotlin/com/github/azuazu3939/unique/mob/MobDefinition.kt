@@ -301,7 +301,12 @@ data class SkillReference(
     val auraMaxTargets: Int? = null,
     val auraStartSound: String? = null,
     val auraTickSound: String? = null,
-    val auraEndSound: String? = null
+    val auraEndSound: String? = null,
+
+    // ========== ThrowSkill用 ==========
+    val throwVelocity: String? = null,
+    val throwVelocityY: String? = null,
+    val throwMode: String? = null
 )
 
 /**
@@ -388,9 +393,11 @@ data class EffectDefinition(
 
     // ========== PullEffect専用フィールド ==========
     val pullStrength: Double? = null,
+    val pullRadius: Double? = null,
 
     // ========== PushEffect専用フィールド ==========
     val pushStrength: Double? = null,
+    val pushRadius: Double? = null,
 
     // ========== BlindEffect専用フィールド ==========
     val blindDuration: String? = null,

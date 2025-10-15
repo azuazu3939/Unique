@@ -61,3 +61,32 @@ BiomeSpecificSpawn:
   spawnRate: 800  # 40秒ごとに1回スポーン試行（バイオーム限定）
   maxNearbyMobs: 2
   spawnRadius: 35
+
+# 相撲戦士スポーン
+SumoWarriorSpawn:
+  mob: SumoWarrior
+  worlds:
+    - world
+  biomes:
+    - PLAINS
+    - SAVANNA
+    - BADLANDS
+  spawnRate: 900  # 45秒ごとに1回スポーン試行（平原系で出現）
+  maxNearbyMobs: 2
+  spawnRadius: 30
+
+# タンクゴーレムスポーン（洞窟・山岳）
+TankGolemSpawn:
+  mob: TankGolem
+  worlds:
+    - world
+  biomes:
+    - STONY_PEAKS
+    - JAGGED_PEAKS
+    - DRIPSTONE_CAVES
+  conditions:
+    - type: LightLevel
+      max: 7
+  spawnRate: 1000  # 50秒ごとに1回スポーン試行（山岳・洞窟の希少Mob）
+  maxNearbyMobs: 1
+  spawnRadius: 40

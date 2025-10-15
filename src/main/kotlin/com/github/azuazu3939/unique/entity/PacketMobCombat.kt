@@ -78,8 +78,6 @@ class PacketMobCombat(private val mob: PacketMob) {
             calculateArmorReduction(amount)
         }
 
-        DebugLogger.debug("${mob.mobName} took $reducedDamage damage from ${getDamagerName(damager)} (original: $amount, armor: ${mob.armor}, toughness: ${mob.armorToughness}) (${mob.health}/${mob.maxHealth} HP)")
-
         // ダメージイベント発火
         val damageEvent = EventUtil.callEventOrNull(PacketMobDamageEvent(mob, damager, reducedDamage)) ?: return
 
@@ -142,7 +140,9 @@ class PacketMobCombat(private val mob: PacketMob) {
 
         // worldにドロップアイテムをspawnさせるためここはリージョンスケジューラを使用しなくてはならない
         withContext(Unique.instance.regionDispatcher(mob.location)) {
-            Unique.instance.mobManager.dropItemsInWorld(mob.location, deathEvent.drops)
+            if (instance != null && killer != null) {
+                Unique.instance.mobManager.processDrops(instance.definition, mob.location, killer, deathEvent.drops)
+            }
         }
 
         // OnDeathスキルトリガー実行（ジョブキャンセルの前に実行）
@@ -195,7 +195,7 @@ class PacketMobCombat(private val mob: PacketMob) {
                 target.damage(attackEvent.damage)
 
                 // プレイヤーが死んだかチェック
-                if (playerHealthBefore > 0.0 && target.health <= 0.0 || target.isDead) {
+                if (playerHealthBefore > 0.0 && (target.health <= 0.0 || target.isDead)) {
                     handlePlayerKill(target, instance)
                 }
             } else {

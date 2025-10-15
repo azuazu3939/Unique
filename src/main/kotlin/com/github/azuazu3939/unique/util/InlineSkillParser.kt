@@ -43,6 +43,7 @@ object InlineSkillParser {
             "projectile" -> parseProjectileSkill(args, skillName)
             "beam" -> parseBeamSkill(args, skillName)
             "aura" -> parseAuraSkill(args, skillName)
+            "throw" -> parseThrowSkill(args, skillName)
             "damage", "explosion", "lightning", "particle", "sound", "potion",
             "heal", "freeze", "shield", "teleport", "pull", "push", "blind" -> {
                 // これはEffectなので、Basicスキルとして扱う
@@ -214,6 +215,19 @@ object InlineSkillParser {
             auraStartSound = args["startSound"]?.toString(),
             auraTickSound = args["tickSound"]?.toString(),
             auraEndSound = args["endSound"]?.toString()
+        )
+    }
+
+    /**
+     * Throwスキルをパース
+     */
+    private fun parseThrowSkill(args: Map<String, Any>, skillName: String): SkillReference {
+        return SkillReference(
+            skill = args["name"]?.toString() ?: "inline_throw_${System.nanoTime()}",
+            type = "throw",
+            throwVelocity = args["velocity"]?.toString() ?: "1.0",
+            throwVelocityY = args["velocityY"]?.toString() ?: "1.0",
+            throwMode = args["mode"]?.toString() ?: "UP"
         )
     }
 

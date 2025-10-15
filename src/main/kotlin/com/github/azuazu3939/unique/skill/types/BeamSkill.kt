@@ -11,7 +11,9 @@ import com.github.azuazu3939.unique.skill.Skill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.Targeter
 import com.github.azuazu3939.unique.util.DebugLogger
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.bukkit.Location
 import org.bukkit.Particle
 import org.bukkit.Sound
@@ -90,9 +92,11 @@ class BeamSkill(
         val rangeValue = evaluateCelDouble(range, context, evaluator, 20.0)
         val widthValue = evaluateCelDouble(width, context, evaluator, 0.5)
 
-        // 発射音
-        fireSound?.let {
-            source.world.playSound(source.location, it, 1.0f, 1.0f)
+        // 発射音（同期処理）
+        fireSound?.let { sound ->
+            withContext(Unique.instance.regionDispatcher(source.location)) {
+                source.world.playSound(source.location, sound, 1.0f, 1.0f)
+            }
         }
 
         // ビーム方向を決定
@@ -131,9 +135,11 @@ class BeamSkill(
         val rangeValue = evaluateCelDouble(range, context, evaluator, 20.0)
         val widthValue = evaluateCelDouble(width, context, evaluator, 0.5)
 
-        // 発射音
-        fireSound?.let {
-            source.location.world?.playSound(source.location, it, 1.0f, 1.0f)
+        // 発射音（同期処理）
+        fireSound?.let { sound ->
+            withContext(Unique.instance.regionDispatcher(source.location)) {
+                source.location.world?.playSound(source.location, sound, 1.0f, 1.0f)
+            }
         }
 
         // PacketEntityの向きを取得
@@ -201,9 +207,11 @@ class BeamSkill(
                         effect.apply(source, entity)
                     }
 
-                    // ヒット音
-                    hitSound?.let {
-                        entity.world.playSound(entity.location, it, 0.5f, 1.2f)
+                    // ヒット音（同期処理）
+                    hitSound?.let { sound ->
+                        withContext(Unique.instance.regionDispatcher(entity.location)) {
+                            entity.world.playSound(entity.location, sound, 0.5f, 1.2f)
+                        }
                     }
 
                     DebugLogger.debug("BeamSkill hit entity: ${entity.name}")
@@ -272,9 +280,11 @@ class BeamSkill(
                         effect.apply(source, entity)
                     }
 
-                    // ヒット音
-                    hitSound?.let {
-                        entity.world.playSound(entity.location, it, 0.5f, 1.2f)
+                    // ヒット音（同期処理）
+                    hitSound?.let { sound ->
+                        withContext(Unique.instance.regionDispatcher(entity.location)) {
+                            entity.world.playSound(entity.location, sound, 0.5f, 1.2f)
+                        }
                     }
 
                     DebugLogger.debug("BeamSkill hit entity: ${entity.name}")
@@ -296,22 +306,24 @@ class BeamSkill(
     /**
      * ビーム経路上のパーティクルを表示
      */
-    private fun displayBeamParticles(start: Location, end: Location) {
+    private suspend fun displayBeamParticles(start: Location, end: Location) {
         val distance = start.distance(end)
         val steps = (distance / particleDensity).toInt().coerceAtLeast(1)
         val direction = end.toVector().subtract(start.toVector()).normalize()
 
-        for (i in 0..steps) {
-            val progress = i.toDouble() / steps
-            val particleLoc = start.clone().add(direction.clone().multiply(distance * progress))
+        withContext(Unique.instance.regionDispatcher(start)) {
+            for (i in 0..steps) {
+                val progress = i.toDouble() / steps
+                val particleLoc = start.clone().add(direction.clone().multiply(distance * progress))
 
-            particleLoc.world?.spawnParticle(
-                particle,
-                particleLoc,
-                1,
-                0.0, 0.0, 0.0,
-                0.0
-            )
+                particleLoc.world?.spawnParticle(
+                    particle,
+                    particleLoc,
+                    1,
+                    0.0, 0.0, 0.0,
+                    0.0
+                )
+            }
         }
     }
 

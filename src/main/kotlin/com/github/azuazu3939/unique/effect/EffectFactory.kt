@@ -1,5 +1,25 @@
 package com.github.azuazu3939.unique.effect
 
+// Combat effects
+
+// Movement effects
+
+// Status effects
+
+// World effects
+import com.github.azuazu3939.unique.effect.types.combat.DamageEffect
+import com.github.azuazu3939.unique.effect.types.combat.ExplosionEffect
+import com.github.azuazu3939.unique.effect.types.combat.HealEffect
+import com.github.azuazu3939.unique.effect.types.combat.LightningEffect
+import com.github.azuazu3939.unique.effect.types.movement.PullEffect
+import com.github.azuazu3939.unique.effect.types.movement.PushEffect
+import com.github.azuazu3939.unique.effect.types.movement.TeleportEffect
+import com.github.azuazu3939.unique.effect.types.movement.VelocityEffect
+import com.github.azuazu3939.unique.effect.types.status.BlindEffect
+import com.github.azuazu3939.unique.effect.types.status.FreezeEffect
+import com.github.azuazu3939.unique.effect.types.status.PotionEffectEffect
+import com.github.azuazu3939.unique.effect.types.status.ShieldEffect
+import com.github.azuazu3939.unique.effect.types.world.*
 import com.github.azuazu3939.unique.mob.EffectDefinition
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.ResourceKeyResolver
@@ -246,6 +266,7 @@ object EffectFactory {
     private fun createPullEffect(def: EffectDefinition): PullEffect {
         return PullEffect(
             strength = def.pullStrength?.toString() ?: def.strength.toString(),
+            radius = def.pullRadius ?: def.radius ?: 0.0,
             sync = def.meta.sync
         )
     }
@@ -253,6 +274,7 @@ object EffectFactory {
     private fun createPushEffect(def: EffectDefinition): PushEffect {
         return PushEffect(
             strength = def.pushStrength?.toString() ?: def.strength.toString(),
+            radius = def.pushRadius ?: def.radius ?: 0.0,
             sync = def.meta.sync
         )
     }

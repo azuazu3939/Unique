@@ -11,7 +11,9 @@ import com.github.azuazu3939.unique.skill.Skill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.Targeter
 import com.github.azuazu3939.unique.util.DebugLogger
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.bukkit.Location
 import org.bukkit.Particle
 import org.bukkit.Sound
@@ -96,9 +98,11 @@ class AuraSkill(
         val context = CELVariableProvider.buildEntityContext(source)
         val radiusValue = evaluateCelDouble(radius, context, evaluator, 5.0)
 
-        // 開始音
-        startSound?.let {
-            source.world.playSound(source.location, it, 1.0f, 1.0f)
+        // 開始音（同期処理）
+        startSound?.let { sound ->
+            withContext(Unique.instance.regionDispatcher(source.location)) {
+                source.world.playSound(source.location, sound, 1.0f, 1.0f)
+            }
         }
 
         // オーラを実行
@@ -123,9 +127,11 @@ class AuraSkill(
         val context = CELVariableProvider.buildPacketEntityContext(source)
         val radiusValue = evaluateCelDouble(radius, context, evaluator, 5.0)
 
-        // 開始音
-        startSound?.let {
-            source.location.world?.playSound(source.location, it, 1.0f, 1.0f)
+        // 開始音（同期処理）
+        startSound?.let { sound ->
+            withContext(Unique.instance.regionDispatcher(source.location)) {
+                source.location.world?.playSound(source.location, sound, 1.0f, 1.0f)
+            }
         }
 
         // オーラを実行（PacketEntity版）
@@ -188,10 +194,12 @@ class AuraSkill(
                     }
                 }
 
-                // Tick音
+                // Tick音（同期処理）
                 if (targets.isNotEmpty()) {
-                    tickSound?.let {
-                        source.world.playSound(source.location, it, 0.5f, 1.0f)
+                    tickSound?.let { sound ->
+                        withContext(Unique.instance.regionDispatcher(source.location)) {
+                            source.world.playSound(source.location, sound, 0.5f, 1.0f)
+                        }
                     }
                 }
 
@@ -202,9 +210,11 @@ class AuraSkill(
             delay(50)
         }
 
-        // 終了音
-        endSound?.let {
-            source.world.playSound(source.location, it, 1.0f, 1.0f)
+        // 終了音（同期処理）
+        endSound?.let { sound ->
+            withContext(Unique.instance.regionDispatcher(source.location)) {
+                source.world.playSound(source.location, sound, 1.0f, 1.0f)
+            }
         }
 
         DebugLogger.debug("AuraSkill completed: total affected ${affectedEntities.size} entities")
@@ -258,10 +268,12 @@ class AuraSkill(
                     }
                 }
 
-                // Tick音
+                // Tick音（同期処理）
                 if (targets.isNotEmpty()) {
-                    tickSound?.let {
-                        source.location.world?.playSound(source.location, it, 0.5f, 1.0f)
+                    tickSound?.let { sound ->
+                        withContext(Unique.instance.regionDispatcher(source.location)) {
+                            source.location.world?.playSound(source.location, sound, 0.5f, 1.0f)
+                        }
                     }
                 }
 
@@ -271,46 +283,50 @@ class AuraSkill(
             delay(50)
         }
 
-        // 終了音
-        endSound?.let {
-            source.location.world?.playSound(source.location, it, 1.0f, 1.0f)
+        // 終了音（同期処理）
+        endSound?.let { sound ->
+            withContext(Unique.instance.regionDispatcher(source.location)) {
+                source.location.world?.playSound(source.location, sound, 1.0f, 1.0f)
+            }
         }
 
         DebugLogger.debug("AuraSkill completed: total affected ${affectedEntities.size} entities")
     }
 
     /**
-     * オーラのパーティクルを表示
+     * オーラのパーティクルを表示（同期処理）
      */
-    private fun displayAuraParticles(center: Location, radiusValue: Double) {
+    private suspend fun displayAuraParticles(center: Location, radiusValue: Double) {
         val world = center.world ?: return
 
-        // 円形にパーティクルを配置
-        val angleStep = 360.0 / particleCount
-        for (i in 0 until particleCount) {
-            val angle = Math.toRadians(angleStep * i)
-            val x = center.x + radiusValue * cos(angle)
-            val z = center.z + radiusValue * sin(angle)
-            val y = center.y + (Math.random() * 2.0 - 1.0)  // ランダムなY offset
+        withContext(Unique.instance.regionDispatcher(center)) {
+            // 円形にパーティクルを配置
+            val angleStep = 360.0 / particleCount
+            for (i in 0 until particleCount) {
+                val angle = Math.toRadians(angleStep * i)
+                val x = center.x + radiusValue * cos(angle)
+                val z = center.z + radiusValue * sin(angle)
+                val y = center.y + (Math.random() * 2.0 - 1.0)  // ランダムなY offset
 
-            val particleLoc = Location(world, x, y, z)
+                val particleLoc = Location(world, x, y, z)
+                world.spawnParticle(
+                    particle,
+                    particleLoc,
+                    1,
+                    0.1, 0.1, 0.1,
+                    particleSpeed
+                )
+            }
+
+            // 中心にもパーティクル
             world.spawnParticle(
                 particle,
-                particleLoc,
-                1,
-                0.1, 0.1, 0.1,
+                center.clone().add(0.0, 1.0, 0.0),
+                3,
+                0.3, 0.5, 0.3,
                 particleSpeed
             )
         }
-
-        // 中心にもパーティクル
-        world.spawnParticle(
-            particle,
-            center.clone().add(0.0, 1.0, 0.0),
-            3,
-            0.3, 0.5, 0.3,
-            particleSpeed
-        )
     }
 
     /**
