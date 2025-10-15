@@ -47,7 +47,7 @@ spawn:
   enabled: true
 
   # スポーンチェック間隔（tick）
-  check_interval: 20
+  check_interval: 1
 
   # 最大スポーン数（サーバー全体）
   max_total_spawns: 2000

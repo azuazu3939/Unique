@@ -2,6 +2,7 @@ package com.github.azuazu3939.unique.cel
 
 import com.github.azuazu3939.unique.entity.PacketEntity
 import com.github.azuazu3939.unique.entity.PacketMob
+import com.github.azuazu3939.unique.nms.getNearbyEntitiesAsync
 import com.github.azuazu3939.unique.util.biomeName
 import com.github.azuazu3939.unique.util.canHoldVariables
 import io.papermc.paper.registry.RegistryAccess
@@ -77,7 +78,7 @@ object CELVariableProvider {
             context["environment"] = buildEnvironmentInfo(packetEntity.location)
 
             // 周囲のエンティティ情報
-            val nearbyPlayers = world.getNearbyEntities(
+            val nearbyPlayers = world.getNearbyEntitiesAsync(
                 packetEntity.location, 20.0, 20.0, 20.0
             ).filterIsInstance<Player>()
 
@@ -332,7 +333,7 @@ object CELVariableProvider {
      * 周囲のプレイヤーを取得
      */
     private fun getNearbyPlayers(entity: Entity): List<Player> {
-        return entity.world.getNearbyEntities(
+        return entity.world.getNearbyEntitiesAsync(
             entity.location, 20.0, 20.0, 20.0
         ).filterIsInstance<Player>()
     }
@@ -341,7 +342,7 @@ object CELVariableProvider {
      * 周囲のMobを取得
      */
     private fun getNearbyMobs(entity: Entity): List<LivingEntity> {
-        return entity.world.getNearbyEntities(
+        return entity.world.getNearbyEntitiesAsync(
             entity.location, 20.0, 20.0, 20.0
         ).filterIsInstance<LivingEntity>()
             .filter { it !is Player && it != entity }

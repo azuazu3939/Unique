@@ -9,7 +9,7 @@ import com.github.retrooper.packetevents.event.PacketListenerAbstract
 import com.github.retrooper.packetevents.event.PacketReceiveEvent
 import com.github.retrooper.packetevents.protocol.packettype.PacketType
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity
-import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
+import com.github.shynixn.mccoroutine.folia.asyncDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -53,7 +53,7 @@ class MobListener(private val plugin: Unique) : Listener {
             event.isCancelled = true
 
             // ダメージ処理
-            plugin.launch(plugin.globalRegionDispatcher) {
+            plugin.launch(plugin.asyncDispatcher) {
                 val damage = calculatePlayerDamage(player)
                 packetMob.damage(damage, player)
                 DebugLogger.verbose("${player.name} attacked ${packetMob.mobName} for $damage damage")

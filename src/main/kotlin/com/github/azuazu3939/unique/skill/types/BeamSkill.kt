@@ -6,6 +6,7 @@ import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.condition.Condition
 import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketEntity
+import com.github.azuazu3939.unique.nms.getNearbyEntitiesAsync
 import com.github.azuazu3939.unique.skill.Skill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.Targeter
@@ -324,7 +325,7 @@ class BeamSkill(
         direction.normalize()
 
         // ビーム経路上のすべてのエンティティを取得
-        val nearbyEntities = world.getNearbyEntities(
+        val nearbyEntities = world.getNearbyEntitiesAsync(
             start,
             distance + width,
             distance + width,

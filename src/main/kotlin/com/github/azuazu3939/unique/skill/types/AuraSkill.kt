@@ -6,6 +6,7 @@ import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.condition.Condition
 import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketEntity
+import com.github.azuazu3939.unique.nms.getNearbyEntitiesAsync
 import com.github.azuazu3939.unique.skill.Skill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.Targeter
@@ -161,12 +162,12 @@ class AuraSkill(
                 displayAuraParticles(source.location, radiusValue)
 
                 // 範囲内のエンティティを取得
-                val nearbyEntities = source.location.world?.getNearbyEntities(
+                val nearbyEntities = source.location.world?.getNearbyEntitiesAsync(
                     source.location,
                     radiusValue,
                     radiusValue,
                     radiusValue
-                ) { it is LivingEntity && (selfAffect || it != source) } ?: emptyList()
+                )?.filter { it is LivingEntity && (selfAffect || it != source) } ?: emptyList()
 
                 // maxTargets制限を適用
                 val targets = if (maxTargets > 0) {
@@ -231,12 +232,12 @@ class AuraSkill(
                 displayAuraParticles(source.location, radiusValue)
 
                 // 範囲内のエンティティを取得
-                val nearbyEntities = source.location.world?.getNearbyEntities(
+                val nearbyEntities = source.location.world?.getNearbyEntitiesAsync(
                     source.location,
                     radiusValue,
                     radiusValue,
                     radiusValue
-                ) { it is LivingEntity } ?: emptyList()
+                )?.filter { it is LivingEntity } ?: emptyList()
 
                 // maxTargets制限を適用
                 val targets = if (maxTargets > 0) {

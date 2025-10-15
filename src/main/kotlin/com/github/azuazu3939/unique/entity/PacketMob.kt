@@ -42,6 +42,11 @@ class PacketMob(
     internal val combat = PacketMobCombat(this)
 
     /**
+     * スポーン定義名（SpawnManagerから自動スポーンされた場合に設定される）
+     */
+    var spawnDefinitionName: String? = null
+
+    /**
      * カスタム名表示フラグ
      */
     var customNameVisible: Boolean = true
@@ -634,7 +639,9 @@ class PacketMob(
         val world = location.world ?: return
 
         // サウンドを再生（音量1.0、ピッチ1.0）
-        world.playSound(location, sound, 1.0f, 1.0f)
+        Bukkit.getRegionScheduler().run(Unique.instance, location) {
+            world.playSound(location, sound, 1.0f, 1.0f)
+        }
     }
 
     /**
@@ -645,7 +652,9 @@ class PacketMob(
         val world = location.world ?: return
 
         // サウンドを再生（音量1.0、ピッチ1.0）
-        world.playSound(location, sound, 1.0f, 1.0f)
+        Bukkit.getRegionScheduler().run(Unique.instance, location) {
+            world.playSound(location, sound, 1.0f, 1.0f)
+        }
     }
 
     /**

@@ -298,3 +298,64 @@ fun World.isBlockSolidAsync(x: Int, y: Int, z: Int): Boolean {
     val blockState = chunk?.getBlockState(blockPos)
     return blockState?.isSolidRender ?: false
 }
+
+/**
+ * 指定位置の周囲のエンティティを非同期で取得
+ *
+ * 注意: このメソッドはメインスレッド外でも安全に呼び出せます。
+ * NMSのEntityListから直接エンティティを取得します。
+ *
+ * @param location 中心位置
+ * @param xRadius X軸方向の半径
+ * @param yRadius Y軸方向の半径
+ * @param zRadius Z軸方向の半径
+ * @return 範囲内のエンティティのコレクション
+ */
+fun World.getNearbyEntitiesAsync(
+    location: Location,
+    xRadius: Double,
+    yRadius: Double,
+    zRadius: Double
+): Collection<Entity> {
+    val nmsLevel = this.toNMS()
+
+    val minX = location.x - xRadius
+    val maxX = location.x + xRadius
+    val minY = location.y - yRadius
+    val maxY = location.y + yRadius
+    val minZ = location.z - zRadius
+    val maxZ = location.z + zRadius
+
+    // NMSのエンティティリストから直接取得
+    val entities = mutableListOf<Entity>()
+    nmsLevel.entities.getAll().forEach { nmsEntity ->
+        val x = nmsEntity.x
+        val y = nmsEntity.y
+        val z = nmsEntity.z
+
+        if (x in minX..maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ) {
+            val bukkitEntity = nmsEntity.bukkitEntity
+            if (bukkitEntity != null) {
+                entities.add(bukkitEntity)
+            }
+        }
+    }
+
+    return entities
+}
+
+/**
+ * Locationから周囲のエンティティを非同期で取得（簡易版）
+ *
+ * @param xRadius X軸方向の半径
+ * @param yRadius Y軸方向の半径
+ * @param zRadius Z軸方向の半径
+ * @return 範囲内のエンティティのコレクション
+ */
+fun Location.getNearbyEntitiesAsync(
+    xRadius: Double,
+    yRadius: Double,
+    zRadius: Double
+): Collection<Entity> {
+    return this.world.getNearbyEntitiesAsync(this, xRadius, yRadius, zRadius)
+}

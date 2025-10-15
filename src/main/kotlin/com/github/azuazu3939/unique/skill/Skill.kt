@@ -184,12 +184,39 @@ class BasicSkill(
 
         // ターゲット取得
         val targets = targeter.getTargets(source)
-        if (targets.isEmpty()) {
+
+        // SelfTargeterの場合、PacketEntity自身をターゲットとして扱う
+        if (targeter is com.github.azuazu3939.unique.targeter.SelfTargeter) {
+            if (targets.isEmpty()) {
+                DebugLogger.debug("Skill $id (PacketEntity) targeting self")
+
+                // PacketEntity自身に対してエフェクトを適用
+                for (effect in effects) {
+                    // effectDelay
+                    if (meta.effectDelay.inWholeMilliseconds > 0) {
+                        delay(meta.effectDelay.inWholeMilliseconds)
+                    }
+
+                    // 死亡チェック
+                    if (meta.cancelOnDeath && source.isDead) {
+                        DebugLogger.debug("Skill $id (PacketEntity) cancelled (source died during execution)")
+                        return
+                    }
+
+                    // PacketEntity to PacketEntity
+                    effect.apply(source, source)
+                }
+
+                val duration = System.currentTimeMillis() - startTime
+                DebugLogger.skillExecution(id, "completed (PacketEntity self-target)", duration)
+                return
+            }
+        } else if (targets.isEmpty()) {
             DebugLogger.debug("Skill $id (PacketEntity) has no targets")
             return
         }
 
-        // エフェクト適用
+        // 通常のエフェクト適用
         for (effect in effects) {
             // effectDelay
             if (meta.effectDelay.inWholeMilliseconds > 0) {

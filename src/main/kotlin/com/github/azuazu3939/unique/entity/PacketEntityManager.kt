@@ -110,6 +110,11 @@ class PacketEntityManager(private val plugin: Unique) {
         val entity = entities.remove(uuid) ?: return
         entityIdToUuid.remove(entity.entityId)
 
+        // SpawnManagerからスポーンされたPacketMobの場合、スポーンカウントをデクリメント
+        if (entity is PacketMob && entity.spawnDefinitionName != null) {
+            plugin.spawnManager.decrementSpawnCount(entity.spawnDefinitionName!!)
+        }
+
         entity.cleanup()
 
         DebugLogger.debug("Unregistered entity: ${entity.entityId}")

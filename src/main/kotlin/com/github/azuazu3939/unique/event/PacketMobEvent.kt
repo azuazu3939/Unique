@@ -37,7 +37,7 @@ class PacketMobSpawnEvent(
     mob: PacketMob,
     val location: Location,
     val mobName: String
-) : PacketMobEvent(mob), Cancellable {
+) : PacketMobEvent(mob, true), Cancellable {
 
     private var cancelled = false
 
@@ -69,7 +69,7 @@ class PacketMobDamageEvent(
     val damager: Entity?,
     var damage: Double,
     val cause: DamageCause = DamageCause.ENTITY_ATTACK
-) : PacketMobEvent(mob), Cancellable {
+) : PacketMobEvent(mob, true), Cancellable {
 
     private var cancelled = false
 
@@ -111,7 +111,7 @@ class PacketMobDeathEvent(
     mob: PacketMob,
     val killer: Player?,
     val drops: MutableList<org.bukkit.inventory.ItemStack> = mutableListOf()
-) : PacketMobEvent(mob) {
+) : PacketMobEvent(mob, true) {
 
     companion object {
         @JvmStatic
@@ -205,7 +205,7 @@ class PacketMobSkillEvent(
     mob: PacketMob,
     val skillName: String,
     val trigger: SkillTriggerType
-) : PacketMobEvent(mob), Cancellable {
+) : PacketMobEvent(mob, true), Cancellable {
 
     private var cancelled = false
 
@@ -246,7 +246,7 @@ class PacketMobSkillEvent(
 class PacketMobRemoveEvent(
     mob: PacketMob,
     val reason: RemoveReason = RemoveReason.DEATH
-) : PacketMobEvent(mob) {
+) : PacketMobEvent(mob, true) {
 
     /**
      * 削除理由
@@ -279,7 +279,7 @@ class PacketMobKillPlayerEvent(
     mob: PacketMob,
     val player: Player,
     var setKiller: Boolean = true
-) : PacketMobEvent(mob), Cancellable {
+) : PacketMobEvent(mob, true), Cancellable {
 
     private var cancelled = false
 

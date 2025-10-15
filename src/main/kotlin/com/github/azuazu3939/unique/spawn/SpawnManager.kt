@@ -3,6 +3,7 @@ package com.github.azuazu3939.unique.spawn
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.event.PacketMobSkillEvent
+import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.TimeParser
 import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
@@ -315,14 +316,13 @@ class SpawnManager(private val plugin: Unique) {
 
                 // 軽量なチェックのみここで実行
                 val world = getSpawnWorld(definition) ?: continue
-                val players = world.players
+                val players = world.getPlayersAsync()
                 if (players.isEmpty()) continue
 
-                val targetPlayer = players.random()
-
-                // 実際のスポーン処理をasyncスレッドで実行
-                plugin.launch(plugin.regionDispatcher(targetPlayer.location)) {
-                    attemptSpawnForPlayer(name, definition, targetPlayer)
+                players.forEach {
+                    plugin.launch(plugin.regionDispatcher(it.location)) {
+                        attemptSpawnForPlayer(name, definition, it)
+                    }
                 }
 
             } catch (e: CancellationException) {
@@ -373,6 +373,9 @@ class SpawnManager(private val plugin: Unique) {
             val mob = plugin.mobManager.spawnMob(definition.mob, spawnLocation)
 
             if (mob != null) {
+                // スポーン定義名を設定（unregister時にカウントをデクリメントするため）
+                mob.spawnDefinitionName = name
+
                 // カウント増加
                 spawnCounts.compute(name) { _, count -> (count ?: 0) + 1 }
 
@@ -646,6 +649,17 @@ class SpawnManager(private val plugin: Unique) {
         if (plugin.configManager.mainConfig.spawn.enabled) {
             startSpawnTasks()
         }
+    }
+
+    /**
+     * スポーンカウントをデクリメント
+     */
+    fun decrementSpawnCount(spawnName: String) {
+        spawnCounts.compute(spawnName) { _, count ->
+            val newCount = (count ?: 0) - 1
+            if (newCount <= 0) null else newCount
+        }
+        DebugLogger.verbose("Decremented spawn count for $spawnName: ${spawnCounts[spawnName] ?: 0}")
     }
 
     /**

@@ -3,6 +3,7 @@ package com.github.azuazu3939.unique.effect
 import com.github.azuazu3939.unique.Unique
 import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.entity.PacketEntity
+import com.github.azuazu3939.unique.nms.getNearbyEntitiesAsync
 import com.github.azuazu3939.unique.util.*
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
@@ -756,7 +757,7 @@ class ExplosionEffect(
         world.createExplosion(location, 0f, setFire, breakBlocks)
 
         // 範囲内のエンティティにダメージ
-        world.getNearbyEntities(location, radiusValue, radiusValue, radiusValue)
+        world.getNearbyEntitiesAsync(location, radiusValue, radiusValue, radiusValue)
             .filterIsInstance<LivingEntity>()
             .forEach { entity ->
                 // 距離減衰ダメージ
@@ -784,7 +785,7 @@ class ExplosionEffect(
 
         world.createExplosion(location, 0f, setFire, breakBlocks)
 
-        world.getNearbyEntities(location, radiusValue, radiusValue, radiusValue)
+        world.getNearbyEntitiesAsync(location, radiusValue, radiusValue, radiusValue)
             .filterIsInstance<LivingEntity>()
             .forEach { entity ->
                 val distance = entity.location.distance(location)

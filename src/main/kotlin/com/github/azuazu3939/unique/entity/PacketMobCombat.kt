@@ -81,13 +81,7 @@ class PacketMobCombat(private val mob: PacketMob) {
         DebugLogger.debug("${mob.mobName} took $reducedDamage damage from ${getDamagerName(damager)} (original: $amount, armor: ${mob.armor}, toughness: ${mob.armorToughness}) (${mob.health}/${mob.maxHealth} HP)")
 
         // ダメージイベント発火
-        val damageEvent = EventUtil.callEventOrNull(
-            PacketMobDamageEvent(mob, damager, reducedDamage)
-        )
-
-        if (damageEvent == null) {
-            return
-        }
+        val damageEvent = EventUtil.callEventOrNull(PacketMobDamageEvent(mob, damager, reducedDamage)) ?: return
 
         // PacketEntityのdamageメソッドを呼び出し
         mob.applyDamage(damageEvent.damage)

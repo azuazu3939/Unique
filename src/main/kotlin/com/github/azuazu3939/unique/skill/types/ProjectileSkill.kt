@@ -6,6 +6,7 @@ import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.condition.Condition
 import com.github.azuazu3939.unique.effect.Effect
 import com.github.azuazu3939.unique.entity.PacketEntity
+import com.github.azuazu3939.unique.nms.getNearbyEntitiesAsync
 import com.github.azuazu3939.unique.skill.Skill
 import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.Targeter
@@ -343,7 +344,7 @@ class ProjectileSkill(
                 applyTickEffects(plugin, sourceEntity, sourcePacket)
 
                 // 命中判定
-                val nearbyEntities = currentLocation.world?.getNearbyEntities(
+                val nearbyEntities = currentLocation.world?.getNearbyEntitiesAsync(
                     currentLocation,
                     hitRadiusValue,
                     hitRadiusValue,
@@ -453,7 +454,7 @@ class ProjectileSkill(
                 }
 
                 // 命中判定
-                val nearbyEntities = projectile.location.world?.getNearbyEntities(
+                val nearbyEntities = projectile.location.world?.getNearbyEntitiesAsync(
                     projectile.location,
                     hitRadiusValue,
                     hitRadiusValue,

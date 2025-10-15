@@ -15,7 +15,6 @@ import com.github.azuazu3939.unique.skill.SkillMeta
 import com.github.azuazu3939.unique.targeter.*
 import com.github.azuazu3939.unique.util.*
 import com.github.shynixn.mccoroutine.folia.asyncDispatcher
-import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import kotlinx.coroutines.withContext
 import org.bukkit.*
@@ -108,11 +107,15 @@ class MobManager(private val plugin: Unique) {
         return MobDefinition(
             type = section.getString("Type") ?: "ZOMBIE",
             display = section.getString("Display"),
-            health = section.getDouble("Health", -1.0).takeIf { it >= 0 }.toString(),
-            damage = section.getDouble("Damage", -1.0).takeIf { it >= 0 }.toString(),
+            health = section.getString("Health") ?: section.getDouble("Health", -1.0).takeIf { it >= 0 }?.toString(),
+            damage = section.getString("Damage") ?: section.getDouble("Damage", -1.0).takeIf { it >= 0 }?.toString(),
+            armor = section.getString("Armor") ?: section.getDouble("Armor", -1.0).takeIf { it >= 0 }?.toString(),
+            armorToughness = section.getString("ArmorToughness") ?: section.getDouble("ArmorToughness", -1.0).takeIf { it >= 0 }?.toString(),
+            damageFormula = section.getString("DamageFormula"),
             ai = parseAI(section.getConfigurationSection("AI")),
             appearance = parseAppearance(section.getConfigurationSection("Appearance")),
-            skills = parseSkills(section.getConfigurationSection("Skills")),
+            options = parseOptions(section.getConfigurationSection("Options")),
+            skills = parseSkills(section.getList("Skills")),
             drops = parseDrops(section.getConfigurationSection("Drops"))
         )
     }
@@ -124,11 +127,16 @@ class MobManager(private val plugin: Unique) {
         if (section == null) return MobAI()
 
         return MobAI(
+            behavior = section.getString("Behavior"),
+            movement = section.getString("Movement"),
             movementSpeed = section.getDouble("MovementSpeed", 0.25),
             followRange = section.getDouble("FollowRange", 16.0),
             knockbackResistance = section.getDouble("KnockbackResistance", 0.0),
             hasAI = section.getBoolean("HasAI", true),
-            hasGravity = section.getBoolean("HasGravity", true)
+            hasGravity = section.getBoolean("HasGravity", true),
+            lookAtMovementDirection = section.getBoolean("LookAtMovementDirection", true),
+            wallClimbHeight = section.getDouble("WallClimbHeight", -1.0).takeIf { it >= 0 },
+            jumpStrength = section.getDouble("JumpStrength", -1.0).takeIf { it >= 0 }
         )
     }
 
@@ -146,19 +154,55 @@ class MobManager(private val plugin: Unique) {
     }
 
     /**
+     * オプション設定を解析
+     */
+    private fun parseOptions(section: ConfigurationSection?): MobOptions {
+        if (section == null) return MobOptions()
+
+        return MobOptions(
+            alwaysShowName = section.getBoolean("AlwaysShowName", false),
+            collidable = section.getBoolean("Collidable", true),
+            despawnOnChunkUnload = section.getBoolean("DespawnOnChunkUnload", true),
+            despawnOnLogout = section.getBoolean("DespawnOnLogout", false),
+            invincible = section.getBoolean("Invincible", false),
+            persistent = section.getBoolean("Persistent", false),
+            silent = section.getBoolean("Silent", false),
+            playHurtSound = section.getBoolean("PlayHurtSound", true),
+            preventItemPickup = section.getBoolean("PreventItemPickup", false),
+            preventOtherDrops = section.getBoolean("PreventOtherDrops", false),
+            preventTeleporting = section.getBoolean("PreventTeleporting", false),
+            preventSunburn = section.getBoolean("PreventSunburn", false),
+            preventSlimeSplit = section.getBoolean("PreventSlimeSplit", false),
+            preventRenaming = section.getBoolean("PreventRenaming", false),
+            preventLeashing = section.getBoolean("PreventLeashing", false),
+            targetable = section.getBoolean("Targetable", true),
+            spawnInvulnerableTicks = section.getInt("SpawnInvulnerableTicks", 0),
+            despawnDistance = section.getDouble("DespawnDistance", 128.0),
+            preventDespawn = section.getBoolean("PreventDespawn", false),
+            canTakeDamage = section.getBoolean("CanTakeDamage", true),
+            immuneToFire = section.getBoolean("ImmuneToFire", false),
+            immuneToFall = section.getBoolean("ImmuneToFall", false),
+            immuneToDrowning = section.getBoolean("ImmuneToDrowning", false),
+            immuneToExplosions = section.getBoolean("ImmuneToExplosions", false),
+            noClip = section.getBoolean("NoClip", false),
+            noPhysics = section.getBoolean("NoPhysics", false),
+            followLeashSpeed = section.getDouble("FollowLeashSpeed", -1.0).takeIf { it >= 0 },
+            setAsKiller = section.getBoolean("SetAsKiller", true),
+            showDamageAnimation = section.getBoolean("ShowDamageAnimation", true),
+            showDamageRanking = section.getBoolean("ShowDamageRanking", false)
+        )
+    }
+
+    /**
      * スキル設定を解析（超コンパクト構文専用）
      */
-    private fun parseSkills(section: ConfigurationSection?): MobSkills {
-        if (section == null) return MobSkills.empty()
-
-        // 超コンパクト構文: Skills が直接文字列リストの場合
-        val compactSkills = section.getList("")
-        if (compactSkills != null && compactSkills.isNotEmpty()) {
-            return parseCompactSkills(compactSkills)
+    private fun parseSkills(skillsList: List<*>?): MobSkills {
+        if (skillsList == null || skillsList.isEmpty()) {
+            return MobSkills.empty()
         }
 
-        DebugLogger.warn("Skills section is empty or invalid format")
-        return MobSkills.empty()
+        // 超コンパクト構文: Skills が直接文字列リストの場合
+        return parseCompactSkills(skillsList)
     }
 
     /**
@@ -359,34 +403,35 @@ class MobManager(private val plugin: Unique) {
                 .followRange(definition.ai.followRange)
                 .knockbackResistance(definition.ai.knockbackResistance)
                 .lookAtMovementDirection(definition.ai.lookAtMovementDirection)
-                .wallClimbHeight(definition.ai.wallClimbHeight ?: PacketMob.getDefaultStepHeight(definition.getEntityType()))
+                .wallClimbHeight(
+                    definition.ai.wallClimbHeight ?: PacketMob.getDefaultStepHeight(definition.getEntityType())
+                )
                 .jumpStrength(definition.ai.jumpStrength ?: 0.5)
                 .build()
+
+            // スポーンイベント発火
+            if (EventUtil.callEvent(PacketMobSpawnEvent(mob, location, mobName))) {
+                DebugLogger.debug("Mob spawn cancelled by event: $mobName")
+                mob = null
+                return@withContext
+            }
+
+            plugin.packetEntityManager.registerEntity(mob)
+
+            // MobInstanceを作成
+            val instance = MobInstance(mobName, mob, definition)
+            activeMobs[uuid.toString()] = instance
+
+
+            // OnSpawnスキルを実行
+            executeSkillTriggers(mob, definition.skills.onSpawn, PacketMobSkillEvent.SkillTriggerType.ON_SPAWN)
         }
 
         if (mob == null || uuid == null || definition == null) {
             return null
         }
 
-        // スポーンイベント発火（キャンセルされた場合はnullを返す）
-        if (EventUtil.callEvent(PacketMobSpawnEvent(mob, location, mobName))) {
-            DebugLogger.debug("Mob spawn cancelled by event: $mobName")
-            return null
-        }
-
-        withContext(plugin.asyncDispatcher) {
-            plugin.packetEntityManager.registerEntity(mob)
-
-            // MobInstanceを作成
-            val instance = MobInstance(mobName, mob, definition)
-            activeMobs[uuid.toString()] = instance
-        }
-
-        // OnSpawnスキルを実行
-        executeSkillTriggers(mob, definition.skills.onSpawn, PacketMobSkillEvent.SkillTriggerType.ON_SPAWN)
-
         DebugLogger.spawn(mobName, location.toString())
-
         return mob
     }
 
@@ -400,34 +445,33 @@ class MobManager(private val plugin: Unique) {
     ) {
         if (triggers.isEmpty()) return
 
-        plugin.launch {
-            triggers.forEach { trigger ->
-                try {
-                    // スキルイベント発火＆キャンセルチェック
-                    if (EventUtil.callEvent(PacketMobSkillEvent(mob, trigger.name, triggerType))) {
-                        DebugLogger.verbose("Skill ${trigger.name} cancelled by event")
-                        return@forEach
-                    }
+        triggers.forEach { trigger ->
+            try {
+                // スキルイベント発火＆キャンセルチェック
+                if (EventUtil.callEvent(PacketMobSkillEvent(mob, trigger.name, triggerType))) {
+                    DebugLogger.debug("Skill ${trigger.name} cancelled by event")
+                    return@forEach
+                }
 
-                    // 条件チェック（onDamagedの場合はdamager情報も含める）
-                    val conditionMet = if (triggerType == PacketMobSkillEvent.SkillTriggerType.ON_DAMAGED && mob.combat.lastDamager != null) {
+                // 条件チェック（onDamagedの場合はdamager情報も含める）
+                val conditionMet =
+                    if (triggerType == PacketMobSkillEvent.SkillTriggerType.ON_DAMAGED && mob.combat.lastDamager != null) {
                         evaluateCondition(trigger.condition, mob, mob.combat.lastDamager)
                     } else {
                         evaluateCondition(trigger.condition, mob)
                     }
 
-                    if (!conditionMet) {
-                        DebugLogger.verbose("Skill trigger ${trigger.name} condition not met")
-                        return@forEach
-                    }
-
-                    // スキル実行
-                    executeSkillsForTrigger(mob, trigger)
-                    DebugLogger.verbose("Executed skill trigger: ${trigger.name}")
-
-                } catch (e: Exception) {
-                    DebugLogger.error("Failed to execute skill trigger: ${trigger.name}", e)
+                if (!conditionMet) {
+                    DebugLogger.debug("Skill trigger ${trigger.name} condition not met")
+                    return@forEach
                 }
+
+                // スキル実行
+                executeSkillsForTrigger(mob, trigger)
+                DebugLogger.debug("Executed skill trigger: ${trigger.name}")
+
+            } catch (e: Exception) {
+                DebugLogger.error("Failed to execute skill trigger: ${trigger.name}", e)
             }
         }
     }

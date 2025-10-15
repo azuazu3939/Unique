@@ -5,6 +5,9 @@ import com.github.azuazu3939.unique.cel.CELEvaluator
 import com.github.azuazu3939.unique.cel.CELVariableProvider
 import com.github.azuazu3939.unique.condition.Condition
 import com.github.azuazu3939.unique.entity.PacketEntity
+import com.github.azuazu3939.unique.nms.distanceToAsync
+import com.github.azuazu3939.unique.nms.getNearbyEntitiesAsync
+import com.github.azuazu3939.unique.nms.getPlayersAsync
 import com.github.azuazu3939.unique.util.DebugLogger
 import com.github.azuazu3939.unique.util.maxHealth
 import org.bukkit.Location
@@ -367,7 +370,7 @@ class NearestPlayerTargeter(
         val world = source.world
         val location = source.location
 
-        val nearbyPlayers = world.getNearbyEntities(location, range, range, range)
+        val nearbyPlayers = world.getNearbyEntitiesAsync(location, range, range, range)
             .filterIsInstance<Player>()
             .filter { it.isValid && !it.isDead }
 
@@ -388,16 +391,17 @@ class NearestPlayerTargeter(
         val world = source.location.world ?: return emptyList()
         val location = source.location
 
-        val nearbyPlayers = world.getNearbyEntities(location, range, range, range)
-            .filterIsInstance<Player>()
-            .filter { it.isValid && !it.isDead }
+        val nearbyPlayers = world.getPlayersAsync()
+            .filter {
+                it.distanceToAsync(location) <= range
+            }
 
         if (nearbyPlayers.isEmpty()) {
             DebugLogger.targeter("NearestPlayer (PacketEntity)", 0)
             return emptyList()
         }
 
-        val nearest = nearbyPlayers.minByOrNull { it.location.distanceSquared(location) }
+        val nearest = nearbyPlayers.minByOrNull { it.distanceToAsync(location)  }
         val targets = if (nearest != null) listOf(nearest) else emptyList()
         val filtered = filterByFilter(source, targets)
 
@@ -425,9 +429,10 @@ class RadiusPlayersTargeter(
         val world = source.world
         val location = source.location
 
-        val targets = world.getNearbyEntities(location, range, range, range)
-            .filterIsInstance<Player>()
-            .filter { it.isValid && !it.isDead }
+        val targets = world.getPlayersAsync()
+            .filter {
+                it.distanceToAsync(location) <= range
+            }
 
         // CEL式でフィルタリング
         val celFiltered = filterByFilter(source, targets)
@@ -446,9 +451,10 @@ class RadiusPlayersTargeter(
         val world = source.location.world ?: return emptyList()
         val location = source.location
 
-        val targets = world.getNearbyEntities(location, range, range, range)
-            .filterIsInstance<Player>()
-            .filter { it.isValid && !it.isDead }
+        val targets = world.getPlayersAsync()
+            .filter {
+                it.distanceToAsync(location) <= range
+            }
 
         // CEL式でフィルタリング
         val celFiltered = filterByFilter(source, targets)
@@ -492,7 +498,7 @@ class RadiusEntitiesTargeter(
         val location = source.location
 
         // 全てのエンティティを取得
-        val allEntities = world.getNearbyEntities(location, range, range, range)
+        val allEntities = world.getNearbyEntitiesAsync(location, range, range, range)
             .filter { it != source && it.isValid && !it.isDead }
 
         // エンティティタイプでフィルタリング
@@ -516,7 +522,7 @@ class RadiusEntitiesTargeter(
         val location = source.location
 
         // 全てのエンティティを取得
-        val allEntities = world.getNearbyEntities(location, range, range, range)
+        val allEntities = world.getNearbyEntitiesAsync(location, range, range, range)
             .filter { it.isValid && !it.isDead }
 
         // エンティティタイプでフィルタリング
@@ -856,7 +862,7 @@ class AreaTargeter(
         val depthValue = evaluateCelExpression(depth, context, evaluator, 10.0)
 
         // 周囲のエンティティを取得
-        val nearbyEntities = world.getNearbyEntities(
+        val nearbyEntities = world.getNearbyEntitiesAsync(
             location,
             radiusValue + 10.0,  // 余裕を持たせて取得
             heightValue.coerceAtLeast(radiusValue),
@@ -896,7 +902,7 @@ class AreaTargeter(
         val depthValue = evaluateCelExpression(depth, context, evaluator, 10.0)
 
         // 周囲のエンティティを取得
-        val nearbyEntities = world.getNearbyEntities(
+        val nearbyEntities = world.getNearbyEntitiesAsync(
             location,
             radiusValue + 10.0,
             heightValue.coerceAtLeast(radiusValue),
@@ -1247,7 +1253,7 @@ class ChainTargeter(
             val chainIndex = index + 1
 
             // 現在のターゲットから範囲内のエンティティを取得
-            val nearbyEntities = currentTarget.world.getNearbyEntities(
+            val nearbyEntities = currentTarget.world.getNearbyEntitiesAsync(
                 currentTarget.location,
                 chainRange,
                 chainRange,
