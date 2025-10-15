@@ -78,7 +78,7 @@ class PacketMobAI(private val mob: PacketMob, private val physics: PacketMobPhys
         }
 
         // 定期的にbodyの向きをheadに合わせる
-        if (mob.ticksLived - lastBodySyncTick >= bodySyncInterval) {
+        if (mob.ticksLived - lastBodySyncTick >= bodySyncInterval && currentTarget != null) {
             syncBodyRotation()
             lastBodySyncTick = mob.ticksLived
         }
